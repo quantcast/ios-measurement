@@ -1,0 +1,413 @@
+//
+// Copyright (c) 2012, Quantcast Corp.
+// This software is licensed under the Quantcast Mobile API Beta Evaluation Agreement and may not be used except as permitted thereunder or copied, modified, or distributed in any case.
+//
+
+#ifndef __has_feature
+#define __has_feature(x) 0
+#endif
+#ifndef __has_extension
+#define __has_extension __has_feature // Compatibility with pre-3.0 compilers.
+#endif
+
+#if __has_feature(objc_arc) && __clang_major__ >= 3
+#error "Quantcast Measurement is not designed to be used with ARC. Please add '-fno-objc-arc' to this file's compiler flags"
+#endif // __has_feature(objc_arc)
+
+#import <sys/utsname.h>
+#import <CoreTelephony/CTCarrier.h>
+#import <CoreTelephony/CTTelephonyNetworkInfo.h>
+#import "QuantcastEvent.h"
+#import "QuantcastParameters.h"
+#import "QuantcastPolicy.h"
+#import "QuantcastUtils.h"
+
+@interface QuantcastEvent ()
++(NSString*)hashDeviceID:(NSString*)inDeviceID withSalt:(NSString*)inSalt;
++(NSString*)connectionTypeForNetworkStatus:(QuantcastNetworkStatus)inNetworkStatus;
+
+@end
+#pragma mark - QuantcastEvent
+@implementation QuantcastEvent
+@synthesize timestamp=_timestamp;
+@synthesize sessionID=_sessionID;
+
+-(id)initWithSessionID:(NSString*)inSessionID {
+    
+    return [self initWithSessionID:inSessionID timeStamp:[NSDate date]];
+}
+
+-(id)initWithSessionID:(NSString*)inSessionID timeStamp:(NSDate*)inTimeStamp {
+    
+    self = [super init];
+    if (self) {
+        _timestamp = [inTimeStamp retain];
+        _sessionID = [inSessionID retain];
+        _parameters = [[NSMutableDictionary dictionaryWithCapacity:1] retain];
+        
+    }
+    
+    return self;
+}
+
+
+-(void)dealloc {
+    [_timestamp release];
+    [_sessionID release];
+    [_parameters release];
+    
+    [super dealloc];
+}
+
+
+#pragma mark - Parameter Management
+@synthesize parameters=_parameters;
+
+-(void)putParameter:(NSString*)inParamKey withValue:(id)inValue enforcingPolicy:(QuantcastPolicy*)inPolicyOrNil {
+    
+    if ( nil != inPolicyOrNil && ( [inPolicyOrNil isBlacklistedParameter:inParamKey] || inPolicyOrNil.isMeasurementBlackedout ) ) {
+        return;
+    }
+    
+    [_parameters setObject:inValue forKey:inParamKey];
+}
+
+-(id)getParameter:(NSString*)inParamKey {
+    return [_parameters objectForKey:inParamKey];
+}
+
+#pragma mark - JSON conversion
+
+-(NSString*)JSONStringEnforcingPolicy:(QuantcastPolicy*)inPolicyOrNil {
+    NSSet* paramsWithUnquotedValues = [NSSet setWithObjects:QCPARAMETER_LATENCY, nil];
+    
+    NSString* jsonStr = @"{";
+    
+    // add sessoin id and timestamp 
+    
+    jsonStr = [jsonStr stringByAppendingFormat:@"\"sid\":\"%@\",\"et\":\"%qi\"",self.sessionID,(int64_t)[self.timestamp timeIntervalSince1970]];
+    
+    // now add json for each parameter. Sort for testing purposes
+    
+    NSArray* sortedKeys = [[self.parameters allKeys] sortedArrayUsingSelector:@selector(caseInsensitiveCompare:)];
+    for ( NSString* param in sortedKeys ) {
+        
+        if ( nil != inPolicyOrNil && [inPolicyOrNil isBlacklistedParameter:param] ) {
+            continue;
+        }
+        
+        NSString* value = [self.parameters objectForKey:param];
+        
+        // hash the 'did' and 'aid' parameters
+        
+        if ( nil != inPolicyOrNil ) {
+            if ( [param compare:QCPARAMETER_DID] == NSOrderedSame || [param compare:QCPARAMETER_AID] == NSOrderedSame ) {
+                value = [QuantcastEvent hashDeviceID:value withSalt:inPolicyOrNil.deviceIDHashSalt];
+            }
+        }
+        
+        NSString* paramFormat = @",\"%@\":\"%@\"";
+        if ( [paramsWithUnquotedValues containsObject:param] ) {
+            paramFormat = @",\"%@\":%@";
+        }
+        
+        jsonStr = [jsonStr stringByAppendingFormat:paramFormat,param,value];
+    }
+    
+    // close it up
+    
+    jsonStr = [jsonStr stringByAppendingString:@"}"];
+               
+    return jsonStr;
+}
+
+
+#pragma mark - Debugging
+@synthesize enableLogging;
+
+- (NSString *)description {
+    return [NSString stringWithFormat:@"<QuantcastEvent %p: sid = %@, timestamp = %@>", self, self.sessionID, self.timestamp ];
+}
+
+#pragma mark - Event Factory
+
++(NSString*)hashDeviceID:(NSString*)inDeviceID withSalt:(NSString*)inSalt {
+    if ( nil != inSalt ) {
+        NSString* saltedGoodness = [inDeviceID stringByAppendingString:inSalt];
+        
+        return [QuantcastUtils quantcastHash:saltedGoodness];
+    }
+    else {
+        return inDeviceID;
+    }
+}
+
++(NSString*)connectionTypeForNetworkStatus:(QuantcastNetworkStatus)inNetworkStatus {
+    NSString* connectionType = @"unknown";
+    
+    switch ( inNetworkStatus ) {
+        case ReachableViaWiFi:
+            connectionType = @"wifi";
+            break;
+        case ReachableViaWWAN:
+            connectionType = @"wwan";
+            break;
+        case NotReachable:
+            connectionType = @"disconnected";
+            break;
+        default:
+            break;
+    }
+
+    return connectionType;
+}
+
+
++(QuantcastEvent*)eventWithSessionID:(NSString*)inSessionID 
+                     enforcingPolicy:(QuantcastPolicy*)inPolicy
+{
+    QuantcastEvent* e = [[[QuantcastEvent alloc] initWithSessionID:inSessionID] autorelease];
+    
+
+    return e;
+}
+
++(QuantcastEvent*)openSessionEventWithClientUserHash:(NSString*)inHashedUserIDOrNil
+                                    newSessionReason:(NSString*)inReason
+                                       networkStatus:(QuantcastNetworkStatus)inNetworkStatus
+                                           sessionID:(NSString*)inSessionID
+                                       publisherCode:(NSString*)inPublisherCode
+                                    deviceIdentifier:(NSString*)inDeviceID
+                                       appIdentifier:(NSString*)inAppID
+                                     enforcingPolicy:(QuantcastPolicy*)inPolicy
+                                         eventLabels:(NSString*)inEventLabelsOrNil
+{
+    
+    QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID enforcingPolicy:inPolicy];
+
+    [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_LOAD enforcingPolicy:inPolicy];
+
+    [e putParameter:QCPARAMETER_REASON withValue:inReason enforcingPolicy:inPolicy];
+    [e putParameter:QCPARAMETER_A withValue:inPublisherCode enforcingPolicy:inPolicy];
+    [e putParameter:QCPARAMETER_MEDIA withValue:@"app" enforcingPolicy:inPolicy];
+    [e putParameter:QCPARAMETER_CT withValue:[QuantcastEvent connectionTypeForNetworkStatus:inNetworkStatus] enforcingPolicy:inPolicy];
+    
+    if ( nil != inDeviceID ) {
+        [e putParameter:QCPARAMETER_DID withValue:inDeviceID enforcingPolicy:inPolicy];
+       
+    }
+
+    if ( nil != inAppID )
+    {
+        [e putParameter:QCPARAMETER_AID withValue:inAppID enforcingPolicy:inPolicy];
+    }
+    
+    NSString* appName = [[NSBundle mainBundle] objectForInfoDictionaryKey:(NSString *)kCFBundleNameKey];
+    if ( nil != appName) {
+        [e putParameter:QCPARAMETER_ANAME withValue:appName enforcingPolicy:inPolicy];
+    }
+    
+    NSString* appBundleID = [[NSBundle mainBundle] bundleIdentifier];
+    if ( nil != appBundleID ) {
+        [e putParameter:QCPARAMATER_PKID withValue:appBundleID enforcingPolicy:inPolicy];
+    }
+    
+    NSString* appVersion = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
+    if (nil != appVersion) {
+        [e putParameter:QCPARAMETER_AVER withValue:appVersion enforcingPolicy:inPolicy];
+    }
+    NSString* appBuildVersion = [[NSBundle mainBundle] objectForInfoDictionaryKey:(NSString *)kCFBundleVersionKey];
+    if (nil != appBuildVersion) {
+        [e putParameter:QCPARAMETER_IVER withValue:appBuildVersion enforcingPolicy:inPolicy];
+    }
+        
+    if (nil != inEventLabelsOrNil ) {
+        [e putParameter:QCPARAMETER_LABELS withValue:inEventLabelsOrNil enforcingPolicy:inPolicy];
+    }
+    
+    if ( nil != inHashedUserIDOrNil ) {
+        [e putParameter:QCPARAMETER_UH withValue:inHashedUserIDOrNil enforcingPolicy:inPolicy];
+    }
+    
+    // screen resolution
+    
+    UIScreen* screen = [UIScreen mainScreen];
+    
+    NSString* screenResolution = [NSString stringWithFormat:@"%dx%dx32", (int)screen.bounds.size.width, (int)screen.bounds.size.height ];
+    
+    [e putParameter:QCPARAMETER_SR withValue:screenResolution enforcingPolicy:inPolicy];
+    
+    // time zone
+    
+    NSTimeZone* tz = [NSTimeZone localTimeZone];
+    
+    [e putParameter:QCPARAMETER_DST withValue:[NSNumber numberWithBool:[tz isDaylightSavingTimeForDate:e.timestamp]] enforcingPolicy:inPolicy];
+    
+    NSInteger tzMinuteOffset = [tz secondsFromGMTForDate:e.timestamp]/60;
+    
+    [e putParameter:QCPARAMETER_TZO withValue:[NSNumber numberWithInteger:tzMinuteOffset] enforcingPolicy:inPolicy];
+    
+    
+    // Setup the Network Info and create a CTCarrier object
+    // first check to ensure the CoreTelephony framework is loaded
+    Class telephonyClass = NSClassFromString(@"CTTelephonyNetworkInfo");
+    if ( nil != telephonyClass ) {
+        CTTelephonyNetworkInfo *networkInfo = [[[telephonyClass alloc] init] autorelease];
+        
+        if ( nil != networkInfo ) {
+            CTCarrier *carrier = [networkInfo subscriberCellularProvider];
+            
+            
+            // Get mobile country code 
+            NSString *mcc = [carrier isoCountryCode];
+            if (mcc != nil) {
+                [e putParameter:QCPARAMETER_MCC withValue:mcc enforcingPolicy:inPolicy];
+            }
+
+            
+            // Get carrier name
+            NSString *carrierName = [carrier carrierName];
+            if (carrierName != nil) {
+                [e putParameter:QCPARAMETER_MNN withValue:carrierName enforcingPolicy:inPolicy];
+            }
+            
+            
+            // Get mobile network code
+            NSString *mnc = [carrier mobileNetworkCode];
+            if (mnc != nil) {            
+                [e putParameter:QCPARAMETER_MNC withValue:mnc enforcingPolicy:inPolicy];
+            }
+        }
+    }
+    struct utsname systemInfo;
+    uname(&systemInfo);
+    
+    NSString* platform =  [NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding];
+    
+    [e putParameter:QCPARAMETER_DTYPE withValue:[[UIDevice currentDevice] model] enforcingPolicy:inPolicy];
+    [e putParameter:QCPARAMETER_DMOD withValue:platform enforcingPolicy:inPolicy];
+    [e putParameter:QCPARAMETER_DOS withValue:[[UIDevice currentDevice] systemName] enforcingPolicy:inPolicy];
+    [e putParameter:QCPARAMETER_DOSV withValue:[[UIDevice currentDevice] systemVersion] enforcingPolicy:inPolicy];
+    [e putParameter:QCPARAMETER_DM withValue:@"Apple" enforcingPolicy:inPolicy];
+    
+    [e putParameter:QCPARAMETER_LC withValue:[[NSLocale preferredLanguages] objectAtIndex:0] enforcingPolicy:inPolicy];    
+    [e putParameter:QCPARAMETER_LL withValue:[[NSLocale currentLocale] objectForKey:NSLocaleLanguageCode] enforcingPolicy:inPolicy];
+    
+    return e;
+}
+
++(QuantcastEvent*)closeSessionEventWithSessionID:(NSString*)inSessionID 
+                                 enforcingPolicy:(QuantcastPolicy*)inPolicy
+                                     eventLabels:(NSString*)inEventLabelsOrNil
+{
+    QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID enforcingPolicy:inPolicy];
+    
+    [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_FINISHED enforcingPolicy:inPolicy];
+    
+    if (nil != inEventLabelsOrNil ) {
+        [e putParameter:QCPARAMETER_LABELS withValue:inEventLabelsOrNil enforcingPolicy:inPolicy];
+    }
+    
+    return e;
+}
+
++(QuantcastEvent*)pauseSessionEventWithSessionID:(NSString*)inSessionID 
+                                 enforcingPolicy:(QuantcastPolicy*)inPolicy
+                                     eventLabels:(NSString*)inEventLabelsOrNil
+{
+    QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID enforcingPolicy:inPolicy];
+    
+    [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_PAUSE enforcingPolicy:inPolicy];
+    
+    if (nil != inEventLabelsOrNil ) {
+        [e putParameter:QCPARAMETER_LABELS withValue:inEventLabelsOrNil enforcingPolicy:inPolicy];
+    }
+    
+    return e;
+}
+
++(QuantcastEvent*)resumeSessionEventWithSessionID:(NSString*)inSessionID 
+                                  enforcingPolicy:(QuantcastPolicy*)inPolicy
+                                      eventLabels:(NSString*)inEventLabelsOrNil
+{
+    QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID enforcingPolicy:inPolicy];
+    
+    [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_RESUME enforcingPolicy:inPolicy];
+    
+    if (nil != inEventLabelsOrNil ) {
+        [e putParameter:QCPARAMETER_LABELS withValue:inEventLabelsOrNil enforcingPolicy:inPolicy];
+    }
+    
+    return e;
+}
+
++(QuantcastEvent*)logEventEventWithEventName:(NSString*)inEventName
+                                 eventLabels:(NSString*)inEventLabelsOrNil   
+                                   sessionID:(NSString*)inSessionID 
+                             enforcingPolicy:(QuantcastPolicy*)inPolicy
+{
+    QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID enforcingPolicy:inPolicy];
+   
+    [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_APPEVENT enforcingPolicy:inPolicy];
+    [e putParameter:QCPARAMETER_APPEVENT withValue:inEventName enforcingPolicy:inPolicy];
+    if (nil != inEventLabelsOrNil ) {
+        [e putParameter:QCPARAMETER_LABELS withValue:inEventLabelsOrNil enforcingPolicy:inPolicy];
+    }
+
+    
+    return e;
+}
+
++(QuantcastEvent*)logUploadLatency:(NSUInteger)inLatencyMilliseconds
+                       forUploadId:(NSString*)inUploadID
+                     withSessionID:(NSString*)inSessionID 
+                   enforcingPolicy:(QuantcastPolicy*)inPolicy
+{
+    QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID enforcingPolicy:inPolicy];
+
+    [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_LATENCY enforcingPolicy:inPolicy];
+
+    if ([inPolicy isBlacklistedParameter:QCPARAMETER_LATENCY_UPLID] || [inPolicy isBlacklistedParameter:QCPARAMETER_LATENCY_VALUE]) {
+        return e;
+    }
+    
+    unsigned long latencyValue = inLatencyMilliseconds;
+    
+    NSString* latencyJSONStr = [NSString stringWithFormat:@"{\"%@\":\"%@\",\"%@\":\"%lu\"}",QCPARAMETER_LATENCY_UPLID,inUploadID,QCPARAMETER_LATENCY_VALUE,latencyValue];
+    
+    [e putParameter:QCPARAMETER_LATENCY withValue:latencyJSONStr enforcingPolicy:inPolicy];
+    
+    return e;
+}
+
++(QuantcastEvent*)geolocationEventWithCountry:(NSString*)inCountry
+                                     province:(NSString*)inProvince
+                                         city:(NSString*)inCity
+                                withSessionID:(NSString*)inSessionID 
+                              enforcingPolicy:(QuantcastPolicy*)inPolicy 
+{
+    QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID enforcingPolicy:inPolicy];
+    
+    [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_LOCATION enforcingPolicy:inPolicy];
+   
+    [e putParameter:QCPARAMETER_COUNTRY withValue:inCountry enforcingPolicy:inPolicy];
+    [e putParameter:QCPARAMETER_STATE withValue:inProvince enforcingPolicy:inPolicy];
+    [e putParameter:QCPARAMETER_LOCALITY withValue:inCity enforcingPolicy:inPolicy];
+     
+    return e;
+}
+
++(QuantcastEvent*)networkReachabilityEventWithNetworkStatus:(QuantcastNetworkStatus)inNetworkStatus
+                                              withSessionID:(NSString*)inSessionID
+                                            enforcingPolicy:(QuantcastPolicy*)inPolicy
+{
+    QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID enforcingPolicy:inPolicy];
+
+    [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_NETINFO enforcingPolicy:inPolicy];
+    [e putParameter:QCPARAMETER_CT withValue:[QuantcastEvent connectionTypeForNetworkStatus:inNetworkStatus] enforcingPolicy:inPolicy];
+
+    return e;
+}
+
+
+@end
