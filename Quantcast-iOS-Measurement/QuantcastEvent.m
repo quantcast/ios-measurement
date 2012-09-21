@@ -177,6 +177,7 @@
                                        networkStatus:(QuantcastNetworkStatus)inNetworkStatus
                                            sessionID:(NSString*)inSessionID
                                        publisherCode:(NSString*)inPublisherCode
+                                          appleAppId:(NSNumber*)inAppleAppIDOrNil
                                     deviceIdentifier:(NSString*)inDeviceID
                                        appIdentifier:(NSString*)inAppID
                                      enforcingPolicy:(QuantcastPolicy*)inPolicy
@@ -191,6 +192,10 @@
     [e putParameter:QCPARAMETER_A withValue:inPublisherCode enforcingPolicy:inPolicy];
     [e putParameter:QCPARAMETER_MEDIA withValue:@"app" enforcingPolicy:inPolicy];
     [e putParameter:QCPARAMETER_CT withValue:[QuantcastEvent connectionTypeForNetworkStatus:inNetworkStatus] enforcingPolicy:inPolicy];
+    
+    if ( nil != inAppleAppIDOrNil ) {
+        [e putParameter:QCPARAMETER_ASID withValue:[inAppleAppIDOrNil stringValue] enforcingPolicy:inPolicy];
+    }
     
     if ( nil != inDeviceID ) {
         [e putParameter:QCPARAMETER_DID withValue:inDeviceID enforcingPolicy:inPolicy];

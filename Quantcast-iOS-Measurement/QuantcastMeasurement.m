@@ -29,6 +29,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 @interface QuantcastMeasurement ()
 @property (retain,nonatomic) NSString* currentSessionID;
 @property (retain,nonatomic) NSString* publisherCode;
+@property (retain,nonatomic) NSNumber* appleAppID;
 @property (retain,nonatomic) CLLocationManager* locationManager;
 @property (retain,nonatomic) CLGeocoder* geocoder;
 @property (readonly,nonatomic) BOOL isMeasurementActive;
@@ -107,7 +108,8 @@ QuantcastMeasurement* gSharedInstance = nil;
     [geocoder release];
     [locationManager release];
     [sessionPauseStartTime release];
-    
+    [publisherCode release];
+    [appleAppID release];
     
     [_dataManager release];
     [_hashedUserId release];
@@ -293,6 +295,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 #pragma mark - Session Management
 @synthesize currentSessionID;
 @synthesize publisherCode;
+@synthesize appleAppID;
 
 +(NSString*)generateSessionID {
     CFUUIDRef sessionUUID = CFUUIDCreate(kCFAllocatorDefault);
@@ -323,6 +326,7 @@ QuantcastMeasurement* gSharedInstance = nil;
                                                              networkStatus:[self currentReachabilityStatus]
                                                                  sessionID:self.currentSessionID
                                                              publisherCode:self.publisherCode
+                                                                appleAppId:self.appleAppID
                                                           deviceIdentifier:self.deviceIdentifier
                                                              appIdentifier:self.appIdentifier
                                                            enforcingPolicy:_dataManager.policy
@@ -335,9 +339,13 @@ QuantcastMeasurement* gSharedInstance = nil;
 }
 
 
--(void)beginMeasurementSession:(NSString*)inPublisherCode withLabels:(NSString*)inLabelsOrNil {
+-(void)beginMeasurementSession:(NSString*)inPublisherCode withAppleAppId:(NSUInteger)inAppleAppId labels:(NSString*)inLabelsOrNil {
     
     self.publisherCode = inPublisherCode;
+    
+    if ( inAppleAppId > 0 ) {
+        self.appleAppID = [NSNumber numberWithUnsignedInteger:inAppleAppId];
+    }
  
     if ( !self.isOptedOut ) {
         [self startReachabilityNotifier];
@@ -373,11 +381,11 @@ QuantcastMeasurement* gSharedInstance = nil;
     
 }
 
--(NSString*)beginMeasurementSession:(NSString*)inPublisherCode withUserIdentifier:(NSString*)inUserIdentifierOrNil labels:(NSString*)inLabelsOrNil {
+-(NSString*)beginMeasurementSession:(NSString*)inPublisherCode withUserIdentifier:(NSString*)inUserIdentifierOrNil appleAppId:(NSUInteger)inAppleAppId labels:(NSString*)inLabelsOrNil {
     
     NSString* hashedUserID = [self setUserIdentifier:inUserIdentifierOrNil];
     
-    [self beginMeasurementSession:inPublisherCode withLabels:inLabelsOrNil];
+    [self beginMeasurementSession:inPublisherCode withAppleAppId:inAppleAppId labels:inLabelsOrNil];
     
     return hashedUserID;
 }
@@ -846,26 +854,13 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
         _dataManager.isOptOut = inOptOutStatus;
 
         if ( inOptOutStatus ) {
+            // setting the data manager to opt out will cause the cache directory to be emptied. No need to do further work here deleting files.
             
             // set data in pastboard to persist opt-out status and communicate with other apps using Quantcast Measurement
             UIPasteboard* optOutPastboard = [UIPasteboard pasteboardWithName:QCMEASUREMENT_OPTOUT_PASTEBOARD create:YES];
             optOutPastboard.persistent = YES;
             [optOutPastboard setString:QCMEASUREMENT_OPTOUT_STRING];
             
-            // remove app identifier
-            NSString* cacheDir = [QuantcastUtils quantcastCacheDirectoryPath];
-            
-            if ( nil != cacheDir) {
-                NSString* identFile = [cacheDir stringByAppendingPathComponent:QCMEASUREMENT_IDENTIFIER_FILENAME];
-                
-                NSError* deleteFileErr = nil;
-                
-                [[NSFileManager defaultManager] removeItemAtPath:identFile error:&deleteFileErr];
-                
-                if ( nil != deleteFileErr && self.enableLogging ) {
-                    NSLog( @"QC Measurement: Unable to delete app identifier after opt out due to error = %@", deleteFileErr);
-                }
-            }
             
             // stop the various services
             
@@ -877,7 +872,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
             [UIPasteboard removePasteboardWithName:QCMEASUREMENT_OPTOUT_PASTEBOARD];
             
             // if the opt out status goes to NO (meaning we can do measurement), begin a new session
-            [self beginMeasurementSession:self.publisherCode withLabels:@"OPT-IN"];
+            [self beginMeasurementSession:self.publisherCode withAppleAppId:( nil != self.appleAppID ? [self.appleAppID unsignedIntegerValue] : 0 ) labels:@"OPT-IN"];
             
             [self startGeoLocationMeasurement];
             [self startReachabilityNotifier];

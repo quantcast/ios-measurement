@@ -84,9 +84,10 @@
  @abstract Starts a Quantcast Measurement session. 
  @discussion Start a Quantcast Measurement session. Nothing in the Quantcast Measurement API will work until this method (or beginMeasurementSession:withUserIdentifier:labels:) is called. Must be called first, preferably in the UIApplication delegate's application:didFinishLaunchingWithOptions: method.
  @param inPublisherCode The Quantcast publisher code. This value can be found by logging into your account at quantcast.com. Should start with a "p-" and be of the form "p-9fYuixa7g_Hm2"
- @param inLabelsOrNil  Any arbitrary string that you want to be ascociated with this event, and will create a second dimension in Quantcast Measurement reporting. Nominally, this is a "user class" indicator. For example, you might use one of two labels in your app: one for user who ave not purchased an app upgrade, and one for users who have purchased an upgrade. 
+ @param inAppleAppIdOrZero The Apple App Store numeric ID of this app. Pass zero (0) if this ID is not yet known (e.g., the app is still indevelopment and unpublished). 
+ @param inLabelsOrNil  Any arbitrary string that you want to be ascociated with this event, and will create a second dimension in Quantcast Measurement reporting. Nominally, this is a "user class" indicator. For example, you might use one of two labels in your app: one for user who ave not purchased an app upgrade, and one for users who have purchased an upgrade.
  */
--(void)beginMeasurementSession:(NSString*)inPublisherCode withLabels:(NSString*)inLabelsOrNil;
+-(void)beginMeasurementSession:(NSString*)inPublisherCode withAppleAppId:(NSUInteger)inAppleAppIdOrZero labels:(NSString*)inLabelsOrNil;
 
 /*!
  @method beginMeasurementSession:withUserIdentifier:labels:
@@ -94,11 +95,12 @@
  @discussion Start a Quantcast Measurement session. Nothing in the Quantcast Measurement API will work until this method (or beginMeasurementSession:withLabels:) is called. Must be called first, preferably in the UIApplication delegate's application:didFinishLaunchingWithOptions: method. This form of the method allows you to simultaneously start a session and recurd the user identifier at the same time. If the user identifier is available at the start of the sesion, it is prefered that this method be called rather than consecutive calls to beginMeasurementSession:withLabels: then recordUserIdentifier:.
  @param inPublisherCode The Quantcast publisher code. This value can be found by logging into your account at quantcast.com. Should start with a "p-" and be of the form "p-9fYuixa7g_Hm2"
  @param inUserIdentifierOrNil a user identifier string that is meanigful to the app publisher. There is no requirement on format of this other than that it is a meaningful user identifier to you. Quantcast will immediately one-way hash this value, thus not recording it in its raw form. You should pass nil to indicate that there is no user identifier available, either at the start of the session or at all.
+ @param inAppleAppIdOrZero The Apple App Store numeric ID of this app. Pass zero (0) if this ID is not yet known (e.g., the app is still indevelopment and unpublished).
  @param inLabelsOrNil  Any arbitrary string that you want to be ascociated with this event, and will create a second dimension in Quantcast Measurement reporting. Nominally, this is a "user class" indicator. For example, you might use one of two labels in your app: one for user who ave not purchased an app upgrade, and one for users who have purchased an upgrade.
  @result The hashed version of the uer identifier passed on to Quantcast. You do not need to take any action with this. It is only returned for your reference. nil will be returned if the user has opted out or an error occurs.
  */
 
--(NSString*)beginMeasurementSession:(NSString*)inPublisherCode withUserIdentifier:(NSString*)inUserIdentifierOrNil labels:(NSString*)inLabelsOrNil;
+-(NSString*)beginMeasurementSession:(NSString*)inPublisherCode withUserIdentifier:(NSString*)inUserIdentifierOrNil appleAppId:(NSUInteger)inAppleAppIdOrZero labels:(NSString*)inLabelsOrNil;
 
 /*!
  @method endMeasurementSessionWithLabels:
@@ -144,7 +146,7 @@
  @method logEvent:withLabels:
  @abstract Logs an arbitray event to the Quantcast Measurement SDK.
  @discussion This is the primarily means for logging events with Quantcast Measurement. What gets logged in this method is completely up to the app developper.
- @param inEventName A string that identifies the event being logged. Hierarchichal information can be indicated by using a left-to-right notation with a period as a seperator. For example, logging one event named "button.left" and another named "button.right" will create three reportable items in Quantcast App Measurement: "button.left", "button.right", and "button". There is no limit on the cardinality that this hierarchal scheme can create, though low-frequency events may not have an audience report on due to the lack of a statistically significant population.
+ @param inEventName A string that identifies the event being logged. Hierarchical information can be indicated by using a left-to-right notation with a period as a seperator. For example, logging one event named "button.left" and another named "button.right" will create three reportable items in Quantcast App Measurement: "button.left", "button.right", and "button". There is no limit on the cardinality that this hierarchal scheme can create, though low-frequency events may not have an audience report on due to the lack of a statistically significant population.
  @param inLabelsOrNil  Any arbitrary string that you want to be ascociated with this event, and will create a second dimension in Quantcast Measurement reporting. Nominally, this is a "user class" indicator. For example, you might use one of two labels in your app: one for user who ave not purchased an app upgrade, and one for users who have purchased an upgrade.
  */
 -(void)logEvent:(NSString*)inEventName withLabels:(NSString*)inLabelsOrNil;

@@ -54,6 +54,7 @@
                                        networkStatus:(QuantcastNetworkStatus)inNetworkStatus
                                            sessionID:(NSString*)inSessionID
                                        publisherCode:(NSString*)inPublisherCode
+                                          appleAppId:(NSNumber*)inAppleAppIDOrNil
                                     deviceIdentifier:(NSString*)inDeviceID
                                        appIdentifier:(NSString*)inAppID
                                      enforcingPolicy:(QuantcastPolicy*)inPolicy

@@ -36,6 +36,7 @@
 #define QCPARAMETER_AID               @"aid"
 #define QCPARAMETER_ALT               @"alt"
 #define QCPARAMETER_ANAME             @"aname"
+#define QCPARAMETER_ASID              @"asid"
 #define QCPARAMETER_AVER              @"aver"
 #define QCPARAMETER_LOCALITY          @"l"
 #define QCPARAMETER_COUNTRY           @"c"
