@@ -44,34 +44,34 @@ In order to implement the required set of SDK calls, do the following:
 1.	Import `QuantcastMeasurement.h` into your `UIApplication` delegate class
 2.	In your `UIApplication` delegate's `application:didFinishLaunchingWithOptions:` method, place the following:
 
-		```objective-c
-		[[QuantcastMeasurement sharedInstance] beginMeasurementSession:@"<*Insert you P-Code Here" withAppleAppId:1234566 labels:nil];
-		```
+	```objective-c
+	[[QuantcastMeasurement sharedInstance] beginMeasurementSession:@"<*Insert you P-Code Here" withAppleAppId:1234566 labels:nil];
+	```
 		
 	Where the *P-Code* is your Quantcast publisher identifier objected from [the Quantcast website](http://www.quantcast.com "Quantcast.com"), and the Apple App ID is your app's iTunes ID found in [iTunes Connect](http://itunesconnect.apple.com "iTunes Connect"). The labels parameter may be nil and is discussed in more detailed in the Advanced Usage documentation.
 3.	In your `UIApplication` delegate's `applicationWillTerminate:` method, place the following:
 
-		```objective-c
-		[[QuantcastMeasurement sharedInstance] endMeasurementSessionWithLabels:nil];
-		```
+	```objective-c
+	[[QuantcastMeasurement sharedInstance] endMeasurementSessionWithLabels:nil];
+	```
 		
 4.	In your `UIApplication` delegate's `applicationDidEnterBackground:` method, place the following:
 
-		```objective-c
-		[[QuantcastMeasurement sharedInstance] pauseSessionWithLabels:nil];
-		```
+	```objective-c
+	[[QuantcastMeasurement sharedInstance] pauseSessionWithLabels:nil];
+	```
 
 5.	In your `UIApplication` delegate's `applicationWillEnterForeground:` method, place the following:
 
-		```objective-c
-		[[QuantcastMeasurement sharedInstance] resumeSessionWithLabels:nil];
-		```
+	```objective-c
+	[[QuantcastMeasurement sharedInstance] resumeSessionWithLabels:nil];
+	```
 
 6.	Quantcast requires that you provide your users a means by which they can access the Quantcast Measurement Opt-Out dialog. This can simply be a button in your app's options view. When the user taps the button you provide, you should call the Quantcast's Measurement SDK's opt-out dialog with the following method:
 
-		```objective-c
-		[[QuantcastMeasurement sharedInstance] displayUserPrivacyDialogOver:currentViewController withDelegate:nil];
-		```
+	```objective-c
+	[[QuantcastMeasurement sharedInstance] displayUserPrivacyDialogOver:currentViewController withDelegate:nil];
+	```
 		
 	Where `currentViewController` is exactly that, the current view controller. The SDK needs to know this due to how the iOS SDK present model dialogs (see Apple's docs for `presentModalViewController:animated:`). The delegate is an optional parameter and is explained in the `QuantcastOptOutDelegate` protocol header.
 	
