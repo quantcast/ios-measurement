@@ -341,6 +341,14 @@ QuantcastMeasurement* gSharedInstance = nil;
 
 -(void)beginMeasurementSession:(NSString*)inPublisherCode withAppleAppId:(NSUInteger)inAppleAppId labels:(NSString*)inLabelsOrNil {
     
+    // first check that p-code is proprly formatted
+    
+    if ( ![inPublisherCode hasPrefix:@"p-"] || ([inPublisherCode length] != 15)) {
+        NSLog(@"QC Measurement: ERROR - An improperly formatted publisher code has been passed to the Quantcast Measurement SDK. The measurement session has not been activated.");
+        
+        return;
+    }
+    
     self.publisherCode = inPublisherCode;
     
     if ( inAppleAppId > 0 ) {
