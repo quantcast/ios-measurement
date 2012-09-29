@@ -336,7 +336,7 @@
 +(QuantcastPolicy*)policyWithPublisherCode:(NSString*)inPublisherCode networkReachability:(id<QuantcastNetworkReachability>)inReachability {
     
     
-    NSString* mcc = @"XX";
+    NSString* mcc = nil;
     
     // Setup the Network Info and create a CTCarrier object
     // first check to ensure the developper linked the CoreTelephony framework
@@ -355,6 +355,21 @@
                 mcc = countryCode;
             }
             
+        }
+    }
+    
+    // if the cellular country is not available, use locale country as a proxy
+    if ( nil == mcc ) {
+        NSLocale* locale = [NSLocale currentLocale];
+        
+        NSString* localeCountry = [locale objectForKey:NSLocaleCountryCode];
+        
+        if ( nil != localeCountry ) {
+            mcc = [localeCountry uppercaseString];
+        }
+        else {
+            // country is unknown
+            mcc = @"XX";
         }
     }
     
