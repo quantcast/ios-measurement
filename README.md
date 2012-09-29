@@ -43,10 +43,10 @@ In order to implement the required set of SDK calls, do the following:
 2.	In your `UIApplication` delegate's `application:didFinishLaunchingWithOptions:` method, place the following:
 
 	```objective-c
-	[[QuantcastMeasurement sharedInstance] beginMeasurementSession:@"<*Insert you P-Code Here" withAppleAppId:1234566 labels:nil];
+	[[QuantcastMeasurement sharedInstance] beginMeasurementSession:@"<*Insert your P-Code Here*>" withAppleAppId:1234566 labels:nil];
 	```
 		
-	Where the *P-Code* is your Quantcast publisher identifier objected from [the Quantcast website](http://www.quantcast.com "Quantcast.com"), and the Apple App ID is your app's iTunes ID found in [iTunes Connect](http://itunesconnect.apple.com "iTunes Connect"). The labels parameter may be nil and is discussed in more detailed in the Advanced Usage documentation.
+	Replacing "<*Insert your P-Code Here*>" with your Quantcast publisher identifier objected from your account homepage on [the Quantcast website](http://www.quantcast.com "Quantcast.com"), and the Apple App ID is your app's iTunes ID found in [iTunes Connect](http://itunesconnect.apple.com "iTunes Connect"). Note that your Quantcast publisher identifier is a string that begins with "p-" followed by 13 characters. The labels parameter may be nil and is discussed in more detailed in the Advanced Usage documentation.
 3.	In your `UIApplication` delegate's `applicationWillTerminate:` method, place the following:
 
 	```objective-c
