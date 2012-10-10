@@ -14,13 +14,19 @@
 #error "Quantcast Measurement is not designed to be used with ARC. Please add '-fno-objc-arc' to this file's compiler flags"
 #endif // __has_feature(objc_arc)
 
+#ifndef QCMEASUREMENT_ENABLE_JSONKIT
+#define QCMEASUREMENT_ENABLE_JSONKIT 0
+#endif
 
 #import <CoreTelephony/CTCarrier.h>
 #import <CoreTelephony/CTTelephonyNetworkInfo.h>
 #import "QuantcastPolicy.h"
 #import "QuantcastParameters.h"
 #import "QuantcastUtils.h"
+
+#if QCMEASUREMENT_ENABLE_JSONKIT
 #import "JSONKit.h"
+#endif
 
 #define QCMEASUREMENT_DO_NOT_SALT_STRING    @"MSG"
 
@@ -44,6 +50,8 @@
     self = [super init];
     
     if (self) {
+        _sessionTimeout = QCMEASUREMENT_DEFAULT_MAX_SESSION_PAUSE_SECOND;
+        
         _policyHasBeenLoaded = NO;
         _policyHasBeenDownloaded = NO;
         _waitingForUpdate = NO;
@@ -112,14 +120,33 @@
 
 -(void)setPolicywithJSONData:(NSData*)inJSONData {
     
+    NSDictionary* policyDict = nil;
+    NSError* jsonError = nil;
     
-    JSONDecoder* decoder = [JSONDecoder decoder];
+    // try to use NSJSONSerialization first. check to see if class is available (iOS 5 or later)
+    Class jsonClass = NSClassFromString(@"NSJSONSerialization");
     
-    NSError* error = nil;
-    NSDictionary* policyDict = [decoder objectWithData:inJSONData error:&error];
+    if ( nil != jsonClass ) {
+        policyDict = [jsonClass JSONObjectWithData:inJSONData
+                                           options:NSJSONReadingMutableLeaves
+                                             error:&jsonError];
+    }
+#if QCMEASUREMENT_ENABLE_JSONKIT 
+    else {
+        // try with JSONKit
+       policyDict = [[JSONDecoder decoder] objectWithData:inJSONData error:&jsonError];
+    }
+#else
+    else {
+        NSLog( @"QC MEasurement: ERROR - There is no available JSON decoder to user. Please enable JSONKit in your project!" );
+        _policyHasBeenLoaded = NO;
+        _policyHasBeenDownloaded = NO;
+        return;
+    }
+#endif
     
-    if (nil != error) {
-        NSLog(@"QC MEasurement: Unable to parse policy JSON data. error = %@", error);
+    if ( nil != jsonError ) {
+        NSLog(@"QC MEasurement: Unable to parse policy JSON data. error = %@", jsonError);
         _policyHasBeenLoaded = NO;
         _policyHasBeenDownloaded = NO;
         return;

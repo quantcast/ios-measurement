@@ -95,6 +95,8 @@ QuantcastMeasurement* gSharedInstance = nil;
         
         _geoLocationEnabled = NO;
         
+        uploadEventCount = QCMEASUREMENT_DEFAULT_UPLOAD_EVENT_COUNT;
+        
     }
     
     return self;
@@ -374,6 +376,7 @@ QuantcastMeasurement* gSharedInstance = nil;
             
             _dataManager = [[QuantcastDataManager alloc] initWithOptOut:self.isOptedOut policy:policy];
             _dataManager.enableLogging = self.enableLogging;
+            _dataManager.uploadEventCount = uploadEventCount;
 
         }
 
@@ -905,6 +908,32 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     }
 
 }
+
+#pragma mark - SDK Customization
+@synthesize uploadEventCount;
+
+-(NSUInteger)uploadEventCount {
+    if ( nil != _dataManager ) {
+        return _dataManager.uploadEventCount;
+    }
+    
+    return uploadEventCount;
+}
+
+-(void)setUploadEventCount:(NSUInteger)inUploadEventCount {
+    
+    if ( inUploadEventCount > 0 ){
+        if ( nil != _dataManager ) {
+            _dataManager.uploadEventCount = inUploadEventCount;
+        }
+        
+        uploadEventCount = inUploadEventCount;
+    }
+    else {
+        NSLog( @"QC Measurement: ERROR - Tried to set uploadEventCount to 0");
+    }
+}
+
 
 #pragma mark - Debugging
 @synthesize enableLogging=_enableLogging;

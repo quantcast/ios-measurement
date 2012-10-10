@@ -115,9 +115,14 @@
 #pragma mark - Upload Management
 
 +(NSString*)generateUploadID {
-    NSDate* nowTime = [NSDate date];
     
-    NSString* uploadID = [NSString stringWithFormat:@"%qi-%qi",(int64_t)[nowTime timeIntervalSince1970], (int64_t)labs(random())];
+    CFUUIDRef uuid = CFUUIDCreate(kCFAllocatorDefault);
+    CFStringRef uuidStr = CFUUIDCreateString(kCFAllocatorDefault, uuid);
+    
+    NSString* uploadID = [NSString stringWithString:(NSString *)uuidStr ];
+    
+    CFRelease(uuidStr);
+    CFRelease(uuid);
 
     return uploadID;
 }

@@ -7,7 +7,7 @@ Integrating Quantcast Measurement
 
 ### Project Setup ###
 
-To integrate Quantcast Measurement into your iOS app, you must first be using *Xcode 4.5* or later. Please ensure that you are using the latest version of Xcode before you begin integration.
+To integrate Quantcast Measurement into your iOS app, you must first be using *Xcode 4.5* or later. Please ensure that you are using the latest version of Xcode before you begin integration. The Quantcast Measurement SDK fully supports apps built for iOS 5 and later, and with some modification can be made to support iOS 4 and later.
 
 The first step towards integration is to clone the Quantcast iOS Measurement SDK's git repository and initialize all of its submodules. To do this, in your Mac's Terminal application, issue the following commands:
 
@@ -20,18 +20,26 @@ git submodule update --init
 Once you have downloaded the SDK's code, should perform the following steps:
 
 1.	Import the code from the Quantcast-iOS-Measurement folder in the Quantcast Measurement repository you just created into your project.
-2.	If you do not already have the latest version of JSONKit integrated into your project, import the code from the JSONKit folder in the Quantcast Measurement repository into your project.
-3.	Link the following iOS frameworks to your project (if they aren't already):
+2.	Link the following iOS frameworks to your project (if they aren't already):
 	*	`SystemConfiguration`
 	*	`Foundation`
 	*	`UIKit`
-4.	Weak-link the following iOS frameworks to your project (if they aren't already):
+3.	Weak-link (that is, make "optional") the following iOS frameworks to your project (if they aren't already):
 	*	`CoreLocation`
 	*	`CoreTelephony`
 	*	`AdSupport`
-5.	Link the following libraries to your project (if they aren't already):
+4.	Link the following libraries to your project (if they aren't already):
 	*	`libz`
 	*	`libsqlite3`
+
+If you intend to support iOS 4 and later with your app, you must perform the following additional setup steps:
+
+5.	If you do not already have the latest version of JSONKit integrated into your project, import the code from the JSONKit folder in the Quantcast Measurement repository into your project.
+6.	Add the following preprocessor macro definition to your project's precompiled header file (the file that ends with '.pch'):
+
+	```objective-c
+	#define QCMEASUREMENT_ENABLE_JSONKIT 1
+	```
 
 ### Required Code Integration ###
 
@@ -46,7 +54,7 @@ In order to implement the required set of SDK calls, do the following:
 	[[QuantcastMeasurement sharedInstance] beginMeasurementSession:@"<*Insert your P-Code Here*>" withAppleAppId:1234566 labels:nil];
 	```
 		
-	Replacing "<*Insert your P-Code Here*>" with your Quantcast publisher identifier objected from your account homepage on [the Quantcast website](http://www.quantcast.com "Quantcast.com"), and the Apple App ID is your app's iTunes ID found in [iTunes Connect](http://itunesconnect.apple.com "iTunes Connect"). Note that your Quantcast publisher identifier is a string that begins with "p-" followed by 13 characters. The labels parameter may be nil and is discussed in more detailed in the Advanced Usage documentation.
+	Replacing "<\*Insert your P-Code Here\*>" with your Quantcast publisher identifier objected from your account homepage on [the Quantcast website](http://www.quantcast.com "Quantcast.com"), and the Apple App ID is your app's iTunes ID found in [iTunes Connect](http://itunesconnect.apple.com "iTunes Connect"). Note that your Quantcast publisher identifier is a string that begins with "p-" followed by 13 characters. The labels parameter may be nil and is discussed in more detailed in the Advanced Usage documentation.
 3.	In your `UIApplication` delegate's `applicationWillTerminate:` method, place the following:
 
 	```objective-c
@@ -65,17 +73,18 @@ In order to implement the required set of SDK calls, do the following:
 	[[QuantcastMeasurement sharedInstance] resumeSessionWithLabels:nil];
 	```
 
-6.	Quantcast requires that you provide your users a means by which they can access the Quantcast Measurement Opt-Out dialog. This should be a button or a table view cell (if your options is based on a grouped table view) in your app's options view with the title "Opt Out". When the user taps the button you provide, you should call the Quantcast's Measurement SDK's opt-out dialog with the following method:
+### Optional Code Integrations ###
+
+#### User Opt-Out ####
+You may offer your app users the ability to opt-out of Quantcast Measurement. This is done by providing your users a means to access the Quantcast Measurement Opt-Out dialog. This should be a button or a table view cell (if your options is based on a grouped table view) in your app's options view with the title "Measurement Options" or "Privacy". When the user taps the button you provide, you should call the Quantcast's Measurement SDK's opt-out dialog with the following method:
 
 	```objective-c
 	[[QuantcastMeasurement sharedInstance] displayUserPrivacyDialogOver:currentViewController withDelegate:nil];
 	```
 		
-	Where `currentViewController` is exactly that, the current view controller. The SDK needs to know this due to how the iOS SDK present model dialogs (see Apple's docs for `presentModalViewController:animated:`). The delegate is an optional parameter and is explained in the `QuantcastOptOutDelegate` protocol header.
+Where `currentViewController` is exactly that, the current view controller. The SDK needs to know this due to how the iOS SDK present model dialogs (see Apple's docs for `presentModalViewController:animated:`). The delegate is an optional parameter and is explained in the `QuantcastOptOutDelegate` protocol header.
 	
-	Note that when a user opts-out of Quantcast Measurement, it causes the SDK to immediately stop transmitting information to or from the user's device and it deletes any cached information that the SDK may have retained. Furthermore, when a user opts-out of a single app on a device, it affects all apps on the device that are using Quantcast Measurement. 
-
-### Optional Code Integrations ###
+Note that when a user opts-out of Quantcast Measurement, it causes the SDK to immediately stop transmitting information to or from the user's device and it deletes any cached information that the SDK may have retained. Furthermore, when a user opts-out of a single app on a device, it affects all apps on the device that are using Quantcast Measurement. 
 
 #### Tracking App Events ####
 You may use Quantcast App Measurement to measure the audiences that engage in certain activities within your app. In order to log the occurrence of an app event or activity, simply call the following method:
@@ -119,6 +128,17 @@ You may enable logging within the SDK for debugging purposes. By default, loggin
 [QuantcastMeasurement sharedInstance].enableLogging = YES;
 ```
 You should not release an app with logging enabled.
+
+#### SDK Customization ####
+
+##### Event Upload Frequency #####
+The Quantcast Measurement SDK will upload the events it collects to Quantcast's server periodically. Uploads that occur too often will drain the device's battery. Uploads that don't occur often enough will cause significant delays in Quantcast receiving the data needed for your app's analysis and reporting. By default, these uploads occur when at least 100 events have been collected or when your application pauses (that is, it switched into the background). You can alter this default behavior by setting the SDK's `uploadEventCount` property. For example, if you wish to upload your app's events after 20 events have been collected, you would make the following call:
+
+	```objective-c
+	[QuantcastMeasurement sharedInstance].uploadEventCount = 20;
+	```
+
+You may change this property multiple times throughout your app's execution.
 
 ### License ###
 
