@@ -76,11 +76,11 @@ In order to implement the required set of SDK calls, do the following:
 ### Optional Code Integrations ###
 
 #### User Opt-Out ####
-You may offer your app users the ability to opt-out of Quantcast Measurement. This is done by providing your users a means to access the Quantcast Measurement Opt-Out dialog. This should be a button or a table view cell (if your options is based on a grouped table view) in your app's options view with the title "Measurement Options" or "Privacy". When the user taps the button you provide, you should call the Quantcast's Measurement SDK's opt-out dialog with the following method:
+You may offer your app users the ability to opt-out of Quantcast Measurement. This is done by providing your users a means to access the Quantcast Measurement Opt-Out dialog. This should be done with a button or a table view cell (if your options is based on a grouped table view) in your app's options view with the title "Measurement Options" or "Privacy". When the user taps the button you provide, you should call the Quantcast's Measurement SDK's opt-out dialog with the following method:
 
-	```objective-c
-	[[QuantcastMeasurement sharedInstance] displayUserPrivacyDialogOver:currentViewController withDelegate:nil];
-	```
+```objective-c
+[[QuantcastMeasurement sharedInstance] displayUserPrivacyDialogOver:currentViewController withDelegate:nil];
+```
 		
 Where `currentViewController` is exactly that, the current view controller. The SDK needs to know this due to how the iOS SDK present model dialogs (see Apple's docs for `presentModalViewController:animated:`). The delegate is an optional parameter and is explained in the `QuantcastOptOutDelegate` protocol header.
 	
@@ -121,7 +121,9 @@ Where `userIdentifierStr` is the user identifier that you use. The SDK will imme
 
 *Important*: Use of this feature requires certain notice and disclosures to your website and app users. Please see Quantcast's terms of service for more details.
 
-#### Logging and Debugging ####
+#### SDK Customization ####
+
+##### Logging and Debugging #####
 You may enable logging within the SDK for debugging purposes. By default, logging is turned off. To enable logging, call the following method at any time, including prior to calling either of the `beginMeasurementSession:` methods:
 
 ```objective-c
@@ -129,14 +131,12 @@ You may enable logging within the SDK for debugging purposes. By default, loggin
 ```
 You should not release an app with logging enabled.
 
-#### SDK Customization ####
-
 ##### Event Upload Frequency #####
 The Quantcast Measurement SDK will upload the events it collects to Quantcast's server periodically. Uploads that occur too often will drain the device's battery. Uploads that don't occur often enough will cause significant delays in Quantcast receiving the data needed for your app's analysis and reporting. By default, these uploads occur when at least 100 events have been collected or when your application pauses (that is, it switched into the background). You can alter this default behavior by setting the SDK's `uploadEventCount` property. For example, if you wish to upload your app's events after 20 events have been collected, you would make the following call:
 
-	```objective-c
-	[QuantcastMeasurement sharedInstance].uploadEventCount = 20;
-	```
+```objective-c
+[QuantcastMeasurement sharedInstance].uploadEventCount = 20;
+```
 
 You may change this property multiple times throughout your app's execution.
 
