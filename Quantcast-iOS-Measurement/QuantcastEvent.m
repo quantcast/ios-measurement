@@ -176,10 +176,9 @@
                                     newSessionReason:(NSString*)inReason
                                        networkStatus:(QuantcastNetworkStatus)inNetworkStatus
                                            sessionID:(NSString*)inSessionID
-                                       publisherCode:(NSString*)inPublisherCode
-                                          appleAppId:(NSNumber*)inAppleAppIDOrNil
+                                     quantcastAPIKey:(NSString*)inQuantcastAPIKey
                                     deviceIdentifier:(NSString*)inDeviceID
-                                       appIdentifier:(NSString*)inAppID
+                                appInstallIdentifier:(NSString*)inAppInstallID
                                      enforcingPolicy:(QuantcastPolicy*)inPolicy
                                          eventLabels:(NSString*)inEventLabelsOrNil
 {
@@ -189,22 +188,19 @@
     [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_LOAD enforcingPolicy:inPolicy];
 
     [e putParameter:QCPARAMETER_REASON withValue:inReason enforcingPolicy:inPolicy];
-    [e putParameter:QCPARAMETER_A withValue:inPublisherCode enforcingPolicy:inPolicy];
+    [e putParameter:QCPARAMATER_APIKEY withValue:inQuantcastAPIKey enforcingPolicy:inPolicy];
     [e putParameter:QCPARAMETER_MEDIA withValue:@"app" enforcingPolicy:inPolicy];
     [e putParameter:QCPARAMETER_CT withValue:[QuantcastEvent connectionTypeForNetworkStatus:inNetworkStatus] enforcingPolicy:inPolicy];
     
-    if ( nil != inAppleAppIDOrNil ) {
-        [e putParameter:QCPARAMETER_ASID withValue:[inAppleAppIDOrNil stringValue] enforcingPolicy:inPolicy];
-    }
     
     if ( nil != inDeviceID ) {
         [e putParameter:QCPARAMETER_DID withValue:inDeviceID enforcingPolicy:inPolicy];
        
     }
 
-    if ( nil != inAppID )
+    if ( nil != inAppInstallID )
     {
-        [e putParameter:QCPARAMETER_AID withValue:inAppID enforcingPolicy:inPolicy];
+        [e putParameter:QCPARAMETER_AID withValue:inAppInstallID enforcingPolicy:inPolicy];
     }
     
     NSString* appName = [[NSBundle mainBundle] objectForInfoDictionaryKey:(NSString *)kCFBundleNameKey];

@@ -2,13 +2,13 @@
 <archive type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="8.00">
 	<data>
 		<int key="IBDocument.SystemTarget">1024</int>
-		<string key="IBDocument.SystemVersion">12B19</string>
-		<string key="IBDocument.InterfaceBuilderVersion">2829</string>
-		<string key="IBDocument.AppKitVersion">1187</string>
-		<string key="IBDocument.HIToolboxVersion">624.00</string>
+		<string key="IBDocument.SystemVersion">12C60</string>
+		<string key="IBDocument.InterfaceBuilderVersion">2840</string>
+		<string key="IBDocument.AppKitVersion">1187.34</string>
+		<string key="IBDocument.HIToolboxVersion">625.00</string>
 		<object class="NSMutableDictionary" key="IBDocument.PluginVersions">
 			<string key="NS.key.0">com.apple.InterfaceBuilder.IBCocoaTouchPlugin</string>
-			<string key="NS.object.0">1914</string>
+			<string key="NS.object.0">1926</string>
 		</object>
 		<array key="IBDocument.IntegratedClassDependencies">
 			<string>IBProxyObject</string>
@@ -44,7 +44,7 @@
 					<object class="IBUITextView" id="342545657">
 						<reference key="NSNextResponder" ref="191373211"/>
 						<int key="NSvFlags">274</int>
-						<string key="NSFrame">{{20, 57}, {280, 250}}</string>
+						<string key="NSFrame">{{20, 57}, {280, 282}}</string>
 						<reference key="NSSuperview" ref="191373211"/>
 						<reference key="NSWindow"/>
 						<reference key="NSNextKeyView" ref="612878084"/>
@@ -53,11 +53,6 @@
 						<bool key="IBUIMultipleTouchEnabled">YES</bool>
 						<string key="targetRuntimeIdentifier">IBCocoaTouchFramework</string>
 						<bool key="IBUIEditable">NO</bool>
-						<object class="IBUITextInputTraits" key="IBUITextInputTraits">
-							<int key="IBUIAutocapitalizationType">2</int>
-							<string key="targetRuntimeIdentifier">IBCocoaTouchFramework</string>
-						</object>
-						<int key="IBUIDataDetectorTypes">2</int>
 						<object class="NSMutableString" key="IBUIText">
 							<bytes key="NS.bytes">UXVhbnRjYXN0IGhlbHBzIHVzIG1lYXN1cmUgdGhlIHVzYWdlIG9mIG91ciBhcHAgc28gd2UgY2FuIGJl
 dHRlciB1bmRlcnN0YW5kIG91ciBhdWRpZW5jZS4gIFF1YW50Y2FzdCBjb2xsZWN0cyBhbm9ueW1vdXMg
@@ -69,6 +64,11 @@ cHRpb24gb2YgUXVhbnRjYXN04oCZcyBkYXRhIGNvbGxlY3Rpb24gYW5kIHVzZSBwcmFjdGljZXMgY2Fu
 IGJlIGZvdW5kIGluIGl0cyBQcml2YWN5IFBvbGljeSwgYW5kIHlvdSBjYW4gb3B0IG91dCBiZWxvdy4g
 IFBsZWFzZSBhbHNvIHJldmlldyBvdXIgJUAgcHJpdmFjeSBwb2xpY3kuA</bytes>
 						</object>
+						<object class="IBUITextInputTraits" key="IBUITextInputTraits">
+							<int key="IBUIAutocapitalizationType">2</int>
+							<string key="targetRuntimeIdentifier">IBCocoaTouchFramework</string>
+						</object>
+						<int key="IBUIDataDetectorTypes">2</int>
 						<object class="IBUIFontDescription" key="IBUIFontDescription">
 							<int key="type">1</int>
 							<double key="pointSize">14</double>
@@ -119,15 +119,15 @@ IFBsZWFzZSBhbHNvIHJldmlldyBvdXIgJUAgcHJpdmFjeSBwb2xpY3kuA</bytes>
 								<int key="IBUIContentMode">7</int>
 								<bool key="IBUIUserInteractionEnabled">NO</bool>
 								<string key="targetRuntimeIdentifier">IBCocoaTouchFramework</string>
-								<nil key="IBUIHighlightedColor"/>
-								<int key="IBUIBaselineAdjustment">0</int>
-								<float key="IBUIMinimumFontSize">10</float>
 								<string key="IBUIText">Allow Data Collection</string>
 								<object class="NSColor" key="IBUITextColor" id="521443349">
 									<int key="NSColorSpace">1</int>
 									<bytes key="NSRGB">MCAwIDAAA</bytes>
 									<string key="IBUIColorCocoaTouchKeyPath">darkTextColor</string>
 								</object>
+								<nil key="IBUIHighlightedColor"/>
+								<int key="IBUIBaselineAdjustment">0</int>
+								<float key="IBUIMinimumFontSize">10</float>
 								<object class="IBUIFontDescription" key="IBUIFontDescription">
 									<int key="type">2</int>
 									<double key="pointSize">18</double>
@@ -137,7 +137,6 @@ IFBsZWFzZSBhbHNvIHJldmlldyBvdXIgJUAgcHJpdmFjeSBwb2xpY3kuA</bytes>
 									<double key="NSSize">18</double>
 									<int key="NSfFlags">16</int>
 								</object>
-								<int key="IBUIAutoshrinkMode">2</int>
 							</object>
 							<object class="IBUISwitch" id="566846837">
 								<reference key="NSNextResponder" ref="612878084"/>
@@ -470,6 +469,6 @@ IG1vZGlmaWVkLCBvciBkaXN0cmlidXRlZCBpbiBhbnkgY2FzZS4KCg</bytes>
 		</object>
 		<bool key="IBDocument.PluginDeclaredDependenciesTrackSystemTargetVersion">YES</bool>
 		<int key="IBDocument.defaultPropertyAccessControl">3</int>
-		<string key="IBCocoaTouchPluginVersion">1914</string>
+		<string key="IBCocoaTouchPluginVersion">1926</string>
 	</data>
 </archive>

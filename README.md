@@ -32,9 +32,9 @@ Once you have downloaded the SDK's code, should perform the following steps:
 	*	`libz`
 	*	`libsqlite3`
 
-If you intend to support iOS 4 and later with your app, you must perform the following additional setup steps:
+If you intend to support iOS 4.0 and later with your app, you must perform the following additional setup steps:
 
-5.	If you do not already have the latest version of JSONKit integrated into your project, import the code from the JSONKit folder in the Quantcast Measurement repository into your project.
+5.	If you do not already have the latest version of JSONKit integrated into your project, import the code from the JSONKit folder in the Quantcast Measurement github repository into your project.
 6.	Add the following preprocessor macro definition to your project's precompiled header file (the file that ends with '.pch'):
 
 	```objective-c
@@ -51,10 +51,12 @@ In order to implement the required set of SDK calls, do the following:
 2.	In your `UIApplication` delegate's `application:didFinishLaunchingWithOptions:` method, place the following:
 
 	```objective-c
-	[[QuantcastMeasurement sharedInstance] beginMeasurementSession:@"<*Insert your P-Code Here*>" withAppleAppId:1234566 labels:nil];
+	[[QuantcastMeasurement sharedInstance] beginMeasurementSessionWithAPIKey:@"<*Insert your API Key Here*>" labels:nil];
 	```
 		
-	Replacing "<\*Insert your P-Code Here\*>" with your Quantcast publisher identifier objected from your account homepage on [the Quantcast website](http://www.quantcast.com "Quantcast.com"), and the Apple App ID is your app's iTunes ID found in [iTunes Connect](http://itunesconnect.apple.com "iTunes Connect"). Note that your Quantcast publisher identifier is a string that begins with "p-" followed by 13 characters. The labels parameter may be nil and is discussed in more detailed in the Advanced Usage documentation.
+	Replacing "<\*Insert your API Key Here\*>" with your Quantcast API Key, which you can generate in your Quantcast account homepage on [the Quantcast website](http://www.quantcast.com "Quantcast.com"). The labels parameter may be nil and is discussed in more detailed in the Advanced Usage documentation.
+	
+	Note that the API Key is used as basic reporting entity for Quantcast Measurement. You can use the same API Key across multiple apps across multiple platforms, and Quantcast will report the aggregate audience amongst them all. Quantcast will identify and report on the individual app versions seen under the API Key, but the intent is that the API Key is used for a logical grouping of apps. For example, you may have a "lite" and "full" version of an app that you group together with the same API Key.
 3.	In your `UIApplication` delegate's `applicationWillTerminate:` method, place the following:
 
 	```objective-c
@@ -115,9 +117,16 @@ Quantcast App Measurement enables you to measure your web and app audience. This
 In order to provide Quantcast Measurement with the user identifier, call the following method:
 
 ```objective-c
-[[QuantcastMeasurement sharedInstance] recordUserIdentifier: userIdentifierStr withLabels:nil];
+[[QuantcastMeasurement sharedInstance] recordUserIdentifier:userIdentifierStr withLabels:nil];
 ```
-Where `userIdentifierStr` is the user identifier that you use. The SDK will immediately 1-way hash the passed identifier, and return the hashed value for your reference. You do not need to take any action with the hashed value. 
+Where `userIdentifierStr` is the user identifier that you use. The SDK will immediately 1-way hash the passed identifier, and return the hashed value for your reference. You do not need to take any action with the hashed value.
+
+When starting a Quantcast Measurement session, if you already know the user identifier (e.g., it was saved in the apps preferences) when the `UIApplication` delegate's `application:didFinishLaunchingWithOptions:` method is called, you may call the alternate version of the `beginMeasurementSessionWithAPIKey:labels:` method:
+
+```objective-c
+[[QuantcastMeasurement sharedInstance] beginMeasurementSessionWithAPIKey:@"<*Insert your API Key Here*>" userIdentifier:userIdentifierStrOrNil labels:nil];
+```
+Where `userIdentifierStrOrNil` is is the user identifier that you use, or `nil` if it is not available. Passing `nil` to this method's `userIdentifier:` argument has the same net effect as calling the `beginMeasurementSessionWithAPIKey:labels:` method.
 
 *Important*: Use of this feature requires certain notice and disclosures to your website and app users. Please see Quantcast's terms of service for more details.
 

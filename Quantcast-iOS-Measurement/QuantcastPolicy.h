@@ -36,7 +36,7 @@
 
 -(BOOL)isBlacklistedParameter:(NSString*)inParamName;
 
-+(QuantcastPolicy*)policyWithPublisherCode:(NSString*)inPublisherCode networkReachability:(id<QuantcastNetworkReachability>)inReachability;
++(QuantcastPolicy*)policyWithAPIKey:(NSString*)inQuantcastAPIKey networkReachability:(id<QuantcastNetworkReachability>)inReachability;
 
 #pragma mark - Debugging Support
 @property (assign) BOOL enableLogging;

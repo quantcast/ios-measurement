@@ -28,8 +28,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 
 @interface QuantcastMeasurement ()
 @property (retain,nonatomic) NSString* currentSessionID;
-@property (retain,nonatomic) NSString* publisherCode;
-@property (retain,nonatomic) NSNumber* appleAppID;
+@property (retain,nonatomic) NSString* quantcastAPIKey;
 @property (retain,nonatomic) CLLocationManager* locationManager;
 @property (retain,nonatomic) CLGeocoder* geocoder;
 @property (readonly,nonatomic) BOOL isMeasurementActive;
@@ -42,7 +41,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 +(NSString*)generateSessionID;
 +(BOOL)isOptedOutStatus;
 
--(NSString*)appIdentifierWithUserAdvertisingPreference:(BOOL)inAdvertisingTrackingEnabled;
+-(NSString*)appInstallIdentifierWithUserAdvertisingPreference:(BOOL)inAdvertisingTrackingEnabled;
 -(BOOL)hasUserAdvertisingPrefChangeWithCurrentPref:(BOOL)inCurrentPref;
 
 -(void)enableDataUploading;
@@ -51,6 +50,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 -(void)setOptOutStatus:(BOOL)inOptOutStatus;
 -(void)startNewSessionAndGenerateEventWithReason:(NSString*)inReason withLabels:(NSString*)inLabelsOrNil;
 -(void)startNewSessionIfUsersAdPrefChanged;
+-(BOOL)isQuantcastAPIKeyValid:(NSString*)inQuantcastAppId;
 
 -(NSString*)setUserIdentifier:(NSString*)inUserIdentifierOrNil;
 
@@ -110,8 +110,7 @@ QuantcastMeasurement* gSharedInstance = nil;
     [geocoder release];
     [locationManager release];
     [sessionPauseStartTime release];
-    [publisherCode release];
-    [appleAppID release];
+    [quantcastAPIKey release];
     
     [_dataManager release];
     [_hashedUserId release];
@@ -155,6 +154,13 @@ QuantcastMeasurement* gSharedInstance = nil;
             
             if ( nil != uuid ) {
                 udidStr = [uuid UUIDString];
+                
+                // now check for the iOS 6 bug
+                
+                if ( [udidStr compare:@"00000000-0000-0000-0000-000000000000"] == NSOrderedSame ) {
+                    // this is a bad device identifier. treat as having no device identifier.
+                    udidStr = nil;
+                }
             }
         }
     }
@@ -166,11 +172,11 @@ QuantcastMeasurement* gSharedInstance = nil;
 
 }
 
--(NSString*)appIdentifier {
-    return [self appIdentifierWithUserAdvertisingPreference:self.advertisingTrackingEnabled];
+-(NSString*)appInstallIdentifier {
+    return [self appInstallIdentifierWithUserAdvertisingPreference:self.advertisingTrackingEnabled];
 }
 
--(NSString*)appIdentifierWithUserAdvertisingPreference:(BOOL)inAdvertisingTrackingEnabled {
+-(NSString*)appInstallIdentifierWithUserAdvertisingPreference:(BOOL)inAdvertisingTrackingEnabled {
     // this method is factored out for testability reasons
     
     if ( self.isOptedOut ) {
@@ -296,8 +302,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 
 #pragma mark - Session Management
 @synthesize currentSessionID;
-@synthesize publisherCode;
-@synthesize appleAppID;
+@synthesize quantcastAPIKey;
 
 +(NSString*)generateSessionID {
     CFUUIDRef sessionUUID = CFUUIDCreate(kCFAllocatorDefault);
@@ -327,10 +332,9 @@ QuantcastMeasurement* gSharedInstance = nil;
                                                           newSessionReason:inReason
                                                              networkStatus:[self currentReachabilityStatus]
                                                                  sessionID:self.currentSessionID
-                                                             publisherCode:self.publisherCode
-                                                                appleAppId:self.appleAppID
+                                                           quantcastAPIKey:self.quantcastAPIKey
                                                           deviceIdentifier:self.deviceIdentifier
-                                                             appIdentifier:self.appIdentifier
+                                                             appInstallIdentifier:self.appInstallIdentifier
                                                            enforcingPolicy:_dataManager.policy
                                                                eventLabels:inLabelsOrNil];
     
@@ -341,28 +345,21 @@ QuantcastMeasurement* gSharedInstance = nil;
 }
 
 
--(void)beginMeasurementSession:(NSString*)inPublisherCode withAppleAppId:(NSUInteger)inAppleAppId labels:(NSString*)inLabelsOrNil {
+-(void)beginMeasurementSessionWithAPIKey:(NSString*)inQuantcastAPIKey labels:(NSString*)inLabelsOrNil {
+    // first check that app ID is proprly formatted
     
-    // first check that p-code is proprly formatted
-    
-    if ( ![inPublisherCode hasPrefix:@"p-"] || ([inPublisherCode length] != 15)) {
-        NSLog(@"QC Measurement: ERROR - An improperly formatted publisher code has been passed to the Quantcast Measurement SDK. The measurement session has not been activated.");
-        
+    if ( ![self isQuantcastAPIKeyValid:inQuantcastAPIKey] ) {
         return;
     }
     
-    self.publisherCode = inPublisherCode;
-    
-    if ( inAppleAppId > 0 ) {
-        self.appleAppID = [NSNumber numberWithUnsignedInteger:inAppleAppId];
-    }
+    self.quantcastAPIKey = inQuantcastAPIKey;
  
     if ( !self.isOptedOut ) {
         [self startReachabilityNotifier];
         
         
         if (nil == _dataManager) {
-            QuantcastPolicy* policy = [QuantcastPolicy policyWithPublisherCode:inPublisherCode networkReachability:self];
+            QuantcastPolicy* policy = [QuantcastPolicy policyWithAPIKey:self.quantcastAPIKey networkReachability:self];
             
             if ( nil == policy ) {
                 // policy wasn't able to be built. Stop reachability and bail, thus not activating measurement.
@@ -392,11 +389,11 @@ QuantcastMeasurement* gSharedInstance = nil;
     
 }
 
--(NSString*)beginMeasurementSession:(NSString*)inPublisherCode withUserIdentifier:(NSString*)inUserIdentifierOrNil appleAppId:(NSUInteger)inAppleAppId labels:(NSString*)inLabelsOrNil {
+-(NSString*)beginMeasurementSessionWithAPIKey:(NSString*)inQuantcastAPIKey userIdentifier:(NSString*)inUserIdentifierOrNil labels:(NSString*)inLabelsOrNil {
     
     NSString* hashedUserID = [self setUserIdentifier:inUserIdentifierOrNil];
     
-    [self beginMeasurementSession:inPublisherCode withAppleAppId:inAppleAppId labels:inLabelsOrNil];
+    [self beginMeasurementSessionWithAPIKey:inQuantcastAPIKey labels:inLabelsOrNil];
     
     return hashedUserID;
 }
@@ -486,6 +483,28 @@ QuantcastMeasurement* gSharedInstance = nil;
         
         [self startNewSessionAndGenerateEventWithReason:QCPARAMETER_REASONTYPE_ADPREFCHANGE withLabels:nil];
     }
+}
+
+-(BOOL)isQuantcastAPIKeyValid:(NSString*)inQuantcastAppId {
+    
+    if ( nil == inQuantcastAppId ) {
+        NSLog(@"QC Measurement: ERROR - No Quantcast API Key was passed to the SDK.");
+        
+        return NO;
+    }
+    
+    
+    NSString* apiKeyRegex = @"[a-zA-Z0-9]{16}-[a-zA-Z0-9]{16}";
+    NSPredicate* checkAPIKey = [NSPredicate predicateWithFormat:@"SELF MATCHES %@", apiKeyRegex];
+
+    BOOL valid = [checkAPIKey evaluateWithObject:inQuantcastAppId];
+    
+    if ( !valid ) {
+        NSLog(@"QC Measurement: ERROR - The Quantcast API Key passed to the SDK is malformed.");
+        return NO;
+    }
+    
+    return YES;
 }
 
 #pragma mark - Network Reachability
@@ -883,7 +902,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
             [UIPasteboard removePasteboardWithName:QCMEASUREMENT_OPTOUT_PASTEBOARD];
             
             // if the opt out status goes to NO (meaning we can do measurement), begin a new session
-            [self beginMeasurementSession:self.publisherCode withAppleAppId:( nil != self.appleAppID ? [self.appleAppID unsignedIntegerValue] : 0 ) labels:@"OPT-IN"];
+            [self beginMeasurementSessionWithAPIKey:self.quantcastAPIKey labels:@"OPT-IN"];
             
             [self startGeoLocationMeasurement];
             [self startReachabilityNotifier];

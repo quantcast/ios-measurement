@@ -61,17 +61,17 @@
 /*!
  @property deviceIdentifier
  @abstract The device identifier used by Quantcast Measurement. 
- @discussion Returns the device identifier used by Quantcast. A non-nil value is only available on iOS 6 or later. Will return nil if the user is opted out of measurement in some form.
+ @discussion Returns the device identifier used by Quantcast. A non-nil value is only available on iOS 6 or later. Will return nil if the user is opted out of Quantcast measurement, the user has turned off advertising tracking for their device, the app is running on an iOS version prior to 6.0, or if the iOS 6.0.0 advertising identifier bug is present.
  */
 @property (readonly) NSString* deviceIdentifier;
 
 
 /*!
- @property appIdentifier
+ @property appInstallIdentifier
  @abstract An application scoped identifier used by Quantcast Measurement.
- @discussion Returns a unique installation identifier for this app. Will return nil if the user is opted out of Quantcast measurement. This identifier is created and managed by the Quantcast Measurement SDK, and persists only as long as the app is installed on a device,or the user opts out of Quantcast Measurement on the device.
+ @discussion Returns a unique installation identifier for this app. Will return nil if the user is opted out of Quantcast measurement. This identifier is created and managed by the Quantcast Measurement SDK, and persists only as long as the app is installed on a device, or the user opts out of Quantcast Measurement on the device.
  */
-@property (readonly) NSString* appIdentifier;
+@property (readonly) NSString* appInstallIdentifier;
 
 #pragma mark - Session Management
 
@@ -83,24 +83,22 @@
  @method beginMeasurementSession:withLabels:
  @abstract Starts a Quantcast Measurement session. 
  @discussion Start a Quantcast Measurement session. Nothing in the Quantcast Measurement API will work until this method (or beginMeasurementSession:withUserIdentifier:labels:) is called. Must be called first, preferably in the UIApplication delegate's application:didFinishLaunchingWithOptions: method.
- @param inPublisherCode The Quantcast publisher code. This value can be found by logging into your account at quantcast.com. Should start with a "p-" and be of the form "p-9fYuixa7g_Hm2"
- @param inAppleAppIdOrZero The Apple App Store numeric ID of this app. Pass zero (0) if this ID is not yet known (e.g., the app is still indevelopment and unpublished). 
+ @param inQuantcastAPIKey The Quantcast API key that activity for this app should be reported under. Obtain this key from the Quantcast website.
  @param inLabelsOrNil  Any arbitrary string that you want to be ascociated with this event, and will create a second dimension in Quantcast Measurement reporting. Nominally, this is a "user class" indicator. For example, you might use one of two labels in your app: one for user who ave not purchased an app upgrade, and one for users who have purchased an upgrade.
  */
--(void)beginMeasurementSession:(NSString*)inPublisherCode withAppleAppId:(NSUInteger)inAppleAppIdOrZero labels:(NSString*)inLabelsOrNil;
+-(void)beginMeasurementSessionWithAPIKey:(NSString*)inQuantcastAPIKey labels:(NSString*)inLabelsOrNil;
 
 /*!
  @method beginMeasurementSession:withUserIdentifier:labels:
  @abstract Starts a Quantcast Measurement session and records the user identifier that should be used for this session at the same time.
  @discussion Start a Quantcast Measurement session. Nothing in the Quantcast Measurement API will work until this method (or beginMeasurementSession:withLabels:) is called. Must be called first, preferably in the UIApplication delegate's application:didFinishLaunchingWithOptions: method. This form of the method allows you to simultaneously start a session and recurd the user identifier at the same time. If the user identifier is available at the start of the sesion, it is prefered that this method be called rather than consecutive calls to beginMeasurementSession:withLabels: then recordUserIdentifier:.
- @param inPublisherCode The Quantcast publisher code. This value can be found by logging into your account at quantcast.com. Should start with a "p-" and be of the form "p-9fYuixa7g_Hm2"
+ @param inQuantcastAPIKey The Quantcast API key that activity for this app should be reported under. Obtain this key from the Quantcast website.
  @param inUserIdentifierOrNil a user identifier string that is meanigful to the app publisher. There is no requirement on format of this other than that it is a meaningful user identifier to you. Quantcast will immediately one-way hash this value, thus not recording it in its raw form. You should pass nil to indicate that there is no user identifier available, either at the start of the session or at all.
- @param inAppleAppIdOrZero The Apple App Store numeric ID of this app. Pass zero (0) if this ID is not yet known (e.g., the app is still indevelopment and unpublished).
  @param inLabelsOrNil  Any arbitrary string that you want to be ascociated with this event, and will create a second dimension in Quantcast Measurement reporting. Nominally, this is a "user class" indicator. For example, you might use one of two labels in your app: one for user who ave not purchased an app upgrade, and one for users who have purchased an upgrade.
  @result The hashed version of the uer identifier passed on to Quantcast. You do not need to take any action with this. It is only returned for your reference. nil will be returned if the user has opted out or an error occurs.
  */
 
--(NSString*)beginMeasurementSession:(NSString*)inPublisherCode withUserIdentifier:(NSString*)inUserIdentifierOrNil appleAppId:(NSUInteger)inAppleAppIdOrZero labels:(NSString*)inLabelsOrNil;
+-(NSString*)beginMeasurementSessionWithAPIKey:(NSString*)inQuantcastAPIKey userIdentifier:(NSString*)inUserIdentifierOrNil labels:(NSString*)inLabelsOrNil;
 
 /*!
  @method endMeasurementSessionWithLabels:

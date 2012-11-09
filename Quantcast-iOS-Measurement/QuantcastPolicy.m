@@ -360,7 +360,7 @@
 #pragma mark - Policy Factory
 
 
-+(QuantcastPolicy*)policyWithPublisherCode:(NSString*)inPublisherCode networkReachability:(id<QuantcastNetworkReachability>)inReachability {
++(QuantcastPolicy*)policyWithAPIKey:(NSString*)inQuantcastAPIKey networkReachability:(id<QuantcastNetworkReachability>)inReachability {
     
     
     NSString* mcc = nil;
@@ -419,7 +419,7 @@
     }
     
     
-    NSString* policyURLStr = [NSString stringWithFormat:QCMEASUREMENT_POLICY_URL_FORMAT,inPublisherCode,QCMEASUREMENT_API_VERSION,osString,[mcc uppercaseString]];
+    NSString* policyURLStr = [NSString stringWithFormat:QCMEASUREMENT_POLICY_URL_FORMAT,inQuantcastAPIKey,QCMEASUREMENT_API_VERSION,osString,[mcc uppercaseString]];
     
     NSURL* policyURL = [NSURL URLWithString:policyURLStr];
         

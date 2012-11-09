@@ -53,10 +53,9 @@
                                     newSessionReason:(NSString*)inReason
                                        networkStatus:(QuantcastNetworkStatus)inNetworkStatus
                                            sessionID:(NSString*)inSessionID
-                                       publisherCode:(NSString*)inPublisherCode
-                                          appleAppId:(NSNumber*)inAppleAppIDOrNil
+                                     quantcastAPIKey:(NSString*)inQuantcastAPIKey
                                     deviceIdentifier:(NSString*)inDeviceID
-                                       appIdentifier:(NSString*)inAppID
+                                appInstallIdentifier:(NSString*)inAppInstallID
                                      enforcingPolicy:(QuantcastPolicy*)inPolicy
                                          eventLabels:(NSString*)inEventLabelsOrNil;
 

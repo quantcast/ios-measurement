@@ -36,6 +36,7 @@
 #define QCPARAMETER_AID               @"aid"
 #define QCPARAMETER_ALT               @"alt"
 #define QCPARAMETER_ANAME             @"aname"
+#define QCPARAMATER_APIKEY            @"apikey"
 #define QCPARAMETER_ASID              @"asid"
 #define QCPARAMETER_AVER              @"aver"
 #define QCPARAMETER_LOCALITY          @"l"
@@ -81,8 +82,8 @@
 // Quantcast Measurement SDK
 //
 
-#define QCMEASUREMENT_API_VERSION               @"1_0_0"
-#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.0.0"
+#define QCMEASUREMENT_API_VERSION               @"1_1_0"
+#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.1.0"
 #define QCMEASUREMENT_CONN_TIMEOUT_SECONDS      60
 
 #ifndef QCMEASUREMENT_UPLOAD_URL
