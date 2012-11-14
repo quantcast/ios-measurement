@@ -359,7 +359,7 @@ QuantcastMeasurement* gSharedInstance = nil;
         
         
         if (nil == _dataManager) {
-            QuantcastPolicy* policy = [QuantcastPolicy policyWithAPIKey:self.quantcastAPIKey networkReachability:self];
+            QuantcastPolicy* policy = [QuantcastPolicy policyWithAPIKey:self.quantcastAPIKey networkReachability:self enableLogging:self.enableLogging];
             
             if ( nil == policy ) {
                 // policy wasn't able to be built. Stop reachability and bail, thus not activating measurement.

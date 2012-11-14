@@ -102,6 +102,7 @@
     
     self.uploadManager.enableLogging = inEnableLogging;
     self.db.enableLogging = inEnableLogging;
+    self.policy.enableLogging = inEnableLogging;
 }
 - (NSString *)description {
     return [NSString stringWithFormat:@"<QuantcastDataManager %p: database = %@>", self, self.db ];

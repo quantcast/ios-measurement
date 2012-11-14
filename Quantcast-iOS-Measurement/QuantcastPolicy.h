@@ -10,7 +10,7 @@
  @class QuantcastPolicy
  @internal
  */
-@interface QuantcastPolicy : NSObject <NSURLConnectionDelegate> {
+@interface QuantcastPolicy : NSObject <NSURLConnectionDataDelegate> {
     NSSet* _blacklistedParams;
     NSString* _didSalt;
     BOOL _isMeasurementBlackedout;
@@ -31,12 +31,12 @@
 @property (readonly) BOOL hasUpdatedPolicyBeenDownloaded;
 @property (readonly) NSTimeInterval sessionPauseTimeoutSeconds;
 
--(id)initWithPolicyURL:(NSURL*)inPolicyURL reachability:(id<QuantcastNetworkReachability>)inNetworkReachabilityOrNil;
+-(id)initWithPolicyURL:(NSURL*)inPolicyURL reachability:(id<QuantcastNetworkReachability>)inNetworkReachabilityOrNil enableLogging:(BOOL)inEnableLogging;
 -(void)downloadLatestPolicyWithReachability:(id<QuantcastNetworkReachability>)inNetworkReachabilityOrNil;
 
 -(BOOL)isBlacklistedParameter:(NSString*)inParamName;
 
-+(QuantcastPolicy*)policyWithAPIKey:(NSString*)inQuantcastAPIKey networkReachability:(id<QuantcastNetworkReachability>)inReachability;
++(QuantcastPolicy*)policyWithAPIKey:(NSString*)inQuantcastAPIKey networkReachability:(id<QuantcastNetworkReachability>)inReachability enableLogging:(BOOL)inEnableLogging;
 
 #pragma mark - Debugging Support
 @property (assign) BOOL enableLogging;

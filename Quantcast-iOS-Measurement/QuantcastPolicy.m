@@ -46,10 +46,12 @@
 @synthesize hasUpdatedPolicyBeenDownloaded=_policyHasBeenDownloaded;
 @synthesize sessionPauseTimeoutSeconds=_sessionTimeout;
 
--(id)initWithPolicyURL:(NSURL*)inPolicyURL reachability:(id<QuantcastNetworkReachability>)inNetworkReachabilityOrNil {
+-(id)initWithPolicyURL:(NSURL*)inPolicyURL reachability:(id<QuantcastNetworkReachability>)inNetworkReachabilityOrNil enableLogging:(BOOL)inEnableLogging {
     self = [super init];
     
     if (self) {
+        self.enableLogging = inEnableLogging;
+        
         _sessionTimeout = QCMEASUREMENT_DEFAULT_MAX_SESSION_PAUSE_SECOND;
         
         _policyHasBeenLoaded = NO;
@@ -68,9 +70,8 @@
             
             policyData = [NSData dataWithContentsOfFile:policyFilePath];
             
-            if ([policyData length] != 0 ){
+            if ( (nil != policyData) && ([policyData length] != 0) ){
                 [self setPolicywithJSONData:policyData];
-                
             }
         }
                                                               
@@ -120,6 +121,15 @@
 
 -(void)setPolicywithJSONData:(NSData*)inJSONData {
     
+    if ( nil == inJSONData ) {
+        NSLog(@"QC MEasurement: ERROR - Tried to set policy with a nil JSON data object.");
+        @synchronized(self){
+            _policyHasBeenLoaded = NO;
+            _policyHasBeenDownloaded = NO;
+        }
+        return;
+    }
+    
     NSDictionary* policyDict = nil;
     NSError* jsonError = nil;
     
@@ -139,16 +149,20 @@
 #else
     else {
         NSLog( @"QC MEasurement: ERROR - There is no available JSON decoder to user. Please enable JSONKit in your project!" );
-        _policyHasBeenLoaded = NO;
-        _policyHasBeenDownloaded = NO;
+        @synchronized(self){
+            _policyHasBeenLoaded = NO;
+            _policyHasBeenDownloaded = NO;
+        }
         return;
     }
 #endif
     
     if ( nil != jsonError ) {
         NSLog(@"QC MEasurement: Unable to parse policy JSON data. error = %@", jsonError);
-        _policyHasBeenLoaded = NO;
-        _policyHasBeenDownloaded = NO;
+        @synchronized(self){
+            _policyHasBeenLoaded = NO;
+            _policyHasBeenDownloaded = NO;
+        }
         return;
     }
     
@@ -279,88 +293,150 @@
 -(void)startPolicyDownloadWithURL:(NSURL*)inPolicyURL {
     
     if ( nil != inPolicyURL ) {
-        
-        NSMutableURLRequest* request = [NSMutableURLRequest requestWithURL:inPolicyURL 
-                                                               cachePolicy:NSURLRequestReloadIgnoringLocalCacheData 
-                                                           timeoutInterval:QCMEASUREMENT_CONN_TIMEOUT_SECONDS];
-        
-        
-        _downloadData = [[NSMutableData dataWithCapacity:512] retain];
-        _downloadConnection = [[NSURLConnection alloc] initWithRequest:request delegate:self startImmediately:YES];
+                
+        @synchronized(self) {
+            if ( nil == _downloadConnection ) {
+
+                if (self.enableLogging) {
+                    NSLog(@"QC Measurement: Starting policy download with URL = %@", inPolicyURL);
+                }
+
+                NSMutableURLRequest* request = [NSMutableURLRequest requestWithURL:inPolicyURL
+                                                                       cachePolicy:NSURLRequestReloadIgnoringLocalCacheData 
+                                                                   timeoutInterval:QCMEASUREMENT_CONN_TIMEOUT_SECONDS];
+                
+                
+                _downloadData = [[NSMutableData dataWithCapacity:512] retain];
+                _downloadConnection = [[NSURLConnection alloc] initWithRequest:request delegate:self startImmediately:YES];
+            }
+        }
         
     }
 }
 
 - (void) connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response
 {
-    [_downloadData setLength:0];
+    if ( nil == _downloadData ) {
+        NSLog(@"QC Measurement: Error downloading policy JSON from connection %@, download data object has gone nil", connection );
+        
+        [connection cancel];
+        
+        return;
+    }
+        
+    @synchronized(self) {
+        [_downloadData setLength:0];
+    }
 }
 
 - (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data
 {
-    [_downloadData appendData:data];
+    if ( nil == _downloadData ) {
+        NSLog(@"QC Measurement: Error downloading policy JSON from connection %@, download data object has gone nil", connection );
+        
+        [connection cancel];
+        
+        return;
+    }
+
+    @synchronized(self) {
+        [_downloadData appendData:data];
+    }
 }
 
 - (void) connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
 {
-    if (self.enableLogging) {
-        NSLog(@"QC Measurement: Error downloading policy JSON from connection %@, error = %@", connection, error );
+        if (self.enableLogging) {
+            NSLog(@"QC Measurement: Error downloading policy JSON from connection %@, error = %@", connection, error );
+        }
+
+    @synchronized(self) {
+        [_downloadConnection release];
+        _downloadConnection = nil;
+        
+        [_downloadData release];
+        _downloadData = nil;
+
+        _waitingForUpdate = NO;
     }
-
-    [_downloadConnection release];
-    _downloadConnection = nil;
-    
-    [_downloadData release];
-    _downloadData = nil;
-
-    _waitingForUpdate = NO;
 
 }
 
 - (void) connectionDidFinishLoading:(NSURLConnection *)connection
 {
-    if (self.enableLogging) {
-        NSLog(@"QC Measurement: Successfully downloaded policy from connection %@", connection);
-    }
     
+    NSData* policyData = nil;
     
-    [self setPolicywithJSONData:_downloadData];
-    
-    // check to see if the policy succesfully loaded
-    
-    if ( self.hasPolicyBeenLoaded ) {
-        // save this to the file policy file
+    @synchronized(self) {
         
-        // first, determine if there is a saved polciy on disk, if not, create it with default polciy
-        NSString* cacheDir = [QuantcastUtils quantcastCacheDirectoryPath];
-        
-        NSString* policyFilePath = [cacheDir stringByAppendingPathComponent:QCMEASUREMENT_POLICY_FILENAME];
-        
-        NSFileManager* fileManager = [NSFileManager defaultManager];
-        
-        if ( ![fileManager createFileAtPath:policyFilePath contents:_downloadData attributes:nil] && self.enableLogging ) {
-            NSLog(@"QC Measurement: Could not create downloaded policy JSON at path = %@",policyFilePath);
-        }
+        [[NSNotificationCenter defaultCenter] removeObserver:self];
+
+        policyData = [_downloadData retain];
+        [_downloadData release];
+        _downloadData = nil;
         
         [_downloadConnection release];
         _downloadConnection = nil;
 
-        [_downloadData release];
-        _downloadData = nil;
         
-        _policyHasBeenDownloaded = YES;
+        [self setPolicywithJSONData:policyData];
+        // check to see if the policy succesfully loaded
         
-        [[NSNotificationCenter defaultCenter] removeObserver:self];
-    }
+        if ( self.hasPolicyBeenLoaded ) {
+            _policyHasBeenDownloaded = YES;
+            _waitingForUpdate = NO;
+        }
+        else {
+            // download failed for somereason. don't bother trying to download again this session, but do log an error.
+            NSLog(@"QC Measurement: ERROR - Successfully downloaded policy data but failed to load into into policy object.");
 
-    _waitingForUpdate = NO;
+            _policyHasBeenDownloaded = NO;
+            _waitingForUpdate = NO;
+        }
+        
+    }
+    
+    // save the policy data to a file (outside of the mutex)
+    if (nil != policyData) {
+        if ( self.hasUpdatedPolicyBeenDownloaded ) {
+           
+            if (self.enableLogging) {
+                NSString* jsonStr = [[[NSString alloc] initWithData:policyData
+                                                           encoding:NSUTF8StringEncoding] autorelease];
+                
+                NSLog(@"QC Measurement: Successfully downloaded policy with json = %@", jsonStr);
+            }
+
+            // first, determine if there is a saved policy on disk, if not, create it with default polciy
+            NSString* cacheDir = [QuantcastUtils quantcastCacheDirectoryPath];
+            
+            NSString* policyFilePath = [cacheDir stringByAppendingPathComponent:QCMEASUREMENT_POLICY_FILENAME];
+            
+            NSFileManager* fileManager = [NSFileManager defaultManager];
+            
+            BOOL fileWriteSuccess = [fileManager createFileAtPath:policyFilePath contents:_downloadData attributes:nil];
+            
+            if ( !fileWriteSuccess && self.enableLogging ) {
+                NSLog(@"QC Measurement: ERROR - Could not create downloaded policy JSON at path = %@",policyFilePath);
+            }
+            
+        }
+        else {
+            NSString* jsonStr = [[[NSString alloc] initWithData:policyData
+                                                       encoding:NSUTF8StringEncoding] autorelease];
+            
+            NSLog(@"QC Measurement: ERROR - Failed to load downloaded policy with json = %@", jsonStr);
+        }
+      
+        [policyData release];
+    }
 
 }
 
 #pragma mark - Policy Factory
 
 
-+(QuantcastPolicy*)policyWithAPIKey:(NSString*)inQuantcastAPIKey networkReachability:(id<QuantcastNetworkReachability>)inReachability {
++(QuantcastPolicy*)policyWithAPIKey:(NSString*)inQuantcastAPIKey networkReachability:(id<QuantcastNetworkReachability>)inReachability enableLogging:(BOOL)inEnableLogging {
     
     
     NSString* mcc = nil;
@@ -422,8 +498,12 @@
     NSString* policyURLStr = [NSString stringWithFormat:QCMEASUREMENT_POLICY_URL_FORMAT,inQuantcastAPIKey,QCMEASUREMENT_API_VERSION,osString,[mcc uppercaseString]];
     
     NSURL* policyURL = [NSURL URLWithString:policyURLStr];
+    
+    if (inEnableLogging) {
+        NSLog(@"QC Measurement: Creating policy object with policy URL = %@", policyURL);
+    }
         
-    return [[[QuantcastPolicy alloc] initWithPolicyURL:policyURL reachability:inReachability] autorelease];
+    return [[[QuantcastPolicy alloc] initWithPolicyURL:policyURL reachability:inReachability enableLogging:inEnableLogging] autorelease];
 }
 
 #pragma mark - Debugging Support
