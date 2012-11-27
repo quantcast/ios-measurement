@@ -15,6 +15,7 @@
     NSString* _databaseFilePath;
     sqlite3* _databaseConnection;
     
+    NSMutableDictionary* _preparedStatements;
     
 }
 @property (readonly) sqlite3* databaseConnection;
@@ -56,6 +57,19 @@
 -(int64_t)rowCountForTable:(NSString*)inTableName;
 
 -(void)closeDatabaseConnection;
+
+#pragma mark - Prepared Queries
+
+-(void)prepareQuery:(NSString*)inQueryToPreprare withKey:(NSString*)inQueryKey;
+
+/*!
+ @internal
+ @method executePreparedQuery:bindingData:
+ @abstract executes a prepared query binding the passed data for inserts. 
+ */
+-(BOOL)executePreparedQuery:(NSString*)inQueryKey bindingInsertData:(NSArray*)inArrayOfStringsOrNil;
+-(void)clearPreparedQuery:(NSString*)inQueryKey;
+-(void)clearAllPreparedQueries;
 
 #pragma mark - Debugging
 @property (assign,nonatomic) BOOL enableLogging;

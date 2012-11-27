@@ -118,6 +118,12 @@
 #define QCSQL_CREATETABLE_EVENT     @"create table event ( eventid integer, name varchar not null, value varchar not null, FOREIGN KEY( eventid ) REFERENCES events ( id ) );"
 #define QCSQL_CREATEINDEX_EVENT     @"create index event_eventid_idx on event (eventid);"
 
+#define QCSQL_PREPAREDQUERYKEY_INSERTNEWEVENT   @"insert-new-event"
+#define QCSQL_PREPAREDQUERY_INSERTNEWEVENT      @"INSERT INTO events (sessionId, timestamp) VALUES ( ?1, ?2 );"
+
+#define QCSQL_PREPAREDQUERYKEY_INSERTNEWEVENTPARAMS   @"insert-new-event-params"
+#define QCSQL_PREPAREDQUERY_INSERTNEWEVENTPARAMS      @"INSERT INTO event (eventid, name, value) VALUES ( ?1, ?2, ?3 );"
+
 +(void)initializeMeasurementDatabase:(QuantcastDatabase*)inDB {
     
     @synchronized( self ) {
@@ -131,7 +137,6 @@
         [inDB executeSQL:QCSQL_CREATETABLE_EVENT];
         [inDB executeSQL:QCSQL_CREATEINDEX_EVENT];
         [inDB endDatabaseTransaction];
-        [inDB closeDatabaseConnection];
     }
 }
 
@@ -155,6 +160,12 @@
         [QuantcastDataManager initializeMeasurementDatabase:_db];
     }
     
+    
+    // create prepared queries
+    
+    [self.db prepareQuery:QCSQL_PREPAREDQUERY_INSERTNEWEVENT withKey:QCSQL_PREPAREDQUERYKEY_INSERTNEWEVENT];
+    [self.db prepareQuery:QCSQL_PREPAREDQUERY_INSERTNEWEVENTPARAMS withKey:QCSQL_PREPAREDQUERYKEY_INSERTNEWEVENTPARAMS];
+    
     return YES;
 }
 
@@ -167,70 +178,68 @@
         return;
     }
     
-    if ( nil == self.db ) {
-        if (self.enableLogging) {
-            NSLog(@"QC Measurement: Tried to log event %@, but there was no database connection available.", inEvent);
+    [self.opQueue addOperationWithBlock:^{
+        
+        if ( nil == self.db ) {
+            if (self.enableLogging) {
+                NSLog(@"QC Measurement: Tried to log event %@, but there was no database connection available.", inEvent);
+            }
+            return;
         }
-        return;
-    }
-    
-    // first create the entry in the events table
-    
-    // the timestamp is stored as an integer. This means we only store the timestamp to the resolution of seconds.
-    NSString* eventsSql = [NSString stringWithFormat:@"INSERT INTO events (sessionId, timestamp) VALUES ('%@', %qi);",inEvent.sessionID, (int64_t)[inEvent.timestamp timeIntervalSince1970]];
-    
-    NSUInteger eventCount = 0;
-    
-    @synchronized( self ) {
-        [self.db beginDatabaseTransaction];
-        [self.db executeSQL:eventsSql];
+            
+        NSUInteger eventCount = 0;
         
-        int64_t eventId = [self.db getLastInsertRowId];
+        NSArray* eventInsertBoundData = [NSArray arrayWithObjects:inEvent.sessionID,[NSString stringWithFormat:@"%qi",(int64_t)[inEvent.timestamp timeIntervalSince1970]],nil];
         
-        for (NSString* param in [inEvent.parameters allKeys]) {
+        @synchronized( self ) {
+            [self.db beginDatabaseTransaction];
             
-            if ( nil != self.policy && [self.policy isBlacklistedParameter:param] ) {
-                continue;
+            [self.db executePreparedQuery:QCSQL_PREPAREDQUERYKEY_INSERTNEWEVENT bindingInsertData:eventInsertBoundData];
+            
+            int64_t eventId = [self.db getLastInsertRowId];
+            
+            for (NSString* param in [inEvent.parameters allKeys]) {
+                
+                if ( nil != self.policy && [self.policy isBlacklistedParameter:param] ) {
+                    continue;
+                }
+                
+                id valueObj = [inEvent.parameters objectForKey:param];
+                
+                NSString* valueStr;
+                
+                if ( [valueObj isKindOfClass:[NSValue class]] ) { 
+                    valueStr = [valueObj stringValue];
+                }
+                else if ( [valueObj isKindOfClass:[NSString class]] ) {
+                    valueStr = (NSString*)valueObj;
+                }
+                else {
+                    valueStr = [valueObj description];
+                }
+                
+                NSArray* paramsInsertBoundData = [NSArray arrayWithObjects:[NSString stringWithFormat:@"%qi",eventId], param, valueStr, nil];
+                
+                [self.db executePreparedQuery:QCSQL_PREPAREDQUERYKEY_INSERTNEWEVENTPARAMS bindingInsertData:paramsInsertBoundData];
             }
             
-            id valueObj = [inEvent.parameters objectForKey:param];
+            [self.db endDatabaseTransaction];
             
-            NSString* valueStr;
+            eventCount = [self eventCount];
             
-            if ( [valueObj isKindOfClass:[NSValue class]] ) { 
-                valueStr = [valueObj stringValue];
-            }
-            else if ( [valueObj isKindOfClass:[NSString class]] ) {
-                valueStr = (NSString*)valueObj;
-            }
-            else {
-                valueStr = [valueObj description];
-            }
-            
-            
-            NSString* paramSql = [NSString stringWithFormat:@"INSERT INTO event (eventid, name, value) VALUES ( %qi, '%@', '%@' );", eventId, param, valueStr];
-            
-            [self.db executeSQL:paramSql];
         }
-        
-        [self.db endDatabaseTransaction];
-        
-        eventCount = [self eventCount];
-        
-        
-        [self.db closeDatabaseConnection];
-    }
-        
-    if ( eventCount >= self.uploadEventCount && self.policy.hasUpdatedPolicyBeenDownloaded && !self.isDataDumpInprogress && ([UIApplication sharedApplication].applicationState != UIApplicationStateBackground) ) {
-        [self initiateDataUpload];
-    }
-    else if ( eventCount >= self.maxEventRetentionCount ) {
-        // delete the equivalent a upload
-        
-        [self trimEventsDatabaseBy:self.uploadEventCount];
-        
-    }
+            
+        if ( eventCount >= self.uploadEventCount && self.policy.hasUpdatedPolicyBeenDownloaded && !self.isDataDumpInprogress && ([UIApplication sharedApplication].applicationState != UIApplicationStateBackground) ) {
+            [self initiateDataUpload];
+        }
+        else if ( eventCount >= self.maxEventRetentionCount ) {
+            // delete the equivalent a upload
+            
+            [self trimEventsDatabaseBy:self.uploadEventCount];
+            
+        }
 
+    } ];
     
  }
 
@@ -377,8 +386,6 @@
         }
 
         [self.db endDatabaseTransaction];
-        
-        [self.db closeDatabaseConnection];
     }
     
     return eventList;
@@ -443,8 +450,6 @@
             }
             
             [self.db endDatabaseTransaction];
-            
-            [self.db closeDatabaseConnection];
             
             self.isDataDumpInprogress = NO;
         }

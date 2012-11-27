@@ -122,7 +122,7 @@
 -(void)setPolicywithJSONData:(NSData*)inJSONData {
     
     if ( nil == inJSONData ) {
-        NSLog(@"QC MEasurement: ERROR - Tried to set policy with a nil JSON data object.");
+        NSLog(@"QC Measurement: ERROR - Tried to set policy with a nil JSON data object.");
         @synchronized(self){
             _policyHasBeenLoaded = NO;
             _policyHasBeenDownloaded = NO;
@@ -148,7 +148,7 @@
     }
 #else
     else {
-        NSLog( @"QC MEasurement: ERROR - There is no available JSON decoder to user. Please enable JSONKit in your project!" );
+        NSLog( @"QC Measurement: ERROR - There is no available JSON decoder to user. Please enable JSONKit in your project!" );
         @synchronized(self){
             _policyHasBeenLoaded = NO;
             _policyHasBeenDownloaded = NO;
@@ -158,7 +158,7 @@
 #endif
     
     if ( nil != jsonError ) {
-        NSLog(@"QC MEasurement: Unable to parse policy JSON data. error = %@", jsonError);
+        NSLog(@"QC Measurement: Unable to parse policy JSON data. error = %@", jsonError);
         @synchronized(self){
             _policyHasBeenLoaded = NO;
             _policyHasBeenDownloaded = NO;

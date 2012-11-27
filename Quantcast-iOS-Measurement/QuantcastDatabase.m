@@ -16,6 +16,12 @@
 
 #import "QuantcastDatabase.h"
 
+@interface QuantcastDatabase ()
+
+-(void)clearStatementInDataObject:(NSData*)inStatementDataObj;
+
+@end
+
 @implementation QuantcastDatabase
 
 +(QuantcastDatabase*)databaseWithFilePath:(NSString*)inFilePath {
@@ -29,18 +35,24 @@
     
     if ( self ) {
         _databaseFilePath = [inFilePath retain];
-        
+        _preparedStatements = [[NSMutableDictionary dictionaryWithCapacity:1] retain];
   
         self.enableLogging = NO;
+        
+        if ( !sqlite3_threadsafe() ) {
+            NSLog(@"QC Measurement: WARNING - This app is using a version of SQLite that is not thread safe. Strange things might happen.");
+        }
     }
     
     return self;
 }
 
 -(void)dealloc {
-    [_databaseFilePath release];
+    
     
     [self closeDatabaseConnection];
+    [_preparedStatements release];
+    [_databaseFilePath release];
     
     [super dealloc];
 }
@@ -70,6 +82,8 @@
 -(void)closeDatabaseConnection {
     @synchronized( self ) {
         if ( NULL != _databaseConnection ) {
+            [self clearAllPreparedQueries];
+            
             sqlite3_close(_databaseConnection);
             
             _databaseConnection = NULL;
@@ -198,6 +212,127 @@
     
     return 0;
 }
+#pragma mark - Prepared Queries
+
+-(void)prepareQuery:(NSString*)inQueryToPreprare withKey:(NSString*)inQueryKey {
+    
+    sqlite3_stmt* statement;
+    
+    const char *sql_string = [inQueryToPreprare UTF8String];
+    
+    int error = SQLITE_OK;
+    
+    @synchronized(self) {
+        error = sqlite3_prepare_v2(self.databaseConnection, sql_string, -1, &statement, NULL);
+        if ( error == SQLITE_OK ) {
+            
+            NSData* statementObj = [NSData dataWithBytes:&statement length:sizeof(statement)];
+            
+            
+            [_preparedStatements setObject:statementObj forKey:inQueryKey];
+        }
+        else {
+            if ( self.enableLogging ) {
+                NSLog(@"QC Measurement: ERROR - Could not prepare sqllite3 statment with sql = %@ for query key = %@", inQueryToPreprare, inQueryKey );
+            }
+        }
+        
+    }
+}
+
+-(BOOL)executePreparedQuery:(NSString*)inQueryKey bindingInsertData:(NSArray*)inArrayOfStrings {
+    
+    @synchronized( self ) {
+        
+        NSData* statementObj = [_preparedStatements objectForKey:inQueryKey];
+        
+        if (nil == statementObj) {
+            if ( self.enableLogging ) {
+                NSLog(@"QC Measurement: Could find prepared sqllite3 statment with key = %@", inQueryKey );
+            }
+            return NO;
+        }
+        
+        sqlite3_stmt* statement;
+        
+        [statementObj getBytes:&statement length:sizeof(statement)];
+        
+        if ( nil != inArrayOfStrings && [inArrayOfStrings count] > 0 ) {
+            
+            for (NSUInteger i = 0; i < [inArrayOfStrings count]; ++i ) {
+                
+                NSString* value = [inArrayOfStrings objectAtIndex:i];
+                
+                const char *valueStr = [value UTF8String];
+                
+                sqlite3_bind_text(statement, i+1, valueStr, -1, SQLITE_TRANSIENT);
+            }
+            
+        }
+        
+        if (sqlite3_step(statement) != SQLITE_DONE) {
+            if ( self.enableLogging ) {
+                NSLog(@"QC Measurement: Could not step prepared sqllite3 statment with query key = %@", inQueryKey );
+            }
+            
+            return NO;
+        }
+        
+        sqlite3_clear_bindings(statement);
+        sqlite3_reset(statement);
+    }
+    return YES;
+}
+
+-(void)clearPreparedQuery:(NSString*)inQueryKey {
+    
+    @synchronized( self ) {
+        NSData* statementObj = [_preparedStatements objectForKey:inQueryKey];
+        
+        if (nil == statementObj) {
+            if ( self.enableLogging ) {
+                NSLog(@"QC Measurement: Could find prepared sqllite3 statment with key = %@. As a result, can not clear the statement.", inQueryKey );
+            }
+        }
+        
+        [self clearStatementInDataObject:statementObj];
+        
+        [_preparedStatements removeObjectForKey:inQueryKey];
+    }
+    
+}
+
+-(void)clearAllPreparedQueries {
+    NSDictionary* oldList;
+    
+    @synchronized( self ) {
+        oldList = _preparedStatements;
+        _preparedStatements = [[NSMutableDictionary dictionaryWithCapacity:1] retain];
+    }
+    
+    for ( NSString* key in oldList ) {
+        NSData* statementObj = [oldList objectForKey:key];
+        if (nil == statementObj) {
+            if ( self.enableLogging ) {
+                NSLog(@"QC Measurement: Could find prepared sqllite3 statment with key = %@. As a result, can not clear the statement.", key );
+            }
+        }
+        [self clearStatementInDataObject:statementObj];
+    }
+    
+    [oldList release];
+}
+
+-(void)clearStatementInDataObject:(NSData*)inStatementDataObj {
+    
+    sqlite3_stmt* statement;
+    
+    [inStatementDataObj getBytes:&statement length:sizeof(statement)];
+    
+    sqlite3_finalize( statement );
+    
+}
+
 
 
 #pragma mark - Debugging
