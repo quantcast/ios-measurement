@@ -24,9 +24,9 @@ Once you have downloaded the SDK's code, should perform the following steps:
 	*	`SystemConfiguration`
 	*	`Foundation`
 	*	`UIKit`
-3.	Weak-link (that is, make "optional") the following iOS frameworks to your project (if they aren't already):
-	*	`CoreLocation`
 	*	`CoreTelephony`
+	*	`CoreLocation`
+3.	Weak-link (that is, make "optional") the following iOS frameworks to your project (if they aren't already):
 	*	`AdSupport`
 4.	Link the following libraries to your project (if they aren't already):
 	*	`libz`
