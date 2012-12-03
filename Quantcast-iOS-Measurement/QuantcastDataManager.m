@@ -562,6 +562,9 @@
     
     if ( originalValue != inIsOptOut ) {
         if ( inIsOptOut ) {
+            // cancel all pending operations            
+            [self.opQueue cancelAllOperations];
+            
             // stop all uploading
             [_uploadManager release];
             _uploadManager = nil;
