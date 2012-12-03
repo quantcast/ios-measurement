@@ -586,24 +586,24 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
 -(QuantcastNetworkStatus)currentReachabilityStatus
 {
     if ( NULL == _reachability ) {
-        return NotReachable;
+        return QuantcastNotReachable;
     }
 
-    QuantcastNetworkStatus retVal = NotReachable;
+    QuantcastNetworkStatus retVal = QuantcastNotReachable;
     SCNetworkReachabilityFlags flags;
     if (SCNetworkReachabilityGetFlags(_reachability, &flags))
     {
         if ((flags & kSCNetworkReachabilityFlagsReachable) == 0)
         {
             // if target host is not reachable
-            return NotReachable;
+            return QuantcastNotReachable;
         }
 
         if ((flags & kSCNetworkReachabilityFlagsConnectionRequired) == 0)
         {
             // if target host is reachable and no connection is required
             //  then we'll assume (for now) that your on Wi-Fi
-            retVal = ReachableViaWiFi;
+            retVal = QuantcastReachableViaWiFi;
         }
 
 
@@ -616,7 +616,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
             if ((flags & kSCNetworkReachabilityFlagsInterventionRequired) == 0)
             {
                 // ... and no [user] intervention is needed
-                retVal = ReachableViaWiFi;
+                retVal = QuantcastReachableViaWiFi;
             }
         }
 
@@ -624,7 +624,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
         {
             // ... but WWAN connections are OK if the calling application
             //     is using the CFNetwork (CFSocketStream?) APIs.
-            retVal = ReachableViaWWAN;
+            retVal = QuantcastReachableViaWWAN;
         }
     }
     return retVal;

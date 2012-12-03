@@ -146,13 +146,13 @@
     NSString* connectionType = @"unknown";
     
     switch ( inNetworkStatus ) {
-        case ReachableViaWiFi:
+        case QuantcastReachableViaWiFi:
             connectionType = @"wifi";
             break;
-        case ReachableViaWWAN:
+        case QuantcastReachableViaWWAN:
             connectionType = @"wwan";
             break;
-        case NotReachable:
+        case QuantcastNotReachable:
             connectionType = @"disconnected";
             break;
         default:

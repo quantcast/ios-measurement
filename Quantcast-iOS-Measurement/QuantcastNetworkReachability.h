@@ -6,9 +6,9 @@
 #import <Foundation/Foundation.h>
 
 typedef enum {
-    NotReachable = 0,
-    ReachableViaWiFi,
-    ReachableViaWWAN
+    QuantcastNotReachable = 0,
+    QuantcastReachableViaWiFi,
+    QuantcastReachableViaWWAN
 } QuantcastNetworkStatus;
 
 #define kQuantcastNetworkReachabilityChangedNotification @"QuantcastNetworkReachabilityChangedNotification"

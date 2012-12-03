@@ -48,7 +48,7 @@
             [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(networkReachabilityChanged:) name:kQuantcastNetworkReachabilityChangedNotification object:inNetworkReachabilityOrNil];
 
             
-            if ( [inNetworkReachabilityOrNil currentReachabilityStatus] == NotReachable ){
+            if ( [inNetworkReachabilityOrNil currentReachabilityStatus] == QuantcastNotReachable ){
                 _ableToUpload = NO;
             }
         }
@@ -103,7 +103,7 @@
    
     id<QuantcastNetworkReachability> reachabilityObj = (id<QuantcastNetworkReachability>)[inNotification object];
     
-    if ( [reachabilityObj currentReachabilityStatus] == NotReachable ){
+    if ( [reachabilityObj currentReachabilityStatus] == QuantcastNotReachable ){
         _ableToUpload = NO;
     }
     else {

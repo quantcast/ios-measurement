@@ -108,7 +108,7 @@
         
         // if the network is available, check to see if there is a new
         
-        if ([inNetworkReachabilityOrNil currentReachabilityStatus] != NotReachable ) {
+        if ([inNetworkReachabilityOrNil currentReachabilityStatus] != QuantcastNotReachable ) {
             [self startPolicyDownloadWithURL:_policyURL];
         }
         else {
@@ -284,7 +284,7 @@
     id<QuantcastNetworkReachability> reachabilityObj = (id<QuantcastNetworkReachability>)[inNotification object];
     
     
-    if ([reachabilityObj currentReachabilityStatus] != NotReachable ) {
+    if ([reachabilityObj currentReachabilityStatus] != QuantcastNotReachable ) {
         [self startPolicyDownloadWithURL:_policyURL];
     }
   
