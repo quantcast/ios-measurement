@@ -1,7 +1,14 @@
-//
-// Copyright (c) 2012, Quantcast Corp.
-// This software is licensed under the Quantcast Mobile API Beta Evaluation Agreement and may not be used except as permitted thereunder or copied, modified, or distributed in any case.
-//
+/*
+ * Copyright 2012 Quantcast Corp.
+ *
+ * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
+ * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
+ * (the “License”). You may not use this file unless (1) you sign up for an account at
+ * https://www.quantcast.com and click your agreement to the License and (2) are in
+ * compliance with the License. See the License for the specific language governing
+ * permissions and limitations under the License.
+ *
+ */
 
 #ifndef __has_feature
 #define __has_feature(x) 0
@@ -785,10 +792,30 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     }
 }
 
-- (void)locationManager:(CLLocationManager *)manager 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-implementations"
+- (void)locationManager:(CLLocationManager *)manager
     didUpdateToLocation:(CLLocation *)newLocation
-           fromLocation:(CLLocation *)oldLocation 
+           fromLocation:(CLLocation *)oldLocation
+#pragma clang diagnostic pop
 {
+    // pre-iOS 6 version of this method
+    
+    NSArray* locationList = [NSArray arrayWithObject:newLocation];
+    
+    [self locationManager:manager didUpdateLocations:locationList];
+}
+- (void)locationManager:(CLLocationManager *)manager didUpdateLocations:(NSArray *)locations
+{
+    if ([locations count] == 0 ) {
+        if (self.enableLogging) {
+            NSLog( @"QC Measurement: WARNING - locationManager:didUpdateLocations: Got a zero-lengthed locations list. Doing nothing");
+        }
+        
+        return;
+    }
+    
+    CLLocation* newLocation = [locations objectAtIndex:0];
     
     if (nil == self.geocoder ) {
         self.geocoder = [[[CLGeocoder alloc] init] autorelease];
@@ -923,7 +950,9 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     }
     else {
         // pre-iOS 5
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         [inCurrentViewController presentModalViewController:optOutController animated:YES];
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
     }
 
 }

@@ -150,5 +150,4 @@ The Quantcast Measurement SDK will upload the events it collects to Quantcast's 
 You may change this property multiple times throughout your app's execution.
 
 ### License ###
-
-This software is licensed under the Quantcast Mobile API Beta Evaluation Agreement and may not be used except as permitted thereunder or copied, modified, or distributed in any case.
+This Quantcast Measurement SDK is Copyright 2012 Quantcast Corp. This SDK is licensed under the Quantcast Mobile App Measurement Terms of Service, found at [the Quantcast website here]([https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos] "Quantcast's Measurement SDK Terms of Service") (the "License"). You may not use this SDK unless (1) you sign up for an account at [Quantcast.com](https://www.quantcast.com "Quantcast.com") and click your agreement to the License and (2) are in compliance with the License. See the License for the specific language governing permissions and limitations under the License.

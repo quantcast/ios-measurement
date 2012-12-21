@@ -1,7 +1,14 @@
-//
-// Copyright (c) 2012, Quantcast Corp.
-// This software is licensed under the Quantcast Mobile API Beta Evaluation Agreement and may not be used except as permitted thereunder or copied, modified, or distributed in any case.
-//
+/*
+ * Copyright 2012 Quantcast Corp.
+ *
+ * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
+ * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
+ * (the “License”). You may not use this file unless (1) you sign up for an account at
+ * https://www.quantcast.com and click your agreement to the License and (2) are in
+ * compliance with the License. See the License for the specific language governing
+ * permissions and limitations under the License.
+ *
+ */
 
 #ifndef __has_feature
 #define __has_feature(x) 0
@@ -75,16 +82,21 @@ return self;
     self.privacyTextView.text = [NSString stringWithFormat:textFormat,appName];
 }
 
-- (void)viewDidUnload
-{
-    [super viewDidUnload];
-    // Release any retained subviews of the main view.
-    // e.g. self.myOutlet = nil;
-}
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-implementations"
 - (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation
+#pragma clang diagnostic pop
 {
     return (interfaceOrientation == UIInterfaceOrientationPortrait);
+}
+
+-(NSUInteger)supportedInterfaceOrientations {
+    return UIInterfaceOrientationMaskAll;
+}
+
+- (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation {
+    return UIInterfaceOrientationPortrait;
 }
 
 #pragma mark - Dialog Status
@@ -148,8 +160,14 @@ return self;
 
 -(IBAction)done:(id)inSender {
     
-    
-    [self dismissModalViewControllerAnimated:YES];
+    if ([self respondsToSelector:@selector(dismissViewControllerAnimated:completion:)]) {
+        [self dismissViewControllerAnimated:YES completion:NULL];
+    }
+    else {
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+        [self dismissModalViewControllerAnimated:YES];
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
+    }
 }
 
 

@@ -3,12 +3,12 @@
 	<data>
 		<int key="IBDocument.SystemTarget">1024</int>
 		<string key="IBDocument.SystemVersion">12C60</string>
-		<string key="IBDocument.InterfaceBuilderVersion">2840</string>
+		<string key="IBDocument.InterfaceBuilderVersion">2844</string>
 		<string key="IBDocument.AppKitVersion">1187.34</string>
 		<string key="IBDocument.HIToolboxVersion">625.00</string>
 		<object class="NSMutableDictionary" key="IBDocument.PluginVersions">
 			<string key="NS.key.0">com.apple.InterfaceBuilder.IBCocoaTouchPlugin</string>
-			<string key="NS.object.0">1926</string>
+			<string key="NS.object.0">1930</string>
 		</object>
 		<array key="IBDocument.IntegratedClassDependencies">
 			<string>IBProxyObject</string>
@@ -120,7 +120,7 @@ IFBsZWFzZSBhbHNvIHJldmlldyBvdXIgJUAgcHJpdmFjeSBwb2xpY3kuA</bytes>
 								<bool key="IBUIUserInteractionEnabled">NO</bool>
 								<string key="targetRuntimeIdentifier">IBCocoaTouchFramework</string>
 								<string key="IBUIText">Allow Data Collection</string>
-								<object class="NSColor" key="IBUITextColor" id="521443349">
+								<object class="NSColor" key="IBUITextColor">
 									<int key="NSColorSpace">1</int>
 									<bytes key="NSRGB">MCAwIDAAA</bytes>
 									<string key="IBUIColorCocoaTouchKeyPath">darkTextColor</string>
@@ -161,7 +161,7 @@ IFBsZWFzZSBhbHNvIHJldmlldyBvdXIgJUAgcHJpdmFjeSBwb2xpY3kuA</bytes>
 						<object class="NSColor" key="IBUIBackgroundColor">
 							<int key="NSColorSpace">3</int>
 							<bytes key="NSWhite">MQA</bytes>
-							<object class="NSColorSpace" key="NSCustomColorSpace">
+							<object class="NSColorSpace" key="NSCustomColorSpace" id="128759696">
 								<int key="NSID">2</int>
 							</object>
 						</object>
@@ -173,6 +173,7 @@ IFBsZWFzZSBhbHNvIHJldmlldyBvdXIgJUAgcHJpdmFjeSBwb2xpY3kuA</bytes>
 						<string key="NSFrame">{{10, 403}, {300, 37}}</string>
 						<reference key="NSSuperview" ref="191373211"/>
 						<reference key="NSWindow"/>
+						<reference key="NSNextKeyView"/>
 						<string key="NSReuseIdentifierKey">_NS:9</string>
 						<bool key="IBUIOpaque">NO</bool>
 						<string key="targetRuntimeIdentifier">IBCocoaTouchFramework</string>
@@ -355,38 +356,62 @@ IFBsZWFzZSBhbHNvIHJldmlldyBvdXIgJUAgcHJpdmFjeSBwb2xpY3kuA</bytes>
 				<string key="-1.IBPluginDependency">com.apple.InterfaceBuilder.IBCocoaTouchPlugin</string>
 				<object class="NSMutableAttributedString" key="-1.notes">
 					<object class="NSMutableString" key="NSString">
-						<bytes key="NS.bytes">Q29weXJpZ2h0IChjKSAyMDEyLCBRdWFudGNhc3QgQ29ycC4KVGhpcyBzb2Z0d2FyZSBpcyBsaWNlbnNl
-ZCB1bmRlciB0aGUgUXVhbnRjYXN0IE1vYmlsZSBBUEkgQmV0YSBFdmFsdWF0aW9uIEFncmVlbWVudCBh
-bmQgbWF5IG5vdCBiZSB1c2VkIGV4Y2VwdCBhcyBwZXJtaXR0ZWQgdGhlcmV1bmRlciBvciBjb3BpZWQs
-IG1vZGlmaWVkLCBvciBkaXN0cmlidXRlZCBpbiBhbnkgY2FzZS4KCg</bytes>
+						<bytes key="NS.bytes">Q29weXJpZ2h0IDIwMTIgUXVhbnRjYXN0IENvcnAuCgpUaGlzIHNvZnR3YXJlIGlzIGxpY2Vuc2VkIHVu
+ZGVyIHRoZSBRdWFudGNhc3QgTW9iaWxlIEFwcCBNZWFzdXJlbWVudCBUZXJtcyBvZiBTZXJ2aWNlIGh0
+dHBzOi8vd3d3LnF1YW50Y2FzdC5jb20vbGVhcm5pbmctY2VudGVyL3F1YW50Y2FzdC10ZXJtcy9tb2Jp
+bGUtYXBwLW1lYXN1cmVtZW50LXRvcyAodGhlIOKAnExpY2Vuc2XigJ0pLiBZb3UgbWF5IG5vdCB1c2Ug
+dGhpcyBmaWxlIHVubGVzcyAoMSkgeW91IHNpZ24gdXAgZm9yIGFuIGFjY291bnQgYXQgaHR0cHM6Ly93
+d3cucXVhbnRjYXN0LmNvbSBhbmQgY2xpY2sgeW91ciBhZ3JlZW1lbnQgdG8gdGhlIExpY2Vuc2UgYW5k
+ICgyKSBhcmUgaW4gY29tcGxpYW5jZSB3aXRoIHRoZSBMaWNlbnNlLiBTZWUgdGhlIExpY2Vuc2UgZm9y
+IHRoZSBzcGVjaWZpYyBsYW5ndWFnZSBnb3Zlcm5pbmcgcGVybWlzc2lvbnMgYW5kIGxpbWl0YXRpb25z
+IHVuZGVyIHRoZSBMaWNlbnNlLgo</bytes>
 					</object>
 					<array class="NSMutableArray" key="NSAttributes">
 						<dictionary>
-							<reference key="NSColor" ref="521443349"/>
+							<object class="NSColor" key="NSColor" id="568492505">
+								<int key="NSColorSpace">3</int>
+								<bytes key="NSWhite">MAA</bytes>
+								<reference key="NSCustomColorSpace" ref="128759696"/>
+							</object>
 							<object class="NSFont" key="NSFont" id="938489896">
 								<string key="NSName">Menlo-Regular</string>
 								<double key="NSSize">11</double>
 								<int key="NSfFlags">16</int>
 							</object>
 							<integer value="0" key="NSLigature"/>
-							<object class="NSParagraphStyle" key="NSParagraphStyle" id="491318514">
-								<double key="NSDefaultTabInterval">28</double>
+							<object class="NSParagraphStyle" key="NSParagraphStyle" id="193954114">
+								<double key="NSDefaultTabInterval">26.449999999999999</double>
 								<double key="NSTighteningFactorForTruncation">0.05000000074505806</double>
 								<array key="NSTabStops">
 									<object class="NSTextTab">
-										<double key="NSLocation">28</double>
+										<double key="NSLocation">26.449999999999999</double>
 									</object>
 								</array>
 							</object>
 						</dictionary>
 						<dictionary>
+							<reference key="NSColor" ref="568492505"/>
 							<reference key="NSFont" ref="938489896"/>
 							<integer value="0" key="NSLigature"/>
-							<reference key="NSParagraphStyle" ref="491318514"/>
+							<object class="NSURL" key="NSLink">
+								<nil key="NS.base"/>
+								<string key="NS.relative">https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos</string>
+							</object>
+							<reference key="NSParagraphStyle" ref="193954114"/>
+						</dictionary>
+						<dictionary>
+							<reference key="NSColor" ref="568492505"/>
+							<reference key="NSFont" ref="938489896"/>
+							<integer value="0" key="NSLigature"/>
+							<object class="NSURL" key="NSLink">
+								<nil key="NS.base"/>
+								<string key="NS.relative">https://www.quantcast.com</string>
+							</object>
+							<reference key="NSParagraphStyle" ref="193954114"/>
 						</dictionary>
 					</array>
 					<object class="NSMutableData" key="NSAttributeInfo">
-						<bytes key="NS.bytes">2gEAAgE</bytes>
+						<bytes key="NS.bytes">dgBUAVUAGQK4AQA</bytes>
 					</object>
 				</object>
 				<string key="-2.CustomClassName">UIResponder</string>
@@ -469,6 +494,6 @@ IG1vZGlmaWVkLCBvciBkaXN0cmlidXRlZCBpbiBhbnkgY2FzZS4KCg</bytes>
 		</object>
 		<bool key="IBDocument.PluginDeclaredDependenciesTrackSystemTargetVersion">YES</bool>
 		<int key="IBDocument.defaultPropertyAccessControl">3</int>
-		<string key="IBCocoaTouchPluginVersion">1926</string>
+		<string key="IBCocoaTouchPluginVersion">1930</string>
 	</data>
 </archive>

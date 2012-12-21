@@ -1,7 +1,14 @@
-//
-// Copyright (c) 2012, Quantcast Corp.
-// This software is licensed under the Quantcast Mobile API Beta Evaluation Agreement and may not be used except as permitted thereunder or copied, modified, or distributed in any case.
-//
+/*
+ * Copyright 2012 Quantcast Corp.
+ *
+ * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
+ * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
+ * (the “License”). You may not use this file unless (1) you sign up for an account at
+ * https://www.quantcast.com and click your agreement to the License and (2) are in
+ * compliance with the License. See the License for the specific language governing
+ * permissions and limitations under the License.
+ *
+ */
 
 #import <Foundation/Foundation.h>
 
@@ -51,6 +58,7 @@
 #define QCPARAMETER_DST               @"dst"
 #define QCPARAMETER_DTYPE             @"dtype"
 #define QCPARAMETER_HAC               @"hac"
+#define QCPARAMETER_ICC               @"icc"
 #define QCPARAMETER_IVER              @"iver"
 #define QCPARAMETER_LC                @"lc"
 #define QCPARAMETER_LL                @"ll"
@@ -82,8 +90,8 @@
 // Quantcast Measurement SDK
 //
 
-#define QCMEASUREMENT_API_VERSION               @"1_1_3"
-#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.1.3"
+#define QCMEASUREMENT_API_VERSION               @"1_2_0"
+#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.2.0"
 #define QCMEASUREMENT_CONN_TIMEOUT_SECONDS      60
 
 #ifndef QCMEASUREMENT_UPLOAD_URL
