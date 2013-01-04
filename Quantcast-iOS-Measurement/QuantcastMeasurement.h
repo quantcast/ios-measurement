@@ -16,15 +16,15 @@
 // Requires iOS 4 and Xcode 4.5 or later. 
 //
 // Frameworks required:
-//      SystemConfiguration, Foundation, UIKit
+//      SystemConfiguration, Foundation, UIKit, CoreLocation, CoreTelephony,
 //
 // Frameworks that should be weak-linked:
-//      CoreLocation, CoreTelephony, AdSupport
+//      AdSupport
 //
 // Libraries required:
 //      libz, libsqlite3
 //
-// Additional Code Repositories Required:
+// Additional code repositories required is running on iOS 4 (not require for iOS 5 and later):
 //      JSONKit         - https://github.com/johnezang/JSONKit
 //
 
