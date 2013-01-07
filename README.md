@@ -111,7 +111,7 @@ Note that you should only enable geo-tracking if your app has some location-awar
 
 The Quantcast iOS SDK will automatically pause geo-tracking while your app is in the background. This is done for both battery life and privacy considerations.
 
-#### </a> Combined Web/App Audiences ####
+#### Combined Web/App Audiences ####
 Quantcast Measure enables you to measure both your web and mobile app audiences, allowing you to understand the differences and similarities of your online and mobile app audiences, or even the audiences of your different apps. To enable this feature, you will need to provide a user identifier, which Quantcast will always anonymize with a 1-way hash before it is transmitted the user's device. This user identifier must also be provided for your website(s); please see Quantcast's web measurement documentation for instructions.
 
 To provide Quantcast Measurem with the user identifier, call the following method:
@@ -149,5 +149,5 @@ The Quantcast iOS SDK will upload the events it collects to Quantcast's server p
 
 You may change this property multiple times throughout your app's execution.
 
-### <a id="License"></a>License ###
-This Quantcast Measurement SDK is Copyright 2012 Quantcast Corp. This SDK is licensed under the Quantcast Mobile App Measurement Terms of Service, found at [the Quantcast website here]([https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos] "Quantcast's Measurement SDK Terms of Service") (the "License"). You may not use this SDK unless (1) you sign up for an account at [Quantcast.com](https://www.quantcast.com "Quantcast.com") and click your agreement to the License and (2) are in compliance with the License. See the License for the specific language governing permissions and limitations under the License.
+### License ###
+This Quantcast Measurement SDK is Copyright 2012 Quantcast Corp. This SDK is licensed under the Quantcast Mobile App Measurement Terms of Service, found at [the Quantcast website here](https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos "Quantcast's Measurement SDK Terms of Service") (the "License"). You may not use this SDK unless (1) you sign up for an account at [Quantcast.com](https://www.quantcast.com "Quantcast.com") and click your agreement to the License and (2) are in compliance with the License. See the License for the specific language governing permissions and limitations under the License.
