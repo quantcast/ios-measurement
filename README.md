@@ -149,5 +149,14 @@ The Quantcast iOS SDK will upload the events it collects to Quantcast's server p
 
 You may change this property multiple times throughout your app's execution.
 
+##### Secure Data Uploads #####
+The Quantcast iOS SDK can support secure data uploads using SSL/TLS. In order to enable using secure data uploads, first link your project to the `Security` framework. Then add following preprocessor macro definition to your project's precompiled header file (the file that ends with '.pch'):
+
+```objective-c
+#define QCMEASUREMENT_USE_SECURE_CONNECTIONS 1
+```
+
+Note that using secure data uploads causes your app to use encryption technology. Various jurisdictions have laws controlling the export of software applications that use encryption. Please review your jurisdiction's laws concerning exporting software that uses encryption before enabling secure data uploads in the Quantcast iOS SDK. 
+
 ### License ###
 This Quantcast Measurement SDK is Copyright 2012 Quantcast Corp. This SDK is licensed under the Quantcast Mobile App Measurement Terms of Service, found at [the Quantcast website here](https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos "Quantcast's Measurement SDK Terms of Service") (the "License"). You may not use this SDK unless (1) you sign up for an account at [Quantcast.com](https://www.quantcast.com "Quantcast.com") and click your agreement to the License and (2) are in compliance with the License. See the License for the specific language governing permissions and limitations under the License.

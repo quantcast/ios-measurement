@@ -35,6 +35,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 
 @interface QuantcastMeasurement ()
 @property (retain,nonatomic) NSString* currentSessionID;
+@property (retain,nonatomic) QuantcastDataManager* dataManager;
 @property (retain,nonatomic) NSString* quantcastAPIKey;
 @property (retain,nonatomic) CLLocationManager* locationManager;
 @property (retain,nonatomic) CLGeocoder* geocoder;
@@ -53,7 +54,11 @@ QuantcastMeasurement* gSharedInstance = nil;
 
 -(void)enableDataUploading;
 -(void)recordEvent:(QuantcastEvent*)inEvent;
+
 -(void)logUploadLatency:(NSUInteger)inLatencyMilliseconds forUploadId:(NSString*)inUploadID;
+-(void)logSDKError:(NSString*)inSDKErrorType withErrorDescription:(NSString*)inErrorDescOrNil errorParameter:(NSString*)inErrorParametOrNil;
+
+
 -(void)setOptOutStatus:(BOOL)inOptOutStatus;
 -(void)startNewSessionAndGenerateEventWithReason:(NSString*)inReason withLabels:(NSString*)inLabelsOrNil;
 -(void)startNewSessionIfUsersAdPrefChanged;
@@ -297,13 +302,13 @@ QuantcastMeasurement* gSharedInstance = nil;
 
 -(void)recordEvent:(QuantcastEvent*)inEvent {
     
-    [_dataManager recordEvent:inEvent];
+    [self.dataManager recordEvent:inEvent];
 }
 
 -(void)enableDataUploading {
     // this method is factored out primarily for unit testing reasons
     
-    [_dataManager enableDataUploadingWithReachability:self];
+    [self.dataManager enableDataUploadingWithReachability:self];
 
 }
 
@@ -331,8 +336,8 @@ QuantcastMeasurement* gSharedInstance = nil;
     
     self.currentSessionID = [QuantcastMeasurement generateSessionID];
     
-    if ( nil != _dataManager.policy ) {
-        [_dataManager.policy downloadLatestPolicyWithReachability:self];
+    if ( nil != self.dataManager.policy ) {
+        [self.dataManager.policy downloadLatestPolicyWithReachability:self];
     }
 
     QuantcastEvent* e = [QuantcastEvent openSessionEventWithClientUserHash:_hashedUserId
@@ -342,7 +347,7 @@ QuantcastMeasurement* gSharedInstance = nil;
                                                            quantcastAPIKey:self.quantcastAPIKey
                                                           deviceIdentifier:self.deviceIdentifier
                                                              appInstallIdentifier:self.appInstallIdentifier
-                                                           enforcingPolicy:_dataManager.policy
+                                                           enforcingPolicy:self.dataManager.policy
                                                                eventLabels:inLabelsOrNil];
     
     
@@ -365,7 +370,7 @@ QuantcastMeasurement* gSharedInstance = nil;
         [self startReachabilityNotifier];
         
         
-        if (nil == _dataManager) {
+        if (nil == self.dataManager) {
             QuantcastPolicy* policy = [QuantcastPolicy policyWithAPIKey:self.quantcastAPIKey networkReachability:self enableLogging:self.enableLogging];
             
             if ( nil == policy ) {
@@ -378,9 +383,9 @@ QuantcastMeasurement* gSharedInstance = nil;
                 return;
             }
             
-            _dataManager = [[QuantcastDataManager alloc] initWithOptOut:self.isOptedOut policy:policy];
-            _dataManager.enableLogging = self.enableLogging;
-            _dataManager.uploadEventCount = uploadEventCount;
+            self.dataManager = [[[QuantcastDataManager alloc] initWithOptOut:self.isOptedOut policy:policy] autorelease];
+            self.dataManager.enableLogging = self.enableLogging;
+            self.dataManager.uploadEventCount = uploadEventCount;
 
         }
 
@@ -390,7 +395,7 @@ QuantcastMeasurement* gSharedInstance = nil;
         [self startNewSessionAndGenerateEventWithReason:QCPARAMETER_REASONTYPE_LAUNCH withLabels:inLabelsOrNil];
                 
         if (self.enableLogging) {
-            NSLog(@"QC Measurement: Using '%@' for upload server.",QCMEASUREMENT_UPLOAD_URL);
+            NSLog(@"QC Measurement: Using '%@' for upload server.",[QuantcastUtils updateSchemeForURL:[NSURL URLWithString:QCMEASUREMENT_UPLOAD_URL]]);
         }
     }
     
@@ -409,7 +414,7 @@ QuantcastMeasurement* gSharedInstance = nil;
     if ( !self.isOptedOut  ) {
         
         if ( self.isMeasurementActive ) {
-            QuantcastEvent* e = [QuantcastEvent closeSessionEventWithSessionID:self.currentSessionID enforcingPolicy:_dataManager.policy eventLabels:inLabelsOrNil];
+            QuantcastEvent* e = [QuantcastEvent closeSessionEventWithSessionID:self.currentSessionID enforcingPolicy:self.dataManager.policy eventLabels:inLabelsOrNil];
         
             [self recordEvent:e];
             
@@ -428,7 +433,7 @@ QuantcastMeasurement* gSharedInstance = nil;
     if ( !self.isOptedOut ) {
         if ( self.isMeasurementActive ) {
             
-            QuantcastEvent* e = [QuantcastEvent pauseSessionEventWithSessionID:self.currentSessionID enforcingPolicy:_dataManager.policy eventLabels:inLabelsOrNil];
+            QuantcastEvent* e = [QuantcastEvent pauseSessionEventWithSessionID:self.currentSessionID enforcingPolicy:self.dataManager.policy eventLabels:inLabelsOrNil];
             
             [self recordEvent:e];
             
@@ -436,7 +441,7 @@ QuantcastMeasurement* gSharedInstance = nil;
             
             [self pauseGeoLocationMeasurement];
             [self stopReachabilityNotifier];
-            [_dataManager initiateDataUpload];
+            [self.dataManager initiateDataUpload];
         }
         else {
             NSLog(@"QC Measurement: pauseSessionWithLabels: was called without first calling beginMeasurementSession:");
@@ -451,7 +456,7 @@ QuantcastMeasurement* gSharedInstance = nil;
     if ( !self.isOptedOut ) {
         
         if ( self.isMeasurementActive ) {
-            QuantcastEvent* e = [QuantcastEvent resumeSessionEventWithSessionID:self.currentSessionID enforcingPolicy:_dataManager.policy eventLabels:inLabelsOrNil];
+            QuantcastEvent* e = [QuantcastEvent resumeSessionEventWithSessionID:self.currentSessionID enforcingPolicy:self.dataManager.policy eventLabels:inLabelsOrNil];
         
             [self recordEvent:e];
             
@@ -463,7 +468,7 @@ QuantcastMeasurement* gSharedInstance = nil;
             if ( self.sessionPauseStartTime != nil ) {
                 NSDate* curTime = [NSDate date];
                 
-                if ( [curTime timeIntervalSinceDate:self.sessionPauseStartTime] > _dataManager.policy.sessionPauseTimeoutSeconds ) {
+                if ( [curTime timeIntervalSinceDate:self.sessionPauseStartTime] > self.dataManager.policy.sessionPauseTimeoutSeconds ) {
                     
                     [self startNewSessionAndGenerateEventWithReason:QCPARAMETER_REASONTYPE_RESUME withLabels:inLabelsOrNil];
                     
@@ -548,7 +553,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
         
         QuantcastEvent* e = [QuantcastEvent networkReachabilityEventWithNetworkStatus:[self currentReachabilityStatus]
                                                                         withSessionID:self.currentSessionID
-                                                                      enforcingPolicy:_dataManager.policy];
+                                                                      enforcingPolicy:self.dataManager.policy];
         
         [self recordEvent:e];
     }
@@ -698,7 +703,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
             QuantcastEvent* e = [QuantcastEvent logEventEventWithEventName:inEventName
                                                                eventLabels:inLabelsOrNil
                                                                  sessionID:self.currentSessionID
-                                                           enforcingPolicy:_dataManager.policy];
+                                                           enforcingPolicy:self.dataManager.policy];
                                  
             [self recordEvent:e];
         }
@@ -713,7 +718,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
         QuantcastEvent* e = [QuantcastEvent logUploadLatency:inLatencyMilliseconds
                                                  forUploadId:inUploadID
                                                withSessionID:self.currentSessionID
-                                             enforcingPolicy:_dataManager.policy];
+                                             enforcingPolicy:self.dataManager.policy];
         
         [self recordEvent:e];
     }
@@ -859,7 +864,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
                                                                    province:self.geoProvince
                                                                        city:self.geoCity
                                                               withSessionID:self.currentSessionID
-                                                            enforcingPolicy:_dataManager.policy ];
+                                                            enforcingPolicy:self.dataManager.policy ];
             
             [self recordEvent:e];
             
@@ -908,7 +913,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     if ( _isOptedOut != inOptOutStatus ) {
         _isOptedOut = inOptOutStatus;
         
-        _dataManager.isOptOut = inOptOutStatus;
+        self.dataManager.isOptOut = inOptOutStatus;
 
         if ( inOptOutStatus ) {
             // setting the data manager to opt out will cause the cache directory to be emptied. No need to do further work here deleting files.
@@ -961,8 +966,8 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
 @synthesize uploadEventCount;
 
 -(NSUInteger)uploadEventCount {
-    if ( nil != _dataManager ) {
-        return _dataManager.uploadEventCount;
+    if ( nil != self.dataManager ) {
+        return self.dataManager.uploadEventCount;
     }
     
     return uploadEventCount;
@@ -971,8 +976,8 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
 -(void)setUploadEventCount:(NSUInteger)inUploadEventCount {
     
     if ( inUploadEventCount > 0 ){
-        if ( nil != _dataManager ) {
-            _dataManager.uploadEventCount = inUploadEventCount;
+        if ( nil != self.dataManager ) {
+            self.dataManager.uploadEventCount = inUploadEventCount;
         }
         
         uploadEventCount = inUploadEventCount;
@@ -989,13 +994,24 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
 -(void)setEnableLogging:(BOOL)inEnableLogging {
     _enableLogging = inEnableLogging;
     
-    _dataManager.enableLogging=inEnableLogging;
+    self.dataManager.enableLogging=inEnableLogging;
 }
 
 - (NSString *)description {
-    NSString* descStr = [NSString stringWithFormat:@"<QuantcastMeasurement %p: data manager = %@>", self, _dataManager];
+    NSString* descStr = [NSString stringWithFormat:@"<QuantcastMeasurement %p: data manager = %@>", self, self.dataManager];
     
     return descStr;
 }
+
+-(void)logSDKError:(NSString*)inSDKErrorType withErrorDescription:(NSString*)inErrorDescOrNil errorParameter:(NSString*)inErrorParametOrNil {
+    if ( !self.isOptedOut && self.isMeasurementActive ) {
+
+        QuantcastEvent* e = [QuantcastEvent logSDKError:inSDKErrorType withErrorDescription:inErrorDescOrNil errorParameter:inErrorParametOrNil withSessionID:self.currentSessionID enforcingPolicy:self.dataManager.policy];
+        
+        [self recordEvent:e];
+    }
+    
+}
+
 
 @end

@@ -10,6 +10,18 @@
  *
  */
 
+#ifndef __has_feature
+#define __has_feature(x) 0
+#endif
+#ifndef __has_extension
+#define __has_extension __has_feature // Compatibility with pre-3.0 compilers.
+#endif
+
+#if __has_feature(objc_arc) && __clang_major__ >= 3
+#error "Quantcast Measurement is not designed to be used with ARC. Please add '-fno-objc-arc' to this file's compiler flags"
+#endif // __has_feature(objc_arc)
+
+#import "QuantcastParameters.h"
 #import "QuantcastUploadJSONOperation.h"
 #import "QuantcastDataManager.h"
 #import "QuantcastUtils.h"
@@ -18,6 +30,7 @@
 @interface QuantcastMeasurement ()
 // declare "private" method here
 -(void)logUploadLatency:(NSUInteger)inLatencyMilliseconds forUploadId:(NSString*)inUploadID;
+-(void)logSDKError:(NSString*)inSDKErrorType withErrorDescription:(NSString*)inErrorDesc errorParameter:(NSString*)inErrorParametOrNil;
 
 @end
 
@@ -37,6 +50,8 @@
         _isExecuting = NO;
         _isFinished = NO;
         _isSuccessful = NO;
+        
+        self.threadPriority = 1;
     }
     
     return self;
@@ -100,7 +115,6 @@
 -(void)start {
     
     if( [self isFinished] || [self isCancelled] ) { 
-        //[self done]; 
         return; 
     }
     
@@ -121,9 +135,11 @@
         
         return;
     }
-    [_connection scheduleInRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
     
+    NSRunLoop* rl = [NSRunLoop currentRunLoop]; // Get the runloop
+    [_connection scheduleInRunLoop:rl forMode:NSDefaultRunLoopMode];
     [_connection start];
+    while( _isExecuting && [rl runMode:NSDefaultRunLoopMode beforeDate:[NSDate distantFuture]] );
 }
 
 
@@ -161,6 +177,20 @@
 
 
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error {
+    
+    NSString* errorDesc = nil;
+    
+    if ( nil != error ) {
+        errorDesc = error.description;
+    }
+    else {
+        errorDesc = @"Unknown upload failure";
+    }
+    
+    [[QuantcastMeasurement sharedInstance] logSDKError:QC_SDKERRORTYPE_UPLOADFAILURE
+                                  withErrorDescription:errorDesc
+                                        errorParameter:_uploadID];
+
     if (self.enableLogging) {
         NSLog(@"QC Measurement: Failed to upload json file '%@', error = %@", _jsonFilePath, error );
     }
@@ -200,6 +230,17 @@
                              
     [self done];
                              
+}
+
+- (BOOL)connection:(NSURLConnection *)connection canAuthenticateAgainstProtectionSpace:(NSURLProtectionSpace *)protectionSpace {
+    return [protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust];
+}
+
+- (void)connection:(NSURLConnection *)connection didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge {
+    NSURL* uploadURL = [NSURL URLWithString:QCMEASUREMENT_UPLOAD_URL];
+    NSString* trustedHost = [uploadURL host];
+    
+    [QuantcastUtils handleConnection:connection didReceiveAuthenticationChallenge:challenge withTrustedHost:trustedHost loggingEnabled:self.enableLogging];
 }
 
 @end

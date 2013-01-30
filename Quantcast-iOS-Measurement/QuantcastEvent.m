@@ -76,6 +76,10 @@
         return;
     }
     
+    if ( nil == inValue ) {
+        return;
+    }
+    
     [_parameters setObject:inValue forKey:inParamKey];
 }
 
@@ -421,5 +425,27 @@
     return e;
 }
 
+
++(QuantcastEvent*)logSDKError:(NSString*)inSDKErrorType
+         withErrorDescription:(NSString*)inErrorDescOrNil
+               errorParameter:(NSString*)inErrorParameterOrNil
+                withSessionID:(NSString*)inSessionID
+              enforcingPolicy:(QuantcastPolicy*)inPolicy
+{
+    QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID enforcingPolicy:inPolicy];
+ 
+    [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_SDKERROR enforcingPolicy:inPolicy];
+    [e putParameter:QCPARAMETER_ERRORTYPE withValue:inSDKErrorType enforcingPolicy:inPolicy];
+
+    if ( nil != inErrorDescOrNil ) {
+        [e putParameter:QCPARAMETER_ERRORDESCRIPTION withValue:inErrorDescOrNil enforcingPolicy:inPolicy];
+    }
+
+    if ( nil != inErrorParameterOrNil ) {
+        [e putParameter:QCPARAMETER_ERRORPARAMETER withValue:inErrorParameterOrNil enforcingPolicy:inPolicy];
+    }
+    
+    return e;
+}
 
 @end

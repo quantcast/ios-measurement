@@ -71,7 +71,8 @@
         _uploadManager = nil;
         
         _opQueue = [[NSOperationQueue alloc] init];
-
+        _opQueue.maxConcurrentOperationCount = 4; // prevent too many events from hitting datbase at once
+        
         if ( nil != inPolicy) {
             _policy = [inPolicy retain];
         }

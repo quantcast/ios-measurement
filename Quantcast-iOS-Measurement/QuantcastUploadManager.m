@@ -223,7 +223,7 @@
         return nil;
     }
     
-    NSURL* postURL = [NSURL URLWithString:QCMEASUREMENT_UPLOAD_URL];
+    NSURL* postURL = [QuantcastUtils updateSchemeForURL:[NSURL URLWithString:QCMEASUREMENT_UPLOAD_URL]];
     
     NSMutableURLRequest* request = [NSMutableURLRequest requestWithURL:postURL 
                                                            cachePolicy:NSURLRequestReloadIgnoringLocalCacheData 

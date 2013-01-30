@@ -30,12 +30,19 @@
 #import "QuantcastPolicy.h"
 #import "QuantcastParameters.h"
 #import "QuantcastUtils.h"
+#import "QuantcastMeasurement.h"
 
 #if QCMEASUREMENT_ENABLE_JSONKIT
 #import "JSONKit.h"
 #endif
 
 #define QCMEASUREMENT_DO_NOT_SALT_STRING    @"MSG"
+
+@interface QuantcastMeasurement ()
+// declare "private" method here
+-(void)logSDKError:(NSString*)inSDKErrorType withErrorDescription:(NSString*)inErrorDesc errorParameter:(NSString*)inErrorParametOrNil;
+
+@end
 
 @interface QuantcastPolicy ()
 
@@ -353,9 +360,23 @@
 
 - (void) connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
 {
-        if (self.enableLogging) {
-            NSLog(@"QC Measurement: Error downloading policy JSON from connection %@, error = %@", connection, error );
-        }
+    
+    NSString* errorDesc = nil;
+    
+    if ( nil != error ) {
+        errorDesc = error.description;
+    }
+    else {
+        errorDesc = @"Unknown policy download failure";
+    }
+    
+    [[QuantcastMeasurement sharedInstance] logSDKError:QC_SDKERRORTYPE_POLICYDOWNLOADFAILURE
+                                  withErrorDescription:errorDesc
+                                        errorParameter:_policyURL.description];
+
+    if (self.enableLogging) {
+        NSLog(@"QC Measurement: Error downloading policy JSON from connection %@, error = %@", connection, error );
+    }
 
     @synchronized(self) {
         [_downloadConnection release];
@@ -440,6 +461,17 @@
 
 }
 
+- (BOOL)connection:(NSURLConnection *)connection canAuthenticateAgainstProtectionSpace:(NSURLProtectionSpace *)protectionSpace {
+    return [protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust];
+}
+
+- (void)connection:(NSURLConnection *)connection didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge {
+    
+    [QuantcastUtils handleConnection:connection didReceiveAuthenticationChallenge:challenge withTrustedHost:[_policyURL host] loggingEnabled:self.enableLogging];
+
+}
+
+
 #pragma mark - Policy Factory
 
 
@@ -504,7 +536,7 @@
     
     NSString* policyURLStr = [NSString stringWithFormat:QCMEASUREMENT_POLICY_URL_FORMAT,inQuantcastAPIKey,QCMEASUREMENT_API_VERSION,osString,[mcc uppercaseString]];
     
-    NSURL* policyURL = [NSURL URLWithString:policyURLStr];
+    NSURL* policyURL =  [QuantcastUtils updateSchemeForURL:[NSURL URLWithString:policyURLStr]];
     
     if (inEnableLogging) {
         NSLog(@"QC Measurement: Creating policy object with policy URL = %@", policyURL);

@@ -36,6 +36,7 @@
 #define QCMEASUREMENT_EVENT_LOCATION    @"location"
 #define QCMEASUREMENT_EVENT_LATENCY     @"latency"
 #define QCMEASUREMENT_EVENT_NETINFO     @"netinfo"
+#define QCMEASUREMENT_EVENT_SDKERROR    @"sdkerror"
 
 
 // Open session event
@@ -86,12 +87,21 @@
 #define QCPARAMETER_REASONTYPE_USERHASH     @"userhash"
 #define QCPARAMETER_REASONTYPE_ADPREFCHANGE @"adprefchange"
 
+// SDK Error Event
+#define QCPARAMETER_ERRORTYPE         @"error-type"     // required
+#define QCPARAMETER_ERRORDESCRIPTION  @"error-desc"     // optional
+#define QCPARAMETER_ERRORPARAMETER    @"error-param"    // optional
+
+#define QC_SDKERRORTYPE_HTTPSAUTHCHALLENGE          @"https-auth-challenge"
+#define QC_SDKERRORTYPE_UPLOADFAILURE               @"json-upload-failure"
+#define QC_SDKERRORTYPE_POLICYDOWNLOADFAILURE       @"policy-download-failure"
+
 // 
 // Quantcast Measurement SDK
 //
 
-#define QCMEASUREMENT_API_VERSION               @"1_2_1"
-#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.2.1"
+#define QCMEASUREMENT_API_VERSION               @"1_2_2"
+#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.2.2"
 #define QCMEASUREMENT_CONN_TIMEOUT_SECONDS      60
 
 #ifndef QCMEASUREMENT_UPLOAD_URL
@@ -117,3 +127,5 @@
 #ifndef QCMEASUREMENT_DEFAULT_UPLOAD_EVENT_COUNT
 #define QCMEASUREMENT_DEFAULT_UPLOAD_EVENT_COUNT 100
 #endif
+
+

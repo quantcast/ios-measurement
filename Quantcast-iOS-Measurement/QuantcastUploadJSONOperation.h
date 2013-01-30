@@ -18,7 +18,7 @@
  @class QuantcastUploadJSONOperation
  @internal
  */
-@interface QuantcastUploadJSONOperation : NSOperation <NSURLConnectionDelegate> {
+@interface QuantcastUploadJSONOperation : NSOperation <NSURLConnectionDataDelegate> {
     QuantcastDataManager* _dataManager;
     NSURLRequest* _request;
     NSURLConnection* _connection;

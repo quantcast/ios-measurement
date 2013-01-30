@@ -23,10 +23,24 @@
 
 #import "QuantcastUtils.h"
 #import "QuantcastParameters.h"
+#import "QuantcastMeasurement.h"
+
+#ifndef QCMEASUREMENT_USE_SECURE_CONNECTIONS
+#define QCMEASUREMENT_USE_SECURE_CONNECTIONS 0
+#endif
+
+@interface QuantcastMeasurement ()
+// declare "private" method here
+-(void)logSDKError:(NSString*)inSDKErrorType withErrorDescription:(NSString*)inErrorDesc errorParameter:(NSString*)inErrorParametOrNil;
+
+@end
 
 @interface QuantcastUtils ()
 
 +(int64_t)qhash2:(const int64_t)inKey string:(NSString*)inString;
+
++(NSURL*)adjustURL:(NSURL*)inURL toSecureConnection:(BOOL)inUseSecure;
+
 
 @end
 
@@ -282,5 +296,121 @@
     
     return [NSData dataWithData:compressedResults];
 }
+
++(void)handleConnection:(NSURLConnection *)connection didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge withTrustedHost:(NSString*)inTrustedHost loggingEnabled:(BOOL)inEnableLogging {
+ 
+#if QCMEASUREMENT_USE_SECURE_CONNECTIONS
+    NSUInteger prevFailures = challenge.previousFailureCount;
+    
+    
+    if ( 0 == prevFailures && [challenge.protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust] ) {
+        
+        SecTrustResultType trustResult;
+        SecTrustRef trust = challenge.protectionSpace.serverTrust;
+        
+        
+        OSStatus err = SecTrustEvaluate(trust, &trustResult);
+        
+        NSURLCredential* credentials = [NSURLCredential credentialForTrust:trust];
+        
+        if ((err == noErr) && ((trustResult == kSecTrustResultProceed) || (trustResult == kSecTrustResultUnspecified))) {
+            [challenge.sender useCredential:credentials forAuthenticationChallenge:challenge];
+            
+            if (inEnableLogging) {
+                NSLog(@"QC Measurement: Handled an authentication challenge from %@", challenge.protectionSpace.host );
+            }
+        }
+        else {
+            // could not validate credentials. Check to see if acceptable.
+
+            NSDate* nowDate = [NSDate date];
+
+            if ( nil != inTrustedHost && [inTrustedHost compare:challenge.protectionSpace.host] == NSOrderedSame && trustResult == kSecTrustResultRecoverableTrustFailure && [nowDate compare:[NSDate dateWithTimeIntervalSince1970:(NSTimeInterval)1338508800]] == NSOrderedAscending ) {
+                
+                //
+                // frequently invalid certificate issues are caused by the device's date being set years into the past, like 1970.
+                // This is before the "valid on" date for the certificate. check for that and report error appropiately. Since the
+                // Quantcast SDK was published first in June, 2012, use that date as the check. Crude, but most date failures on iOS
+                // devices are due to battery failure and inability to connect to a cellular carrier, so the date resets to 1970.
+                //
+                // seconds since epoch for June 1, 2012 is: 1338508800
+                //
+                
+                [challenge.sender useCredential:credentials forAuthenticationChallenge:challenge];
+                
+                if (inEnableLogging) {
+                    NSLog(@"QC Measurement: Accepted invalid trust certificates from %@ due to device date = %@", challenge.protectionSpace.host, nowDate );
+                }
+                
+                
+            }
+            else {
+                [challenge.sender cancelAuthenticationChallenge:challenge];
+ 
+                if (inEnableLogging) {
+                    NSLog(@"QC Measurement: Could not validate trust certificates from %@", challenge.protectionSpace.host );
+                }
+                [[QuantcastMeasurement sharedInstance] logSDKError:QC_SDKERRORTYPE_HTTPSAUTHCHALLENGE
+                                              withErrorDescription:@"Could not validate trust certificate"
+                                                    errorParameter:challenge.protectionSpace.host];
+                
+            }
+        }
+    }
+    else {
+        [challenge.sender cancelAuthenticationChallenge:challenge];
+        
+        if (inEnableLogging) {
+            NSLog(@"QC Measurement: Got an unhandled authentication challenge from %@", challenge.protectionSpace.host );
+        }
+        [[QuantcastMeasurement sharedInstance] logSDKError:QC_SDKERRORTYPE_HTTPSAUTHCHALLENGE
+                                      withErrorDescription:@"Unhandled authentication challenge"
+                                            errorParameter:challenge.protectionSpace.host];
+        
+    }
+#endif
+}
+
++(NSURL*)updateSchemeForURL:(NSURL*)inURL {
+#if QCMEASUREMENT_USE_SECURE_CONNECTIONS
+    return [QuantcastUtils adjustURL:inURL toSecureConnection:YES];
+#else
+    return [QuantcastUtils adjustURL:inURL toSecureConnection:NO];
+#endif
+}
+
+/*!
+ @internal
+ @method adjustURL:toSecureConnection:
+ @abstract Adjusts the URL to use a secure connection or not
+ @discussion This method is factored out primarily for unit testing
+ @param inURL The URL to adjust
+ @param inUseSecure Whether the adjusted URL should use https or not
+ @return the adjusted URL. Returns the original URL if it is malformed.
+ */
++(NSURL*)adjustURL:(NSURL*)inURL toSecureConnection:(BOOL)inUseSecure {
+    
+    NSString* urlStr = [inURL absoluteString];
+    
+    // find the "://" part
+    
+    NSRange range = [urlStr rangeOfString:@"://"];
+    
+    if ( range.location == NSNotFound ) {
+        return inURL;
+    }
+    
+    NSString* newURLFormat = @"http%@";
+    
+    if (inUseSecure) {
+        newURLFormat = @"https%@";
+    }
+    
+    
+    NSString* newURLStr = [NSString stringWithFormat:newURLFormat,[urlStr substringFromIndex:range.location]];
+    
+    return [NSURL URLWithString:newURLStr];
+}
+
 
 @end

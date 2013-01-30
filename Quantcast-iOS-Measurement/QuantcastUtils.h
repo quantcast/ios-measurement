@@ -31,5 +31,25 @@
 
 +(NSData*)gzipData:(NSData*)inData error:(NSError**)outError;
 
+/*!
+ @internal
+ @method handleConnection:didReceiveAuthenticationChallenge:withTrustedHost: 
+ @abstract Convenience method for handdling https authentication challenges
+ @discussion This method handles https authentication chalenges sent to NSURLConnectionDelegate objects
+ @param connection the passed NSURLConnection
+ @param challenge the passed NSURLAuthenticationChallenge
+ @param inTrustedHost the domain name that self-signed certificates should be accepted from. Pass nil if none should be accepted.
+ @param inEnableLogging YES if logging should be enabled
+ */
++(void)handleConnection:(NSURLConnection *)connection didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge withTrustedHost:(NSString*)inTrustedHost loggingEnabled:(BOOL)inEnableLogging;
 
+/*!
+ @internal
+ @method updateSchemeForURL:
+ @abstract Adjusts the URL scheme based on the linkage to the Securirty framework
+ @discussion If the code is compiled with QCMEASUREMENT_USE_SECURE_CONNECTIONS defined to 1, the URL scheme will adjusted to use https. Otherwise, the URL will use http.
+ @param inURL the URL to adjust. It doesn't matter what the current scheme is.
+ @return The adjusted URL
+ */
++(NSURL*)updateSchemeForURL:(NSURL*)inURL;
 @end

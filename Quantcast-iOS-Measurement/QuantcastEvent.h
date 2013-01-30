@@ -101,5 +101,11 @@
                                               withSessionID:(NSString*)inSessionID
                                             enforcingPolicy:(QuantcastPolicy*)inPolicy;
 
++(QuantcastEvent*)logSDKError:(NSString*)inSDKErrorType
+         withErrorDescription:(NSString*)inErrorDescOrNil
+               errorParameter:(NSString*)inErrorParametOrNil
+                withSessionID:(NSString*)inSessionID
+              enforcingPolicy:(QuantcastPolicy*)inPolicy;
+
 
 @end

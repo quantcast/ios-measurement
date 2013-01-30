@@ -16,7 +16,7 @@
 // Requires iOS 4 and Xcode 4.5 or later. 
 //
 // Frameworks required:
-//      SystemConfiguration, Foundation, UIKit, CoreLocation, CoreTelephony,
+//      SystemConfiguration, Foundation, UIKit, CoreLocation, CoreTelephony
 //
 // Frameworks that should be weak-linked:
 //      AdSupport
@@ -26,6 +26,15 @@
 //
 // Additional code repositories required is running on iOS 4 (not require for iOS 5 and later):
 //      JSONKit         - https://github.com/johnezang/JSONKit
+//
+//      And place the following in your precompiled header:
+//          #define QCMEASUREMENT_ENABLE_JSONKIT 1
+//
+// Additional frameworks that are required if secure data uploads (https) are desired:
+//      Security
+//
+//      And place the following in your precompiled header:
+//          #define QCMEASUREMENT_USE_SECURE_CONNECTIONS 1
 //
 
 #import <Foundation/Foundation.h>
@@ -38,7 +47,6 @@
 #error "Quantcast Measurement is only available for iOS SDK 4.0 and later. "
 #endif
 
-@class QuantcastDataManager;
 @class QuantcastPolicy;
 
 /*!
@@ -47,7 +55,6 @@
  @discussion
  */
 @interface QuantcastMeasurement : NSObject <CLLocationManagerDelegate,QuantcastNetworkReachability> {
-    QuantcastDataManager* _dataManager;
     SCNetworkReachabilityRef _reachability;
     
     NSString* _hashedUserId;
