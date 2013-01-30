@@ -689,7 +689,9 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     
     NSString* hashedUserId = [self setUserIdentifier:inUserIdentifierOrNil];
     
-    if ( ( originalHashedUserId == nil && hashedUserId != nil ) || ( originalHashedUserId != nil && [originalHashedUserId compare:hashedUserId] != NSOrderedSame ) ) {
+    if ( ( originalHashedUserId == nil && hashedUserId != nil ) ||
+         ( originalHashedUserId != nil && hashedUserId == nil ) ||
+         ( originalHashedUserId != nil && [originalHashedUserId compare:hashedUserId] != NSOrderedSame ) ) {
         [self startNewSessionAndGenerateEventWithReason:QCPARAMETER_REASONTYPE_USERHASH withLabels:inLabelsOrNil];
     }
 
