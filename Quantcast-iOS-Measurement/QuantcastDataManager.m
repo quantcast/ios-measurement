@@ -58,9 +58,9 @@
     self = [super init];
     
     if (self) {
-        self.uploadEventCount = QCMEASUREMENT_DEFAULT_UPLOAD_EVENT_COUNT;
-        self.maxEventRetentionCount = QCMEASUREMENT_DEFAULT_MAX_EVENT_RETENTION_COUNT;
-        self.isDataDumpInprogress = NO;
+        uploadEventCount = QCMEASUREMENT_DEFAULT_UPLOAD_EVENT_COUNT;
+        maxEventRetentionCount = QCMEASUREMENT_DEFAULT_MAX_EVENT_RETENTION_COUNT;
+        isDataDumpInprogress = NO;
         
         _isOptOut = inOptOutStatus;
         

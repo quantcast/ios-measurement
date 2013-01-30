@@ -44,7 +44,7 @@
         _databaseFilePath = [inFilePath retain];
         _preparedStatements = [[NSMutableDictionary dictionaryWithCapacity:1] retain];
   
-        self.enableLogging = NO;
+        enableLogging = NO;
         
         if ( !sqlite3_threadsafe() ) {
             NSLog(@"QC Measurement: WARNING - This app is using a version of SQLite that is not thread safe. Strange things might happen.");
@@ -332,7 +332,7 @@
 
 -(void)clearStatementInDataObject:(NSData*)inStatementDataObj {
     
-    sqlite3_stmt* statement;
+    sqlite3_stmt* statement = NULL;
     
     [inStatementDataObj getBytes:&statement length:sizeof(statement)];
     

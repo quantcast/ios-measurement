@@ -64,7 +64,7 @@
     self = [super init];
     
     if (self) {
-        self.enableLogging = inEnableLogging;
+        enableLogging = inEnableLogging;
         
         _sessionTimeout = QCMEASUREMENT_DEFAULT_MAX_SESSION_PAUSE_SECOND;
         
