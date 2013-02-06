@@ -104,7 +104,7 @@ return self;
 -(void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     
-    if ( [self.delegate respondsToSelector:@selector(quantcastOptOutDialogWillAppear)] ) {
+    if ( nil != self.delegate && [self.delegate respondsToSelector:@selector(quantcastOptOutDialogWillAppear)] ) {
         [self.delegate quantcastOptOutDialogWillAppear];
     }
 }
@@ -112,7 +112,7 @@ return self;
 -(void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
     
-    if ( [self.delegate respondsToSelector:@selector(quantcastOptOutDialogDidAppear)] ) {
+    if ( nil != self.delegate && [self.delegate respondsToSelector:@selector(quantcastOptOutDialogDidAppear)] ) {
         [self.delegate quantcastOptOutDialogDidAppear];
     }
 }
@@ -120,7 +120,7 @@ return self;
 -(void)viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
     
-    if ( [self.delegate respondsToSelector:@selector(quantcastOptOutDialogWillDisappear)] ) {
+    if ( nil != self.delegate && [self.delegate respondsToSelector:@selector(quantcastOptOutDialogWillDisappear)] ) {
         [self.delegate quantcastOptOutDialogWillDisappear];
     }
 }
@@ -128,7 +128,7 @@ return self;
 -(void)viewDidDisappear:(BOOL)animated {
     [super viewDidDisappear:animated];
     
-    if ( [self.delegate respondsToSelector:@selector(quantcastOptOutDialogDidDisappear)] ) {
+    if ( nil != self.delegate && [self.delegate respondsToSelector:@selector(quantcastOptOutDialogDidDisappear)] ) {
         [self.delegate quantcastOptOutDialogDidDisappear];
     }
     
@@ -136,7 +136,7 @@ return self;
         
         [self.measurement setOptOutStatus:!self.enableMeasurementSwitch.on];
 
-        if ( [self.delegate respondsToSelector:@selector(quantcastOptOutStatusDidChange:)] ) {
+        if ( nil != self.delegate && [self.delegate respondsToSelector:@selector(quantcastOptOutStatusDidChange:)] ) {
             [self.delegate quantcastOptOutStatusDidChange:self.measurement.isOptedOut];
         }
     }

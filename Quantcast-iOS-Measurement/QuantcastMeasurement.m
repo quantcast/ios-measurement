@@ -60,7 +60,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 
 
 -(void)setOptOutStatus:(BOOL)inOptOutStatus;
--(void)startNewSessionAndGenerateEventWithReason:(NSString*)inReason withLabels:(NSString*)inLabelsOrNil;
+-(void)startNewSessionAndGenerateEventWithReason:(NSString*)inReason withLabels:(id<NSObject>)inLabelsOrNil;
 -(void)startNewSessionIfUsersAdPrefChanged;
 -(BOOL)isQuantcastAPIKeyValid:(NSString*)inQuantcastAppId;
 
@@ -332,7 +332,7 @@ QuantcastMeasurement* gSharedInstance = nil;
     return nil != self.currentSessionID;
 }
 
--(void)startNewSessionAndGenerateEventWithReason:(NSString*)inReason withLabels:(NSString*)inLabelsOrNil {
+-(void)startNewSessionAndGenerateEventWithReason:(NSString*)inReason withLabels:(id<NSObject>)inLabelsOrNil {
     
     self.currentSessionID = [QuantcastMeasurement generateSessionID];
     
@@ -357,7 +357,8 @@ QuantcastMeasurement* gSharedInstance = nil;
 }
 
 
--(void)beginMeasurementSessionWithAPIKey:(NSString*)inQuantcastAPIKey labels:(NSString*)inLabelsOrNil {
+-(void)beginMeasurementSessionWithAPIKey:(NSString*)inQuantcastAPIKey labels:(id<NSObject>)inLabelsOrNil {
+        
     // first check that app ID is proprly formatted
     
     if ( ![self isQuantcastAPIKeyValid:inQuantcastAPIKey] ) {
@@ -401,7 +402,7 @@ QuantcastMeasurement* gSharedInstance = nil;
     
 }
 
--(NSString*)beginMeasurementSessionWithAPIKey:(NSString*)inQuantcastAPIKey userIdentifier:(NSString*)inUserIdentifierOrNil labels:(NSString*)inLabelsOrNil {
+-(NSString*)beginMeasurementSessionWithAPIKey:(NSString*)inQuantcastAPIKey userIdentifier:(NSString*)inUserIdentifierOrNil labels:(id<NSObject>)inLabelsOrNil {
     
     NSString* hashedUserID = [self setUserIdentifier:inUserIdentifierOrNil];
     
@@ -410,7 +411,7 @@ QuantcastMeasurement* gSharedInstance = nil;
     return hashedUserID;
 }
 
--(void)endMeasurementSessionWithLabels:(NSString*)inLabelsOrNil {
+-(void)endMeasurementSessionWithLabels:(id<NSObject>)inLabelsOrNil {
     if ( !self.isOptedOut  ) {
         
         if ( self.isMeasurementActive ) {
@@ -428,7 +429,7 @@ QuantcastMeasurement* gSharedInstance = nil;
         }
     }
 }
--(void)pauseSessionWithLabels:(NSString*)inLabelsOrNil {
+-(void)pauseSessionWithLabels:(id<NSObject>)inLabelsOrNil {
     
     if ( !self.isOptedOut ) {
         if ( self.isMeasurementActive ) {
@@ -448,7 +449,7 @@ QuantcastMeasurement* gSharedInstance = nil;
         }
     }
 }
--(void)resumeSessionWithLabels:(NSString*)inLabelsOrNil {
+-(void)resumeSessionWithLabels:(id<NSObject>)inLabelsOrNil {
     // first, always check to see if iopt-out status has changed while the app was paused:
     
     [self setOptOutStatus:[QuantcastMeasurement isOptedOutStatus]];
@@ -670,7 +671,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     return hashedUserID;
 }
 
--(NSString*)recordUserIdentifier:(NSString*)inUserIdentifierOrNil withLabels:(NSString*)inLabelsOrNil {
+-(NSString*)recordUserIdentifier:(NSString*)inUserIdentifierOrNil withLabels:(id<NSObject>)inLabelsOrNil {
     
     if (self.isOptedOut) {
         return nil;
@@ -698,7 +699,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     return hashedUserId;
 }
 
--(void)logEvent:(NSString*)inEventName withLabels:(NSString*)inLabelsOrNil {
+-(void)logEvent:(NSString*)inEventName withLabels:(id<NSObject>)inLabelsOrNil {
     
     if ( !self.isOptedOut ) {
         if (self.isMeasurementActive) {

@@ -52,4 +52,15 @@
  @return The adjusted URL
  */
 +(NSURL*)updateSchemeForURL:(NSURL*)inURL;
+
+/*!
+ @internal
+ @method encodeLabelsList:
+ @abstract converts a list of NSString labels to a single NSString properly encoded for transmission
+ @param inLabelsArrayOrNil An NSArray containing one or more NSStrings
+ @return A NSString that should be used for the single NSString label functions
+ */
++(NSString*)encodeLabelsList:(NSArray*)inLabelsArrayOrNil;
+
++(NSString *)urlEncodeString:(NSString*)inString;
 @end

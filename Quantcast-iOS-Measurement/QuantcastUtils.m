@@ -319,43 +319,55 @@
             if (inEnableLogging) {
                 NSLog(@"QC Measurement: Handled an authentication challenge from %@", challenge.protectionSpace.host );
             }
+            
+            return;
         }
-        else {
-            // could not validate credentials. Check to see if acceptable.
+        
+        
+        // could not validate credentials. Check to see if acceptable.
 
-            NSDate* nowDate = [NSDate date];
+        //
+        // frequently invalid certificate issues are caused by the device's date being set years into the past, like 1970.
+        // This is before the "valid on" date for the certificate. check for that and report error appropiately. Since the
+        // Quantcast SDK was published first in January, 2013, use that date as the check. Crude, but most date failures on iOS
+        // devices are due to battery failure and inability to connect to a cellular carrier, so the date resets to 1970.
+        //
+        // seconds since epoch for January 1, 2013 is: 1356998400
+        //
 
-            if ( nil != inTrustedHost && [inTrustedHost compare:challenge.protectionSpace.host] == NSOrderedSame && trustResult == kSecTrustResultRecoverableTrustFailure && [nowDate compare:[NSDate dateWithTimeIntervalSince1970:(NSTimeInterval)1338508800]] == NSOrderedAscending ) {
-                
-                //
-                // frequently invalid certificate issues are caused by the device's date being set years into the past, like 1970.
-                // This is before the "valid on" date for the certificate. check for that and report error appropiately. Since the
-                // Quantcast SDK was published first in June, 2012, use that date as the check. Crude, but most date failures on iOS
-                // devices are due to battery failure and inability to connect to a cellular carrier, so the date resets to 1970.
-                //
-                // seconds since epoch for June 1, 2012 is: 1338508800
-                //
+        const NSTimeInterval QCMEASUREMENT_REFERENCE_TIMESTAMP = (NSTimeInterval)1356998400;
+        NSDate* nowDate = [NSDate date];
+        NSDate* validCheckDate = [NSDate dateWithTimeIntervalSince1970:QCMEASUREMENT_REFERENCE_TIMESTAMP];
+
+        if ( nil != inTrustedHost && [inTrustedHost compare:challenge.protectionSpace.host] == NSOrderedSame && trustResult == kSecTrustResultRecoverableTrustFailure && [nowDate compare:validCheckDate] == NSOrderedAscending ) {
+            
+             
+            
+            SecTrustSetVerifyDate(trust, (CFDateRef)validCheckDate);
+            err = SecTrustEvaluate(trust, &trustResult);
+            
+            if ((err == noErr) && ((trustResult == kSecTrustResultProceed) || (trustResult == kSecTrustResultUnspecified))) {
                 
                 [challenge.sender useCredential:credentials forAuthenticationChallenge:challenge];
-                
+            
                 if (inEnableLogging) {
                     NSLog(@"QC Measurement: Accepted invalid trust certificates from %@ due to device date = %@", challenge.protectionSpace.host, nowDate );
                 }
                 
-                
-            }
-            else {
-                [challenge.sender cancelAuthenticationChallenge:challenge];
- 
-                if (inEnableLogging) {
-                    NSLog(@"QC Measurement: Could not validate trust certificates from %@", challenge.protectionSpace.host );
-                }
-                [[QuantcastMeasurement sharedInstance] logSDKError:QC_SDKERRORTYPE_HTTPSAUTHCHALLENGE
-                                              withErrorDescription:@"Could not validate trust certificate"
-                                                    errorParameter:challenge.protectionSpace.host];
-                
+                return;
             }
         }
+        
+        // challenge could not be authenticated. reject.
+
+        [challenge.sender cancelAuthenticationChallenge:challenge];
+
+        if (inEnableLogging) {
+            NSLog(@"QC Measurement: Could not validate trust certificates from %@", challenge.protectionSpace.host );
+        }
+        [[QuantcastMeasurement sharedInstance] logSDKError:QC_SDKERRORTYPE_HTTPSAUTHCHALLENGE
+                                      withErrorDescription:@"Could not validate trust certificate"
+                                            errorParameter:challenge.protectionSpace.host];
     }
     else {
         [challenge.sender cancelAuthenticationChallenge:challenge];
@@ -412,5 +424,41 @@
     return [NSURL URLWithString:newURLStr];
 }
 
+
++(NSString*)encodeLabelsList:(NSArray*)inLabelsArrayOrNil {
+    if ( nil == inLabelsArrayOrNil ) {
+        return nil;
+    }
+    
+    NSString* encodedLabels = nil;
+    
+    for (id object in inLabelsArrayOrNil ) {
+        
+        if ( [object isKindOfClass:[NSString class]]) {
+        
+            NSString* label = (NSString*)object;
+            NSString* encodedString = [QuantcastUtils urlEncodeString:label];
+        
+            if ( nil == encodedLabels ) {
+                encodedLabels = encodedString;
+            }
+            else {
+                encodedLabels = [NSString stringWithFormat:@"%@,%@",encodedLabels,encodedString];
+            }
+        }
+        else {
+            NSLog(@"QC Measurment: ERROR - A label was passed in an NSArray that was not a NSString. label = %@", object);
+        }
+    }
+    
+    return encodedLabels;
+}
+
++(NSString *)urlEncodeString:(NSString*)inString {
+	NSString* encodedString = (NSString *)CFURLCreateStringByAddingPercentEscapes( kCFAllocatorDefault, (CFStringRef)inString, NULL, (CFStringRef)@"!*'\"();:@&=+$,/?%#[]% ", CFStringConvertNSStringEncodingToEncoding(NSUTF8StringEncoding) );
+
+
+    return [encodedString autorelease];
+}
 
 @end

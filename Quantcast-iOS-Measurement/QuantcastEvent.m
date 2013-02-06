@@ -87,6 +87,29 @@
     return [_parameters objectForKey:inParamKey];
 }
 
+-(void)putLabels:(id<NSObject>)inLabelsObjectOrNil enforcingPolicy:(QuantcastPolicy*)inPolicyOrNil {
+    if ( nil != inLabelsObjectOrNil ) {
+      
+        if ( [inLabelsObjectOrNil isKindOfClass:[NSString class]] ) {
+            NSString* encodedLabel = [QuantcastUtils urlEncodeString:(NSString*)inLabelsObjectOrNil];
+            
+            [self putParameter:QCPARAMETER_LABELS withValue:encodedLabel enforcingPolicy:inPolicyOrNil];
+
+        }
+        else if ( [inLabelsObjectOrNil isKindOfClass:[NSArray class]] ) {
+            NSArray* labelArray = (NSArray*)inLabelsObjectOrNil;
+            
+            NSString* labelsString =  [QuantcastUtils encodeLabelsList:labelArray];
+            
+            [self putParameter:QCPARAMETER_LABELS withValue:labelsString enforcingPolicy:inPolicyOrNil];
+        }
+        else {
+            NSLog(@"QC Measurment: An incorrect object type was passed as a label. The object passed was: %@",inLabelsObjectOrNil);
+        
+        }
+    }
+}
+
 #pragma mark - JSON conversion
 
 -(NSString*)JSONStringEnforcingPolicy:(QuantcastPolicy*)inPolicyOrNil {
@@ -191,7 +214,7 @@
                                     deviceIdentifier:(NSString*)inDeviceID
                                 appInstallIdentifier:(NSString*)inAppInstallID
                                      enforcingPolicy:(QuantcastPolicy*)inPolicy
-                                         eventLabels:(NSString*)inEventLabelsOrNil
+                                         eventLabels:(id<NSObject>)inEventLabelsOrNil
 {
     
     QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID enforcingPolicy:inPolicy];
@@ -232,10 +255,8 @@
     if (nil != appBuildVersion) {
         [e putParameter:QCPARAMETER_IVER withValue:appBuildVersion enforcingPolicy:inPolicy];
     }
-        
-    if (nil != inEventLabelsOrNil ) {
-        [e putParameter:QCPARAMETER_LABELS withValue:inEventLabelsOrNil enforcingPolicy:inPolicy];
-    }
+    
+    [e putLabels:inEventLabelsOrNil enforcingPolicy:inPolicy];
     
     if ( nil != inHashedUserIDOrNil ) {
         [e putParameter:QCPARAMETER_UH withValue:inHashedUserIDOrNil enforcingPolicy:inPolicy];
@@ -314,51 +335,45 @@
 
 +(QuantcastEvent*)closeSessionEventWithSessionID:(NSString*)inSessionID 
                                  enforcingPolicy:(QuantcastPolicy*)inPolicy
-                                     eventLabels:(NSString*)inEventLabelsOrNil
+                                     eventLabels:(id<NSObject>)inEventLabelsOrNil
 {
     QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID enforcingPolicy:inPolicy];
     
     [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_FINISHED enforcingPolicy:inPolicy];
     
-    if (nil != inEventLabelsOrNil ) {
-        [e putParameter:QCPARAMETER_LABELS withValue:inEventLabelsOrNil enforcingPolicy:inPolicy];
-    }
+    [e putLabels:inEventLabelsOrNil enforcingPolicy:inPolicy];
     
     return e;
 }
 
 +(QuantcastEvent*)pauseSessionEventWithSessionID:(NSString*)inSessionID 
                                  enforcingPolicy:(QuantcastPolicy*)inPolicy
-                                     eventLabels:(NSString*)inEventLabelsOrNil
+                                     eventLabels:(id<NSObject>)inEventLabelsOrNil
 {
     QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID enforcingPolicy:inPolicy];
     
     [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_PAUSE enforcingPolicy:inPolicy];
     
-    if (nil != inEventLabelsOrNil ) {
-        [e putParameter:QCPARAMETER_LABELS withValue:inEventLabelsOrNil enforcingPolicy:inPolicy];
-    }
+    [e putLabels:inEventLabelsOrNil enforcingPolicy:inPolicy];
     
     return e;
 }
 
 +(QuantcastEvent*)resumeSessionEventWithSessionID:(NSString*)inSessionID 
                                   enforcingPolicy:(QuantcastPolicy*)inPolicy
-                                      eventLabels:(NSString*)inEventLabelsOrNil
+                                      eventLabels:(id<NSObject>)inEventLabelsOrNil
 {
     QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID enforcingPolicy:inPolicy];
     
     [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_RESUME enforcingPolicy:inPolicy];
     
-    if (nil != inEventLabelsOrNil ) {
-        [e putParameter:QCPARAMETER_LABELS withValue:inEventLabelsOrNil enforcingPolicy:inPolicy];
-    }
+    [e putLabels:inEventLabelsOrNil enforcingPolicy:inPolicy];
     
     return e;
 }
 
 +(QuantcastEvent*)logEventEventWithEventName:(NSString*)inEventName
-                                 eventLabels:(NSString*)inEventLabelsOrNil   
+                                 eventLabels:(id<NSObject>)inEventLabelsOrNil   
                                    sessionID:(NSString*)inSessionID 
                              enforcingPolicy:(QuantcastPolicy*)inPolicy
 {
@@ -366,9 +381,7 @@
    
     [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_APPEVENT enforcingPolicy:inPolicy];
     [e putParameter:QCPARAMETER_APPEVENT withValue:inEventName enforcingPolicy:inPolicy];
-    if (nil != inEventLabelsOrNil ) {
-        [e putParameter:QCPARAMETER_LABELS withValue:inEventLabelsOrNil enforcingPolicy:inPolicy];
-    }
+    [e putLabels:inEventLabelsOrNil enforcingPolicy:inPolicy];
 
     
     return e;

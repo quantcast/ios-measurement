@@ -41,6 +41,8 @@
 -(void)putParameter:(NSString*)inParamKey withValue:(id)inValue enforcingPolicy:(QuantcastPolicy*)inPolicyOrNil;
 -(id)getParameter:(NSString*)inParamKey;
 
+-(void)putLabels:(id<NSObject>)inLabelsObjectOrNil enforcingPolicy:(QuantcastPolicy*)inPolicyOrNil;
+
 #pragma mark - JSON conversion
 
 -(NSString*)JSONStringEnforcingPolicy:(QuantcastPolicy*)inPolicyOrNil;
@@ -64,23 +66,23 @@
                                     deviceIdentifier:(NSString*)inDeviceID
                                 appInstallIdentifier:(NSString*)inAppInstallID
                                      enforcingPolicy:(QuantcastPolicy*)inPolicy
-                                         eventLabels:(NSString*)inEventLabelsOrNil;
+                                         eventLabels:(id<NSObject>)inEventLabelsOrNil;
 
 +(QuantcastEvent*)closeSessionEventWithSessionID:(NSString*)inSessionID 
                                  enforcingPolicy:(QuantcastPolicy*)inPolicy
-                                     eventLabels:(NSString*)inEventLabelsOrNil;
+                                     eventLabels:(id<NSObject>)inEventLabelsOrNil;
 
 +(QuantcastEvent*)pauseSessionEventWithSessionID:(NSString*)inSessionID 
                                  enforcingPolicy:(QuantcastPolicy*)inPolicy
-                                     eventLabels:(NSString*)inEventLabelsOrNil;
+                                     eventLabels:(id<NSObject>)inEventLabelsOrNil;
 
 +(QuantcastEvent*)resumeSessionEventWithSessionID:(NSString*)inSessionID 
                                   enforcingPolicy:(QuantcastPolicy*)inPolicy
-                                      eventLabels:(NSString*)inEventLabelsOrNil;
+                                      eventLabels:(id<NSObject>)inEventLabelsOrNil;
 
 
 +(QuantcastEvent*)logEventEventWithEventName:(NSString*)inEventName
-                                 eventLabels:(NSString*)inEventLabelsOrNil   
+                                 eventLabels:(id<NSObject>)inEventLabelsOrNil   
                                    sessionID:(NSString*)inSessionID 
                              enforcingPolicy:(QuantcastPolicy*)inPolicy;
 
