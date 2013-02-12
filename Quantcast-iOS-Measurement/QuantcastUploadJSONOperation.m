@@ -34,6 +34,12 @@
 
 @end
 
+@interface QuantcastUploadJSONOperation ()
+
+-(void)endBackgroundTaskTracking;
+
+@end
+
 @implementation QuantcastUploadJSONOperation
 @synthesize successful=_isSuccessful;
 @synthesize enableLogging;
@@ -50,6 +56,8 @@
         _isExecuting = NO;
         _isFinished = NO;
         _isSuccessful = NO;
+        
+        _backgroundTask = UIBackgroundTaskInvalid;
         
         self.threadPriority = 1;
     }
@@ -79,6 +87,20 @@
         _isFinished = YES;
         [self didChangeValueForKey:@"isFinished"];
     }
+    
+    [self endBackgroundTaskTracking];
+    
+}
+-(void)endBackgroundTaskTracking {
+    if ( UIBackgroundTaskInvalid != _backgroundTask ) {
+        if (self.enableLogging) {
+            NSLog(@"QC Measurement: Ended json upload background task %d", _backgroundTask );
+        }
+        
+        UIBackgroundTaskIdentifier taskToEnd = _backgroundTask;
+        _backgroundTask = UIBackgroundTaskInvalid;
+        [[UIApplication sharedApplication] endBackgroundTask:taskToEnd];
+    }
 }
 
 -(void)uploadFailed {
@@ -86,13 +108,16 @@
     
     NSString* newFilePath = [[QuantcastUtils quantcastDataReadyToUploadDirectoryPath] stringByAppendingPathComponent:[_jsonFilePath lastPathComponent]];
     
-    NSError* error;
+    NSError* error = nil;
     
     if ( ![[NSFileManager defaultManager] moveItemAtPath:_jsonFilePath toPath:newFilePath error:&error] ) {
         // error, will robinson
         if ( self.enableLogging ) {
             NSLog(@"QC Measurement: Could not relocate file '%@' to '%@'. Error = %@", _jsonFilePath, newFilePath, error );
         }
+    }
+    else if ( self.enableLogging ) {
+        NSLog(@"QC Measurement: Upload of file '%@' failed. Moved to '%@'", _jsonFilePath, newFilePath);
     }
     
 }
@@ -118,10 +143,40 @@
         return; 
     }
     
+    // start the background task so that this upload is not interupted until it is done.
+    
+    _backgroundTask = [[UIApplication sharedApplication] beginBackgroundTaskWithExpirationHandler:^{
+        
+        if (self.enableLogging) {
+            NSLog(@"QC Measurement: Ran out of time to complete background task %d", _backgroundTask );
+        }
+        
+        if ( !self.isFinished ) {            
+            [self cancel];
+            if ( nil != _connection ) {
+                [_connection cancel];
+            }
+            [self uploadFailed];
+        }
+        
+        if ( self.isExecuting ) {
+            [self willChangeValueForKey:@"isExecuting"];
+            _isExecuting = NO;
+            [self didChangeValueForKey:@"isExecuting"];
+        }
+
+        [self endBackgroundTaskTracking];
+    }];
+    
+    
     // isExecuting needs to be KVO compliant
     [self willChangeValueForKey:@"isExecuting"];
     _isExecuting = YES;
     [self didChangeValueForKey:@"isExecuting"];
+    
+    if (self.enableLogging) {
+        NSLog(@"QC Measurement: Beginning upload of json file '%@' to %@ with background task %d", _jsonFilePath, [_request URL], _backgroundTask );
+    }
     
     _startTime = [[NSDate date] retain];
     

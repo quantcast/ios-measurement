@@ -32,6 +32,8 @@
     
     NSDate* _startTime;
 
+    UIBackgroundTaskIdentifier _backgroundTask;
+
 }
 @property(nonatomic, readonly ) BOOL successful;
 @property(nonatomic, assign) BOOL enableLogging;

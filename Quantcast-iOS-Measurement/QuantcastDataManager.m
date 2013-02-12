@@ -252,10 +252,29 @@
  }
 
 -(void)initiateDataUpload {
-        
+
     self.isDataDumpInprogress = YES;
     
     [self.opQueue addOperationWithBlock:^{
+        __block UIBackgroundTaskIdentifier backgroundTask = UIBackgroundTaskInvalid;
+        
+        backgroundTask = [[UIApplication sharedApplication] beginBackgroundTaskWithExpirationHandler:^{
+            
+            if ( UIBackgroundTaskInvalid != backgroundTask ) {
+                if (self.enableLogging) {
+                    NSLog(@"QC Measurement: Ran out of time on background task %d", backgroundTask );
+                }
+                UIBackgroundTaskIdentifier taskToEnd = backgroundTask;
+                backgroundTask = UIBackgroundTaskInvalid;
+                [[UIApplication sharedApplication] endBackgroundTask:taskToEnd];
+            }
+        } ];
+        
+        
+        if (self.enableLogging ) {
+            NSLog(@"QC Measurement: Started data manager dump with background task %d", backgroundTask );
+        }
+        
         @synchronized(self) {
             if (self.policy.hasUpdatedPolicyBeenDownloaded) {
                 NSString* uploadID = [QuantcastUploadManager generateUploadID];
@@ -272,7 +291,18 @@
                 
             }
             
-            self.isDataDumpInprogress = NO;
+            self.isDataDumpInprogress = NO;           
+        }
+        
+        if ( UIBackgroundTaskInvalid != backgroundTask ) {
+            // sleep for a bit so that upload tasks have some time to start
+            [NSThread sleepForTimeInterval:2.0];
+            if (self.enableLogging ) {
+                NSLog(@"QC Measurement: Ended data dump background task %d", backgroundTask);
+            }
+            UIBackgroundTaskIdentifier taskToEnd = backgroundTask;
+            backgroundTask = UIBackgroundTaskInvalid;
+            [[UIApplication sharedApplication] endBackgroundTask:taskToEnd];
         }
     } ];
     
