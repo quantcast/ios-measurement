@@ -59,12 +59,12 @@ To implement the required set of SDK calls, perform the following steps:
 2.	In your `UIApplication` delegate's `application:didFinishLaunchingWithOptions:` method, place the following:
 
 	```objective-c
-	[[QuantcastMeasurement sharedInstance] beginMeasurementSessionWithAPIKey:@"<*Insert your API Key Here*>" userIdentifier:userIdentifierStrOrNil labels:nil];;
+	[[QuantcastMeasurement sharedInstance] beginMeasurementSessionWithAPIKey:@"<*Insert your API Key Here*>" userIdentifier:userIdentifierStrOrNil labels:nil];
 	```
 		
 	Replace "<\*Insert your API Key Here\*>" with your Quantcast API Key, which can be generated in your Quantcast account homepage on [the Quantcast website](http://www.quantcast.com "Quantcast.com"). The API Key is used as the basic reporting entity for Quantcast Measure. The same API Key can be used across multiple apps (i.e. AppName Free / AppName Paid) and/or app platforms (i.e. iOS / Android). For all apps under each unique API Key, Quantcast will report the aggregate audience among them all, and also identify/report on the individual app versions.
 
-	The `userIdentifier:` parameter is a string that uniquely identifies an individual user, such as an account login. Passing this information allows Quantcast to provide reports on your combined audience across all your properties: online, mobile web and mobile app. This parameter may be nil if your app does not have a user identifier. If the user identifier is not known at the time the `application:didFinishLaunchingWithOptions:` is called, the user identifier can be recorded at a later time. Please see the [Combined Web/App Audiences](#combined-webapp-audiences) section for more information.
+	The `userIdentifier:` parameter is a string that uniquely identifies an individual user, such as an account login. Passing this information allows Quantcast to provide reports on your combined audience across all your properties: online, mobile web and mobile app. This parameter may be nil if your app does not have a user identifier available at the time your app launches. If the user identifier is not known at the time the `application:didFinishLaunchingWithOptions:` method is called, the user identifier can be recorded at a later time. Please see the [Combined Web/App Audiences](#combined-webapp-audiences) section for more information.
 	
 	The labels parameter may be nil and is discussed in more detail in the [Event Labels](#event-labels) section under Optional Code Integrations.
 	
@@ -130,7 +130,7 @@ Note that you should only enable geo-tracking if your app has some location-awar
 The Quantcast iOS SDK will automatically pause geo-tracking while your app is in the background. This is done for both battery life and privacy considerations.
 
 #### Combined Web/App Audiences ####
-Quantcast Measure enables you to measure your combined web and mobile app audiences, allowing you to understand the differences and similarities of your online and mobile app audiences, or even the combined audiences of your different apps. To enable this feature, you will need to provide a user identifier, which Quantcast will always anonymize with a 1-way hash before it is transmitted from the user's device. This user identifier should also be provided for your website(s); please see Quantcast's web measurement documentation for instructions.
+Quantcast Measure enables you to measure your combined web and mobile app audiences, allowing you to understand the differences and similarities of your online and mobile app audiences, or even the combined audiences of your different apps. To enable this feature, you will need to provide a user identifier, which Quantcast will always anonymize with a 1-way hash before it is transmitted from the user's device. This user identifier should also be provided for your website(s); please see [Quantcast's web measurement documentation](https://www.quantcast.com/learning-center/guides/cross-platform-audience-measurement-guide) for instructions.
 
 Normally, your app user identifier would be provided in your `UIApplication` delegate's `application:didFinishLaunchingWithOptions:` method via the `beginMeasurementSessionWithAPIKey:userIdentifier:labels:` method as described in the [Required Code Integration](#required-code-integration) section above. If the app's active user identifier changes later in the app's life cycle, you can update the user identifier using the following method call:
 
