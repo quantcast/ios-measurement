@@ -196,7 +196,7 @@
 /*!
  @property uploadEventCount
  @abstract The maximum number of events the SDK will retain locally before attempting to upload them to the Quantcast servers.
- @discussion This is the integer number of events the SDK will collect before initiating an upload to the Quantcast servers. Uploads that occur too often will drain the device's battery. Uploads that don't occur often enough will cause significant delays in uploading data to the Quantcast server for analysis and reporting. You may set this property to an integer value greater than or equal to 1. This value defaults to 100 if it is unset by you.
+ @discussion This is the integer number of events the SDK will collect before initiating an upload to the Quantcast servers. Uploads that occur too often will drain the device's battery. Uploads that don't occur often enough will cause significant delays in uploading data to the Quantcast server for analysis and reporting. You may set this property to an integer value greater than or equal to 2. This value defaults to 100 if it is unset by you.
  */
  
 @property (assign,nonatomic) NSUInteger uploadEventCount;

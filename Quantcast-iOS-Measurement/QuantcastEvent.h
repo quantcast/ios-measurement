@@ -11,6 +11,7 @@
  */
 
 #import <UIKit/UIKit.h>
+#import <CoreTelephony/CTCarrier.h>
 #import "QuantcastNetworkReachability.h"
 
 @class QuantcastPolicy;
@@ -66,7 +67,8 @@
                                     deviceIdentifier:(NSString*)inDeviceID
                                 appInstallIdentifier:(NSString*)inAppInstallID
                                      enforcingPolicy:(QuantcastPolicy*)inPolicy
-                                         eventLabels:(id<NSObject>)inEventLabelsOrNil;
+                                         eventLabels:(id<NSObject>)inEventLabelsOrNil
+                                             carrier:(CTCarrier*)carrier;
 
 +(QuantcastEvent*)closeSessionEventWithSessionID:(NSString*)inSessionID 
                                  enforcingPolicy:(QuantcastPolicy*)inPolicy

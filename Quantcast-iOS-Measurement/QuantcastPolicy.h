@@ -10,6 +10,7 @@
  *
  */
 
+#import <CoreTelephony/CTCarrier.h>
 #import <Foundation/Foundation.h>
 #import "QuantcastNetworkReachability.h"
 
@@ -43,7 +44,7 @@
 
 -(BOOL)isBlacklistedParameter:(NSString*)inParamName;
 
-+(QuantcastPolicy*)policyWithAPIKey:(NSString*)inQuantcastAPIKey networkReachability:(id<QuantcastNetworkReachability>)inReachability enableLogging:(BOOL)inEnableLogging;
++(QuantcastPolicy*)policyWithAPIKey:(NSString*)inQuantcastAPIKey networkReachability:(id<QuantcastNetworkReachability>)inReachability carrier:(CTCarrier*)carrier enableLogging:(BOOL)inEnableLogging;
 
 #pragma mark - Debugging Support
 @property (assign) BOOL enableLogging;

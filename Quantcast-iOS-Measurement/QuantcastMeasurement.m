@@ -21,6 +21,7 @@
 #error "Quantcast Measurement is not designed to be used with ARC. Please add '-fno-objc-arc' to this file's compiler flags"
 #endif // __has_feature(objc_arc)
 
+#import <CoreTelephony/CTTelephonyNetworkInfo.h>
 #import <AdSupport/AdSupport.h>
 #import "QuantcastMeasurement.h"
 #import "QuantcastParameters.h"
@@ -34,6 +35,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 
 
 @interface QuantcastMeasurement ()
+
 @property (retain,nonatomic) NSString* currentSessionID;
 @property (retain,nonatomic) QuantcastDataManager* dataManager;
 @property (retain,nonatomic) NSString* quantcastAPIKey;
@@ -45,6 +47,8 @@ QuantcastMeasurement* gSharedInstance = nil;
 @property (retain,nonatomic) NSString* geoProvince;
 @property (retain,nonatomic) NSString* geoCity;
 @property (readonly,nonatomic) BOOL advertisingTrackingEnabled;
+@property (retain, nonatomic) CTTelephonyNetworkInfo* telephoneInfo;
+@property (readonly,nonatomic) CTCarrier* carrier;
 
 +(NSString*)generateSessionID;
 +(BOOL)isOptedOutStatus;
@@ -75,13 +79,13 @@ QuantcastMeasurement* gSharedInstance = nil;
 -(void)logNetworkReachability;
 -(BOOL)startReachabilityNotifier;
 -(void)stopReachabilityNotifier;
-
 @end
 
 @implementation QuantcastMeasurement
 @synthesize locationManager;
 @synthesize geocoder;
 @synthesize sessionPauseStartTime;
+@synthesize telephoneInfo;
 
 +(QuantcastMeasurement*)sharedInstance {
 
@@ -107,6 +111,10 @@ QuantcastMeasurement* gSharedInstance = nil;
         
         _geoLocationEnabled = NO;
         
+        Class telephonyClass = NSClassFromString(@"CTTelephonyNetworkInfo");
+        if ( nil != telephonyClass ) {
+            telephoneInfo = [[telephonyClass alloc] init];
+        }
         uploadEventCount = QCMEASUREMENT_DEFAULT_UPLOAD_EVENT_COUNT;
         
     }
@@ -126,7 +134,8 @@ QuantcastMeasurement* gSharedInstance = nil;
     
     [_dataManager release];
     [_hashedUserId release];
-    
+
+    [telephoneInfo release];
     
     [super dealloc];
 }
@@ -348,7 +357,8 @@ QuantcastMeasurement* gSharedInstance = nil;
                                                           deviceIdentifier:self.deviceIdentifier
                                                              appInstallIdentifier:self.appInstallIdentifier
                                                            enforcingPolicy:self.dataManager.policy
-                                                               eventLabels:inLabelsOrNil];
+                                                               eventLabels:inLabelsOrNil
+                                                                   carrier:self.carrier];
     
     
     [self recordEvent:e];
@@ -372,7 +382,7 @@ QuantcastMeasurement* gSharedInstance = nil;
         
         
         if (nil == self.dataManager) {
-            QuantcastPolicy* policy = [QuantcastPolicy policyWithAPIKey:self.quantcastAPIKey networkReachability:self enableLogging:self.enableLogging];
+            QuantcastPolicy* policy = [QuantcastPolicy policyWithAPIKey:self.quantcastAPIKey networkReachability:self carrier:self.carrier enableLogging:self.enableLogging];
             
             if ( nil == policy ) {
                 // policy wasn't able to be built. Stop reachability and bail, thus not activating measurement.
@@ -519,6 +529,19 @@ QuantcastMeasurement* gSharedInstance = nil;
     
     return YES;
 }
+
+#pragma mark - Telephony
+
+-(CTCarrier*)carrier{
+    CTCarrier* carrier = nil;
+    
+    if ( nil != self.telephoneInfo ) {
+        carrier = self.telephoneInfo.subscriberCellularProvider;
+    }
+        
+    return carrier;
+}
+
 
 #pragma mark - Network Reachability
 
@@ -813,6 +836,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     
     [self locationManager:manager didUpdateLocations:locationList];
 }
+
 - (void)locationManager:(CLLocationManager *)manager didUpdateLocations:(NSArray *)locations
 {
     if ([locations count] == 0 ) {
@@ -978,7 +1002,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
 
 -(void)setUploadEventCount:(NSUInteger)inUploadEventCount {
     
-    if ( inUploadEventCount > 0 ){
+    if ( inUploadEventCount > 1 ){
         if ( nil != self.dataManager ) {
             self.dataManager.uploadEventCount = inUploadEventCount;
         }
@@ -986,7 +1010,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
         uploadEventCount = inUploadEventCount;
     }
     else {
-        NSLog( @"QC Measurement: ERROR - Tried to set uploadEventCount to 0");
+        NSLog( @"QC Measurement: ERROR - Tried to set uploadEventCount to disallowed value %d", inUploadEventCount );
     }
 }
 

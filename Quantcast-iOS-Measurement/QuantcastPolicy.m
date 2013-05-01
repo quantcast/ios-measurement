@@ -26,7 +26,6 @@
 #endif
 
 #import <CoreTelephony/CTCarrier.h>
-#import <CoreTelephony/CTTelephonyNetworkInfo.h>
 #import "QuantcastPolicy.h"
 #import "QuantcastParameters.h"
 #import "QuantcastUtils.h"
@@ -41,7 +40,7 @@
 @interface QuantcastMeasurement ()
 // declare "private" method here
 -(void)logSDKError:(NSString*)inSDKErrorType withErrorDescription:(NSString*)inErrorDesc errorParameter:(NSString*)inErrorParametOrNil;
-
+-(CTCarrier*)getCarrier;
 @end
 
 @interface QuantcastPolicy ()
@@ -475,28 +474,19 @@
 #pragma mark - Policy Factory
 
 
-+(QuantcastPolicy*)policyWithAPIKey:(NSString*)inQuantcastAPIKey networkReachability:(id<QuantcastNetworkReachability>)inReachability enableLogging:(BOOL)inEnableLogging {
++(QuantcastPolicy*)policyWithAPIKey:(NSString*)inQuantcastAPIKey networkReachability:(id<QuantcastNetworkReachability>)inReachability carrier:(CTCarrier*)carrier enableLogging:(BOOL)inEnableLogging {
     
     
     NSString* mcc = nil;
     
-    // Setup the Network Info and create a CTCarrier object
-    // first check to ensure the developper linked the CoreTelephony framework
-    Class telephonyClass = NSClassFromString(@"CTTelephonyNetworkInfo");
-    if ( nil != telephonyClass ) {
-        CTTelephonyNetworkInfo *networkInfo = [[[telephonyClass alloc] init] autorelease];
+    if ( nil != carrier ) {
         
-        if ( nil != networkInfo ) {
-            CTCarrier *carrier = [networkInfo subscriberCellularProvider];
-            
-            
-            // Get mobile country code
-            NSString* countryCode = [carrier isoCountryCode];
-            
-            if ( nil != countryCode ) {
-                mcc = countryCode;
-            }
-            
+        
+        // Get mobile country code
+        NSString* countryCode = [carrier isoCountryCode];
+        
+        if ( nil != countryCode ) {
+            mcc = countryCode;
         }
     }
     

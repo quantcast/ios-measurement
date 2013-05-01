@@ -72,7 +72,8 @@
         
         _opQueue = [[NSOperationQueue alloc] init];
         _opQueue.maxConcurrentOperationCount = 4; // prevent too many events from hitting datbase at once
-        
+        [_opQueue setName:@"com.quantcast.measure.operationsqueue"];
+         
         if ( nil != inPolicy) {
             _policy = [inPolicy retain];
         }

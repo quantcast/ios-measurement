@@ -21,6 +21,7 @@
 #error "Quantcast Measurement is not designed to be used with ARC. Please add '-fno-objc-arc' to this file's compiler flags"
 #endif // __has_feature(objc_arc)
 
+#import "QuantcastMeasurement.h"
 #import <sys/utsname.h>
 #import <CoreTelephony/CTCarrier.h>
 #import <CoreTelephony/CTTelephonyNetworkInfo.h>
@@ -28,6 +29,11 @@
 #import "QuantcastParameters.h"
 #import "QuantcastPolicy.h"
 #import "QuantcastUtils.h"
+
+@interface QuantcastMeasurement (Carrier)
+// declare "private" method here;
+-(CTCarrier*)getCarrier;
+@end
 
 @interface QuantcastEvent ()
 +(NSString*)hashDeviceID:(NSString*)inDeviceID withSalt:(NSString*)inSalt;
@@ -215,6 +221,7 @@
                                 appInstallIdentifier:(NSString*)inAppInstallID
                                      enforcingPolicy:(QuantcastPolicy*)inPolicy
                                          eventLabels:(id<NSObject>)inEventLabelsOrNil
+                                             carrier:(CTCarrier*)carrier
 {
     
     QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID enforcingPolicy:inPolicy];
@@ -281,40 +288,33 @@
     [e putParameter:QCPARAMETER_TZO withValue:[NSNumber numberWithInteger:tzMinuteOffset] enforcingPolicy:inPolicy];
     
     
-    // Setup the Network Info and create a CTCarrier object
-    // first check to ensure the CoreTelephony framework is loaded
-    Class telephonyClass = NSClassFromString(@"CTTelephonyNetworkInfo");
-    if ( nil != telephonyClass ) {
-        CTTelephonyNetworkInfo *networkInfo = [[[telephonyClass alloc] init] autorelease];
-        
-        if ( nil != networkInfo ) {
-            CTCarrier *carrier = [networkInfo subscriberCellularProvider];
-            
-            
-            // Get mobile country code 
-            NSString *icc = [carrier isoCountryCode];
-            if (icc != nil) {
-                [e putParameter:QCPARAMETER_ICC withValue:icc enforcingPolicy:inPolicy];
-            }
-
-            NSString *mcc = [carrier mobileCountryCode];
-            if ( mcc != nil) {
-                [e putParameter:QCPARAMETER_MCC withValue:mcc enforcingPolicy:inPolicy];                
-            }
-            
-            // Get carrier name
-            NSString *carrierName = [carrier carrierName];
-            if (carrierName != nil) {
-                [e putParameter:QCPARAMETER_MNN withValue:carrierName enforcingPolicy:inPolicy];
-            }
-            
-            
-            // Get mobile network code
-            NSString *mnc = [carrier mobileNetworkCode];
-            if (mnc != nil) {            
-                [e putParameter:QCPARAMETER_MNC withValue:mnc enforcingPolicy:inPolicy];
-            }
+    // Cheack carrier and fill in data
+    if ( nil != carrier ) {
+    
+        // Get mobile country code 
+        NSString *icc = [carrier isoCountryCode];
+        if (icc != nil) {
+            [e putParameter:QCPARAMETER_ICC withValue:icc enforcingPolicy:inPolicy];
         }
+
+        NSString *mcc = [carrier mobileCountryCode];
+        if ( mcc != nil) {
+            [e putParameter:QCPARAMETER_MCC withValue:mcc enforcingPolicy:inPolicy];                
+        }
+        
+        // Get carrier name
+        NSString *carrierName = [carrier carrierName];
+        if (carrierName != nil) {
+            [e putParameter:QCPARAMETER_MNN withValue:carrierName enforcingPolicy:inPolicy];
+        }
+        
+        
+        // Get mobile network code
+        NSString *mnc = [carrier mobileNetworkCode];
+        if (mnc != nil) {            
+            [e putParameter:QCPARAMETER_MNC withValue:mnc enforcingPolicy:inPolicy];
+        }
+        
     }
     struct utsname systemInfo;
     uname(&systemInfo);
