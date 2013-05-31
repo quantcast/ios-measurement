@@ -29,11 +29,11 @@ Once you have downloaded the Quantcast iOS SDK's code, perform the following ste
 
 1.	Import the code into your project from the Quantcast-iOS-Measurement folder in the Quantcast repository you just created.
 2.	Link the following iOS frameworks to your project if they are not already:
-	*	`SystemConfiguration`
-	*	`Foundation`
-	*	`UIKit`
-	*	`CoreTelephony`
 	*	`CoreLocation`
+	*	`CoreTelephony`
+	*	`Foundation`
+	*	`SystemConfiguration`
+	*	`UIKit`
 3.	Weak-link (that is, make "optional") the following iOS frameworks to your project if they are not already:
 	*	`AdSupport`
 4.	Link the following libraries to your project, if they aren't already:
