@@ -37,8 +37,8 @@ Once you have downloaded the Quantcast iOS SDK's code, perform the following ste
 3.	Weak-link (that is, make "optional") the following iOS frameworks to your project if they are not already:
 	*	`AdSupport`
 4.	Link the following libraries to your project, if they aren't already:
-	*	`libz`
 	*	`libsqlite3`
+	*	`libz`
 
 If you intend to support iOS 4.0 and later, you must perform the following steps:
 

@@ -100,8 +100,8 @@
 // Quantcast Measurement SDK
 //
 
-#define QCMEASUREMENT_API_VERSION               @"1_2_5"
-#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.2.5"
+#define QCMEASUREMENT_API_VERSION               @"1_2_6"
+#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.2.6"
 #define QCMEASUREMENT_CONN_TIMEOUT_SECONDS      60
 
 #ifndef QCMEASUREMENT_UPLOAD_URL
@@ -119,6 +119,8 @@
 
 #define QCMEASUREMENT_OPTOUT_PASTEBOARD         @"com.quantcast.measurement.optout"
 #define QCMEASUREMENT_OPTOUT_STRING             @"QC-OPT-OUT"
+
+#define QCMEASUREMENT_UA_PREFIX                 @" QuantcastSDK"
 
 #ifndef QCMEASUREMENT_DEFAULT_MAX_SESSION_PAUSE_SECOND
     #define QCMEASUREMENT_DEFAULT_MAX_SESSION_PAUSE_SECOND  1800

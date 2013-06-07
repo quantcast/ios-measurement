@@ -106,8 +106,10 @@ QuantcastMeasurement* gSharedInstance = nil;
         self.enableLogging = NO;
         
         // the first thing to do is determine user opt-out status, as that will guide everything else.
-        
         _isOptedOut = [QuantcastMeasurement isOptedOutStatus];
+        if(_isOptedOut){
+            [self setOptOutCookie:YES];
+        }
         
         _geoLocationEnabled = NO;
         
@@ -138,6 +140,53 @@ QuantcastMeasurement* gSharedInstance = nil;
     [telephoneInfo release];
     
     [super dealloc];
+}
+
+-(void)appendUserAgent:(BOOL)add {
+    
+    NSString* userAgent = [self originalUserAgent];
+    
+    //check for quantcast user agent first
+    NSString* qcRegex = [NSString stringWithFormat:@"%@/iOS_(\\d+)\\.(\\d+)\\.(\\d+)/[a-zA-Z0-9]{16}-[a-zA-Z0-9]{16}", QCMEASUREMENT_UA_PREFIX];
+    NSError* regexError = nil;
+    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:qcRegex options:0 error:&regexError];
+    if(nil != regexError && self.enableLogging){
+        NSLog(@"QC Measurement: Error creating user agent regular expression = %@ ", regexError );
+    }
+    NSRange start = [regex rangeOfFirstMatchInString:userAgent options:0 range:NSMakeRange(0, userAgent.length)];
+    
+    NSString* newUA = nil;
+    if( start.location == NSNotFound && add ) {
+        newUA = [userAgent stringByAppendingFormat:@"%@/%@/%@", QCMEASUREMENT_UA_PREFIX, QCMEASUREMENT_API_IDENTIFIER, self.quantcastAPIKey];
+    }
+    else if( start.location != NSNotFound && !add ) {
+        newUA = [NSString stringWithFormat:@"%@%@", [userAgent substringToIndex:start.location], [userAgent substringFromIndex:NSMaxRange(start)]];
+    }
+    
+    if( nil != newUA ) {
+        NSUserDefaults* userDefaults = [NSUserDefaults standardUserDefaults];
+        NSDictionary *dictionary = [NSDictionary dictionaryWithObjectsAndKeys:newUA, @"UserAgent", nil];
+        [userDefaults registerDefaults:dictionary];
+        
+        //special check if Cordova is used
+        
+        NSString *cordovaValue = [userDefaults stringForKey:@"Cordova-User-Agent"];
+        if( nil != cordovaValue ) {
+            [userDefaults setValue:newUA forKey:@"Cordova-User-Agent"];
+        }
+    }
+    
+    
+}
+
+-(NSString*)originalUserAgent {
+    NSString* userAgent = [[NSUserDefaults standardUserDefaults] stringForKey:@"UserAgent"];
+    if( nil == userAgent ) {
+        UIWebView* webView = [[UIWebView alloc] initWithFrame:CGRectZero];
+        userAgent = [webView stringByEvaluatingJavaScriptFromString:@"navigator.userAgent"];
+        [webView release];
+    }
+    return userAgent;
 }
 
 -(BOOL)advertisingTrackingEnabled {
@@ -380,6 +429,7 @@ QuantcastMeasurement* gSharedInstance = nil;
     if ( !self.isOptedOut ) {
         [self startReachabilityNotifier];
         
+        [self appendUserAgent:YES];
         
         if (nil == self.dataManager) {
             QuantcastPolicy* policy = [QuantcastPolicy policyWithAPIKey:self.quantcastAPIKey networkReachability:self carrier:self.carrier enableLogging:self.enableLogging];
@@ -955,6 +1005,8 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
             
             [self stopGeoLocationMeasurement];
             [self stopReachabilityNotifier];
+            [self appendUserAgent:NO];
+            [self setOptOutCookie:YES];
         }
         else {
             // remove opt-out pastboard if it exists
@@ -965,7 +1017,23 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
             
             [self startGeoLocationMeasurement];
             [self startReachabilityNotifier];
+            [self setOptOutCookie:NO];
+        }
+    }
+    
+}
 
+-(void)setOptOutCookie:(BOOL)add {
+    if( add ) {
+        NSHTTPCookie* optOutCookie = [NSHTTPCookie cookieWithProperties:@{NSHTTPCookieDomain : @".quantserve.com", NSHTTPCookiePath : @"/", NSHTTPCookieName: @"qoo", NSHTTPCookieValue: @"OPT_OUT", NSHTTPCookieExpires : [NSDate dateWithTimeIntervalSinceNow:60*60*24*365*10]}];
+        [[NSHTTPCookieStorage sharedHTTPCookieStorage] setCookie:optOutCookie];
+    }
+    else {
+        for(NSHTTPCookie* cookie in [[NSHTTPCookieStorage sharedHTTPCookieStorage] cookies]){
+            if([cookie.name isEqualToString:@"qoo"] && [cookie.domain isEqualToString:@".quantserve.com"]) {
+                [[NSHTTPCookieStorage sharedHTTPCookieStorage] deleteCookie:cookie];
+                break;
+            }
         }
     }
     

@@ -179,7 +179,7 @@
     NSURLRequest* urlRequest = [self urlRequestForJSONFile:inJSONFilePath reportingUploadID:&uploadID newFilePath:&uploadingFilePath];
     
     if ( nil == uploadID ) {
-        // some kinf od error. don't upload
+        // some kind of error. don't upload
         if (self.enableLogging) {
             NSLog(@"QC Measurement: Could not upload JSON file '%@' because upload ID was not found in contents", inJSONFilePath );
         }
