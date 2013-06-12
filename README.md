@@ -29,6 +29,7 @@ Once you have downloaded the Quantcast iOS SDK's code, perform the following ste
 
 1.	Import the code into your project from the Quantcast-iOS-Measurement folder in the Quantcast repository you just created.
 2.	Link the following iOS frameworks to your project if they are not already:
+	*	`CoreGraphics`
 	*	`CoreLocation`
 	*	`CoreTelephony`
 	*	`Foundation`
