@@ -30,7 +30,7 @@
 @interface QuantcastMeasurement ()
 // declare "private" method here
 -(void)logUploadLatency:(NSUInteger)inLatencyMilliseconds forUploadId:(NSString*)inUploadID;
--(void)logSDKError:(NSString*)inSDKErrorType withErrorDescription:(NSString*)inErrorDesc errorParameter:(NSString*)inErrorParametOrNil;
+-(void)logSDKError:(NSString*)inSDKErrorType withError:(NSError*)inErrorOrNil errorParameter:(NSString*)inErrorParametOrNil;
 
 @end
 
@@ -233,17 +233,8 @@
 
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error {
     
-    NSString* errorDesc = nil;
-    
-    if ( nil != error ) {
-        errorDesc = error.description;
-    }
-    else {
-        errorDesc = @"Unknown upload failure";
-    }
-    
     [[QuantcastMeasurement sharedInstance] logSDKError:QC_SDKERRORTYPE_UPLOADFAILURE
-                                  withErrorDescription:errorDesc
+                                             withError:error
                                         errorParameter:_uploadID];
 
     if (self.enableLogging) {

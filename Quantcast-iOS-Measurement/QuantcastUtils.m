@@ -31,7 +31,7 @@
 
 @interface QuantcastMeasurement ()
 // declare "private" method here
--(void)logSDKError:(NSString*)inSDKErrorType withErrorDescription:(NSString*)inErrorDesc errorParameter:(NSString*)inErrorParametOrNil;
+-(void)logSDKError:(NSString*)inSDKErrorType withError:(NSError*)inErrorOrNil errorParameter:(NSString*)inErrorParametOrNil;
 
 @end
 
@@ -365,8 +365,11 @@
         if (inEnableLogging) {
             NSLog(@"QC Measurement: Could not validate trust certificates from %@", challenge.protectionSpace.host );
         }
+        
+        NSError* error = [[[NSError alloc] initWithDomain:@"QCAuthenticationError" code:1 userInfo:@{ NSLocalizedDescriptionKey: @"Could not validate trust certificate", NSURLErrorFailingURLStringErrorKey : [[connection currentRequest] URL] } ] autorelease];
+        
         [[QuantcastMeasurement sharedInstance] logSDKError:QC_SDKERRORTYPE_HTTPSAUTHCHALLENGE
-                                      withErrorDescription:@"Could not validate trust certificate"
+                                                 withError:error
                                             errorParameter:challenge.protectionSpace.host];
     }
     else {
@@ -375,8 +378,9 @@
         if (inEnableLogging) {
             NSLog(@"QC Measurement: Got an unhandled authentication challenge from %@", challenge.protectionSpace.host );
         }
+        NSError* error = [[[NSError alloc] initWithDomain:@"QCAuthenticationError" code:2 userInfo:@{ NSLocalizedDescriptionKey: @"Unhandled authentication challenge", NSURLErrorFailingURLStringErrorKey : [[connection currentRequest] URL] } ] autorelease];
         [[QuantcastMeasurement sharedInstance] logSDKError:QC_SDKERRORTYPE_HTTPSAUTHCHALLENGE
-                                      withErrorDescription:@"Unhandled authentication challenge"
+                                                 withError:error
                                             errorParameter:challenge.protectionSpace.host];
         
     }
@@ -459,6 +463,21 @@
 
 
     return [encodedString autorelease];
+}
+
++(NSString*)JSONEncodeString:(NSString*)inString {
+	NSMutableString* s = [NSMutableString stringWithString:inString];
+    
+	[s replaceOccurrencesOfString:@"\\" withString:@"\\\\" options:NSCaseInsensitiveSearch range:NSMakeRange(0, [s length])];
+	[s replaceOccurrencesOfString:@"\"" withString:@"\\\"" options:NSCaseInsensitiveSearch range:NSMakeRange(0, [s length])];
+	[s replaceOccurrencesOfString:@"/" withString:@"\\/" options:NSCaseInsensitiveSearch range:NSMakeRange(0, [s length])];
+	[s replaceOccurrencesOfString:@"\n" withString:@"\\n" options:NSCaseInsensitiveSearch range:NSMakeRange(0, [s length])];
+	[s replaceOccurrencesOfString:@"\b" withString:@"\\b" options:NSCaseInsensitiveSearch range:NSMakeRange(0, [s length])];
+	[s replaceOccurrencesOfString:@"\f" withString:@"\\f" options:NSCaseInsensitiveSearch range:NSMakeRange(0, [s length])];
+	[s replaceOccurrencesOfString:@"\r" withString:@"\\r" options:NSCaseInsensitiveSearch range:NSMakeRange(0, [s length])];
+	[s replaceOccurrencesOfString:@"\t" withString:@"\\t" options:NSCaseInsensitiveSearch range:NSMakeRange(0, [s length])];
+    
+	return [NSString stringWithString:s];
 }
 
 @end

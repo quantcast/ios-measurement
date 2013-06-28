@@ -62,5 +62,7 @@
  */
 +(NSString*)encodeLabelsList:(NSArray*)inLabelsArrayOrNil;
 
-+(NSString *)urlEncodeString:(NSString*)inString;
++(NSString*)urlEncodeString:(NSString*)inString;
++(NSString*)JSONEncodeString:(NSString*)inString;
+
 @end

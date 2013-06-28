@@ -100,15 +100,15 @@
 // Quantcast Measurement SDK
 //
 
-#define QCMEASUREMENT_API_VERSION               @"1_2_6"
-#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.2.6"
+#define QCMEASUREMENT_API_VERSION               @"1_2_7"
+#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.2.7"
 #define QCMEASUREMENT_CONN_TIMEOUT_SECONDS      60
 
 #ifndef QCMEASUREMENT_UPLOAD_URL
-    #define QCMEASUREMENT_UPLOAD_URL            @"http://m.quantserve.com/mobile"
+    #define QCMEASUREMENT_UPLOAD_URL            @"http://m.quantcount.com/mobile"
 #endif
 #ifndef QCMEASUREMENT_POLICY_URL_FORMAT
-    #define QCMEASUREMENT_POLICY_URL_FORMAT     @"http://m.quantserve.com/policy.json?a=%@&v=%@&t=%@&c=%@"
+    #define QCMEASUREMENT_POLICY_URL_FORMAT     @"http://m.quantcount.com/policy.json?a=%@&v=%@&t=%@&c=%@"
 #endif
 
 #define QCMEASUREMENT_CACHE_DIRNAME             @"qc-measurement-cache"

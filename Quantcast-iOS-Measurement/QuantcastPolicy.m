@@ -39,7 +39,7 @@
 
 @interface QuantcastMeasurement ()
 // declare "private" method here
--(void)logSDKError:(NSString*)inSDKErrorType withErrorDescription:(NSString*)inErrorDesc errorParameter:(NSString*)inErrorParametOrNil;
+-(void)logSDKError:(NSString*)inSDKErrorType withError:(NSError*)inErrorOrNil errorParameter:(NSString*)inErrorParametOrNil;
 -(CTCarrier*)getCarrier;
 @end
 
@@ -360,17 +360,8 @@
 - (void) connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
 {
     
-    NSString* errorDesc = nil;
-    
-    if ( nil != error ) {
-        errorDesc = error.description;
-    }
-    else {
-        errorDesc = @"Unknown policy download failure";
-    }
-    
     [[QuantcastMeasurement sharedInstance] logSDKError:QC_SDKERRORTYPE_POLICYDOWNLOADFAILURE
-                                  withErrorDescription:errorDesc
+                                             withError:error
                                         errorParameter:_policyURL.description];
 
     if (self.enableLogging) {

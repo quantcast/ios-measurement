@@ -136,13 +136,25 @@
             continue;
         }
         
-        NSString* value = [self.parameters objectForKey:param];
+        id value = [self.parameters objectForKey:param];
+        
+        NSString* valueStr;
+        
+        if ( [value isKindOfClass:[NSString class]]) {
+            valueStr = (NSString*)value;
+        }
+        else if ([value isKindOfClass:[NSNumber class]] ) {
+            valueStr = [(NSNumber*)value stringValue];
+        }
+        else {
+            valueStr = [value description];
+        }
         
         // hash the 'did' and 'aid' parameters
         
         if ( nil != inPolicyOrNil ) {
             if ( [param compare:QCPARAMETER_DID] == NSOrderedSame || [param compare:QCPARAMETER_AID] == NSOrderedSame ) {
-                value = [QuantcastEvent hashDeviceID:value withSalt:inPolicyOrNil.deviceIDHashSalt];
+                valueStr = [QuantcastEvent hashDeviceID:valueStr withSalt:inPolicyOrNil.deviceIDHashSalt];
             }
         }
         
@@ -151,7 +163,7 @@
             paramFormat = @",\"%@\":%@";
         }
         
-        jsonStr = [jsonStr stringByAppendingFormat:paramFormat,param,value];
+        jsonStr = [jsonStr stringByAppendingFormat:paramFormat,param,valueStr];
     }
     
     // close it up
@@ -325,8 +337,7 @@
     [e putParameter:QCPARAMETER_DMOD withValue:platform enforcingPolicy:inPolicy];
     [e putParameter:QCPARAMETER_DOS withValue:[[UIDevice currentDevice] systemName] enforcingPolicy:inPolicy];
     [e putParameter:QCPARAMETER_DOSV withValue:[[UIDevice currentDevice] systemVersion] enforcingPolicy:inPolicy];
-    [e putParameter:QCPARAMETER_DM withValue:@"Apple" enforcingPolicy:inPolicy];
-    
+    [e putParameter:QCPARAMETER_DM withValue:@"Apple" enforcingPolicy:inPolicy];    
     [e putParameter:QCPARAMETER_LC withValue:[[NSLocale preferredLanguages] objectAtIndex:0] enforcingPolicy:inPolicy];    
     [e putParameter:QCPARAMETER_LL withValue:[[NSLocale currentLocale] objectForKey:NSLocaleLanguageCode] enforcingPolicy:inPolicy];
     
@@ -340,7 +351,6 @@
     QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID enforcingPolicy:inPolicy];
     
     [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_FINISHED enforcingPolicy:inPolicy];
-    
     [e putLabels:inEventLabelsOrNil enforcingPolicy:inPolicy];
     
     return e;
@@ -353,7 +363,6 @@
     QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID enforcingPolicy:inPolicy];
     
     [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_PAUSE enforcingPolicy:inPolicy];
-    
     [e putLabels:inEventLabelsOrNil enforcingPolicy:inPolicy];
     
     return e;
@@ -365,8 +374,7 @@
 {
     QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID enforcingPolicy:inPolicy];
     
-    [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_RESUME enforcingPolicy:inPolicy];
-    
+    [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_RESUME enforcingPolicy:inPolicy];    
     [e putLabels:inEventLabelsOrNil enforcingPolicy:inPolicy];
     
     return e;
@@ -417,8 +425,7 @@
 {
     QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID enforcingPolicy:inPolicy];
     
-    [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_LOCATION enforcingPolicy:inPolicy];
-   
+    [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_LOCATION enforcingPolicy:inPolicy];   
     [e putParameter:QCPARAMETER_COUNTRY withValue:inCountry enforcingPolicy:inPolicy];
     [e putParameter:QCPARAMETER_STATE withValue:inProvince enforcingPolicy:inPolicy];
     [e putParameter:QCPARAMETER_LOCALITY withValue:inCity enforcingPolicy:inPolicy];
@@ -440,7 +447,7 @@
 
 
 +(QuantcastEvent*)logSDKError:(NSString*)inSDKErrorType
-         withErrorDescription:(NSString*)inErrorDescOrNil
+              withErrorObject:(NSError*)inErrorObjectOrNil
                errorParameter:(NSString*)inErrorParameterOrNil
                 withSessionID:(NSString*)inSessionID
               enforcingPolicy:(QuantcastPolicy*)inPolicy
@@ -450,14 +457,15 @@
     [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_SDKERROR enforcingPolicy:inPolicy];
     [e putParameter:QCPARAMETER_ERRORTYPE withValue:inSDKErrorType enforcingPolicy:inPolicy];
 
-    if ( nil != inErrorDescOrNil ) {
-        [e putParameter:QCPARAMETER_ERRORDESCRIPTION withValue:inErrorDescOrNil enforcingPolicy:inPolicy];
+    if ( nil != inErrorObjectOrNil ) {
+        NSString* errorDesc = [inErrorObjectOrNil description];
+        
+        [e putParameter:QCPARAMETER_ERRORDESCRIPTION withValue:[QuantcastUtils JSONEncodeString:errorDesc] enforcingPolicy:inPolicy];
     }
 
     if ( nil != inErrorParameterOrNil ) {
-        [e putParameter:QCPARAMETER_ERRORPARAMETER withValue:inErrorParameterOrNil enforcingPolicy:inPolicy];
+        [e putParameter:QCPARAMETER_ERRORPARAMETER withValue:[QuantcastUtils JSONEncodeString:inErrorParameterOrNil] enforcingPolicy:inPolicy];
     }
-    
     return e;
 }
 

@@ -106,7 +106,7 @@
                                             enforcingPolicy:(QuantcastPolicy*)inPolicy;
 
 +(QuantcastEvent*)logSDKError:(NSString*)inSDKErrorType
-         withErrorDescription:(NSString*)inErrorDescOrNil
+              withErrorObject:(NSError*)inErrorDescOrNil
                errorParameter:(NSString*)inErrorParametOrNil
                 withSessionID:(NSString*)inSessionID
               enforcingPolicy:(QuantcastPolicy*)inPolicy;

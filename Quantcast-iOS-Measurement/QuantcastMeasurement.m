@@ -60,7 +60,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 -(void)recordEvent:(QuantcastEvent*)inEvent;
 
 -(void)logUploadLatency:(NSUInteger)inLatencyMilliseconds forUploadId:(NSString*)inUploadID;
--(void)logSDKError:(NSString*)inSDKErrorType withErrorDescription:(NSString*)inErrorDescOrNil errorParameter:(NSString*)inErrorParametOrNil;
+-(void)logSDKError:(NSString*)inSDKErrorType withError:(NSError*)inErrorOrNil errorParameter:(NSString*)inErrorParametOrNil;
 
 
 -(void)setOptOutStatus:(BOOL)inOptOutStatus;
@@ -1098,10 +1098,10 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     return descStr;
 }
 
--(void)logSDKError:(NSString*)inSDKErrorType withErrorDescription:(NSString*)inErrorDescOrNil errorParameter:(NSString*)inErrorParametOrNil {
+-(void)logSDKError:(NSString*)inSDKErrorType withError:(NSError*)inErrorOrNil errorParameter:(NSString*)inErrorParametOrNil {
     if ( !self.isOptedOut && self.isMeasurementActive ) {
 
-        QuantcastEvent* e = [QuantcastEvent logSDKError:inSDKErrorType withErrorDescription:inErrorDescOrNil errorParameter:inErrorParametOrNil withSessionID:self.currentSessionID enforcingPolicy:self.dataManager.policy];
+        QuantcastEvent* e = [QuantcastEvent logSDKError:inSDKErrorType withErrorObject:inErrorOrNil errorParameter:inErrorParametOrNil withSessionID:self.currentSessionID enforcingPolicy:self.dataManager.policy];
         
         [self recordEvent:e];
     }
