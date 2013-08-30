@@ -30,11 +30,21 @@
 #import "QuantcastUtils.h"
 #import "QuantcastPolicy.h"
 #import "QuantcastOptOutViewController.h"
+#import "QuantcastNetworkReachability.h"
+#import "QuantcastOptOutDelegate.h"
 
 QuantcastMeasurement* gSharedInstance = nil;
 
 
-@interface QuantcastMeasurement ()
+@interface QuantcastMeasurement ()<QuantcastNetworkReachability, CLLocationManagerDelegate>{
+    SCNetworkReachabilityRef _reachability;
+    
+    NSString* _hashedUserId;
+    
+    BOOL _enableLogging;
+    BOOL _isOptedOut;
+    BOOL _geoLocationEnabled;
+}
 
 @property (retain,nonatomic) NSString* currentSessionID;
 @property (retain,nonatomic) QuantcastDataManager* dataManager;
@@ -49,6 +59,8 @@ QuantcastMeasurement* gSharedInstance = nil;
 @property (readonly,nonatomic) BOOL advertisingTrackingEnabled;
 @property (retain, nonatomic) CTTelephonyNetworkInfo* telephoneInfo;
 @property (readonly,nonatomic) CTCarrier* carrier;
+@property (retain, nonatomic) id<NSObject> setupLabels;
+@property (assign,nonatomic) BOOL usesOneStep;
 
 +(NSString*)generateSessionID;
 +(BOOL)isOptedOutStatus;
@@ -86,6 +98,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 @synthesize geocoder;
 @synthesize sessionPauseStartTime;
 @synthesize telephoneInfo;
+@synthesize setupLabels;
 
 +(QuantcastMeasurement*)sharedInstance {
 
@@ -107,7 +120,7 @@ QuantcastMeasurement* gSharedInstance = nil;
         
         // the first thing to do is determine user opt-out status, as that will guide everything else.
         _isOptedOut = [QuantcastMeasurement isOptedOutStatus];
-        if(_isOptedOut){
+        if (_isOptedOut) {
             [self setOptOutCookie:YES];
         }
         
@@ -119,6 +132,10 @@ QuantcastMeasurement* gSharedInstance = nil;
         }
         uploadEventCount = QCMEASUREMENT_DEFAULT_UPLOAD_EVENT_COUNT;
         
+        BOOL exitsOnSuspend = [[[NSBundle mainBundle] objectForInfoDictionaryKey:@"UIApplicationExitsOnSuspend"] boolValue];
+        if (exitsOnSuspend) {
+            NSLog(@"QC Measurement: ERROR - UIApplicationExitsOnSuspend found in Info.plist.  This will prevent data from being uploaded to Quantcast. Please remove this option from your Info.plist.");
+        }
     }
     
     return self;
@@ -138,6 +155,8 @@ QuantcastMeasurement* gSharedInstance = nil;
     [_hashedUserId release];
 
     [telephoneInfo release];
+    
+    [setupLabels release];
     
     [super dealloc];
 }
@@ -390,6 +409,47 @@ QuantcastMeasurement* gSharedInstance = nil;
     return nil != self.currentSessionID;
 }
 
+-(NSString*)setupMeasurementSessionWithAPIKey:(NSString*)inQuantcastAPIKey userIdentifier:(NSString*)userIdentifierOrNil labels:(id<NSObject>)inLabelsOrNil{
+    NSString* userhash = nil;
+    if ( !self.isOptedOut ) {
+        
+        if(self.isMeasurementActive){
+            NSLog(@"QC Measurement: ERROR - beginMeasurementSessionWithAPIKey was already called.  Remove all beginMeasurementSessionWithAPIKey, pauseSessionWithLabels, resumeSessionWithLabels, and endMeasurementSessionWithLabels calls when you use setupMeasurementSessionWithAPIKey.");
+            return nil;
+        }
+        
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(terminateNotification) name:UIApplicationWillTerminateNotification object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(pauseNotification) name:UIApplicationDidEnterBackgroundNotification object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(resumeNotification) name:UIApplicationWillEnterForegroundNotification object:nil];
+        
+        NSMutableArray* labels = [NSMutableArray array];
+        if ([inLabelsOrNil isKindOfClass:[NSArray class]]) {
+            [labels addObjectsFromArray:(NSArray*)inLabelsOrNil];
+        }
+        else if ([inLabelsOrNil isKindOfClass:[NSString class]]) {
+            [labels addObject:inLabelsOrNil];
+        }
+        [labels addObject:@"_sdk.ios.setup"];
+        self.setupLabels = labels;
+        
+        userhash = [self internalBeginSessionWithAPIKey:inQuantcastAPIKey userIdentifier:userIdentifierOrNil labels:self.setupLabels];
+    }
+    self.usesOneStep = YES;
+    return userhash;
+}
+
+-(void)terminateNotification{
+    [self endMeasurementSessionWithLabels:self.setupLabels];
+}
+
+-(void)pauseNotification{
+    [self internalPauseSessionWithLabels:self.setupLabels];
+}
+
+-(void)resumeNotification{
+    [self internalResumeSessionWithLabels:self.setupLabels];
+}
+
 -(void)startNewSessionAndGenerateEventWithReason:(NSString*)inReason withLabels:(id<NSObject>)inLabelsOrNil {
     
     self.currentSessionID = [QuantcastMeasurement generateSessionID];
@@ -397,14 +457,14 @@ QuantcastMeasurement* gSharedInstance = nil;
     if ( nil != self.dataManager.policy ) {
         [self.dataManager.policy downloadLatestPolicyWithReachability:self];
     }
-
+    
     QuantcastEvent* e = [QuantcastEvent openSessionEventWithClientUserHash:_hashedUserId
                                                           newSessionReason:inReason
                                                              networkStatus:[self currentReachabilityStatus]
                                                                  sessionID:self.currentSessionID
                                                            quantcastAPIKey:self.quantcastAPIKey
                                                           deviceIdentifier:self.deviceIdentifier
-                                                             appInstallIdentifier:self.appInstallIdentifier
+                                                      appInstallIdentifier:self.appInstallIdentifier
                                                            enforcingPolicy:self.dataManager.policy
                                                                eventLabels:inLabelsOrNil
                                                                    carrier:self.carrier];
@@ -413,19 +473,47 @@ QuantcastMeasurement* gSharedInstance = nil;
     [self recordEvent:e];
     
     [self generateGeoEventWithCurrentLocation];
+    
+    [self.dataManager initiateDataUpload];
 }
 
 
 -(void)beginMeasurementSessionWithAPIKey:(NSString*)inQuantcastAPIKey labels:(id<NSObject>)inLabelsOrNil {
-        
-    // first check that app ID is proprly formatted
+    if(self.usesOneStep){
+        NSLog(@"QC Measurement: ERROR - No need to explictly call any beginMeasurementSessionWithAPIKey when setupMeasurementSessionWithAPIKey is used.");
+        return;
+    }
+    [self internalBeginSessionWithAPIKey:inQuantcastAPIKey userIdentifier:nil labels:inLabelsOrNil];
+    
+}
+
+-(NSString*)beginMeasurementSessionWithAPIKey:(NSString*)inQuantcastAPIKey userIdentifier:(NSString*)inUserIdentifierOrNil labels:(id<NSObject>)inLabelsOrNil {
+
+    if(self.usesOneStep){
+        NSLog(@"QC Measurement: ERROR - No need to explictly call any beginMeasurementSessionWithAPIKey when setupMeasurementSessionWithAPIKey is used.");
+        return nil;
+    }
+    
+    NSString* hashedUserID = [self internalBeginSessionWithAPIKey:inQuantcastAPIKey userIdentifier:inUserIdentifierOrNil labels:inLabelsOrNil];
+    
+    return hashedUserID;
+}
+
+//Internal Begin Method
+-(NSString*)internalBeginSessionWithAPIKey:(NSString*)inQuantcastAPIKey userIdentifier:(NSString*)inUserIdentifierOrNil labels:(id<NSObject>)inLabelsOrNil{
+     // first check that app ID is proprly formatted
     
     if ( ![self isQuantcastAPIKeyValid:inQuantcastAPIKey] ) {
-        return;
+        return nil;
+    }
+    
+    NSString* hashedUserID = nil;
+    if (nil != inUserIdentifierOrNil) {
+        hashedUserID = [self setUserIdentifier:inUserIdentifierOrNil];
     }
     
     self.quantcastAPIKey = inQuantcastAPIKey;
- 
+    
     if ( !self.isOptedOut ) {
         [self startReachabilityNotifier];
         
@@ -441,32 +529,24 @@ QuantcastMeasurement* gSharedInstance = nil;
                 if (self.enableLogging) {
                     NSLog(@"QC Measurement: Unable to activate measurement due to policy object being nil.");
                 }
-                return;
+                return nil;
             }
             
             self.dataManager = [[[QuantcastDataManager alloc] initWithOptOut:self.isOptedOut policy:policy] autorelease];
             self.dataManager.enableLogging = self.enableLogging;
             self.dataManager.uploadEventCount = uploadEventCount;
-
+            
         }
-
+        
         [self enableDataUploading];
         
-
+        
         [self startNewSessionAndGenerateEventWithReason:QCPARAMETER_REASONTYPE_LAUNCH withLabels:inLabelsOrNil];
-                
+        
         if (self.enableLogging) {
             NSLog(@"QC Measurement: Using '%@' for upload server.",[QuantcastUtils updateSchemeForURL:[NSURL URLWithString:QCMEASUREMENT_UPLOAD_URL]]);
         }
     }
-    
-}
-
--(NSString*)beginMeasurementSessionWithAPIKey:(NSString*)inQuantcastAPIKey userIdentifier:(NSString*)inUserIdentifierOrNil labels:(id<NSObject>)inLabelsOrNil {
-    
-    NSString* hashedUserID = [self setUserIdentifier:inUserIdentifierOrNil];
-    
-    [self beginMeasurementSessionWithAPIKey:inQuantcastAPIKey labels:inLabelsOrNil];
     
     return hashedUserID;
 }
@@ -483,15 +563,35 @@ QuantcastMeasurement* gSharedInstance = nil;
             [self stopReachabilityNotifier];
             
             self.currentSessionID = nil;
+            
+            [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationWillTerminateNotification object:nil];
+            [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationDidEnterBackgroundNotification object:nil];
+            [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationWillEnterForegroundNotification object:nil];
+            self.setupLabels = nil;
+            self.usesOneStep = NO;
         }
         else {
             NSLog(@"QC Measurement: endMeasurementSessionWithLabels: was called without first calling beginMeasurementSession:");
         }
     }
+
 }
+
 -(void)pauseSessionWithLabels:(id<NSObject>)inLabelsOrNil {
+    if (self.usesOneStep) {
+        NSLog(@"QC Measurement: ERROR - No need to explictly call pauseSessionWithLabels when setupMeasurementSessionWithAPIKey is used.");
+        return;
+    }
     
+    [self internalPauseSessionWithLabels:inLabelsOrNil];
+        
+
+}
+
+-(void)internalPauseSessionWithLabels:(id<NSObject>)inLabelsOrNil {
+ 
     if ( !self.isOptedOut ) {
+        
         if ( self.isMeasurementActive ) {
             
             QuantcastEvent* e = [QuantcastEvent pauseSessionEventWithSessionID:self.currentSessionID enforcingPolicy:self.dataManager.policy eventLabels:inLabelsOrNil];
@@ -509,16 +609,24 @@ QuantcastMeasurement* gSharedInstance = nil;
         }
     }
 }
--(void)resumeSessionWithLabels:(id<NSObject>)inLabelsOrNil {
-    // first, always check to see if iopt-out status has changed while the app was paused:
-    
-    [self setOptOutStatus:[QuantcastMeasurement isOptedOutStatus]];
 
+-(void)resumeSessionWithLabels:(id<NSObject>)inLabelsOrNil {
+    if (self.usesOneStep) {
+        NSLog(@"QC Measurement: ERROR - No need to explictly call any resumeSessionWithLabels when setupMeasurementSessionWithAPIKey is used.");
+        return;
+    }
+    
+    [self internalResumeSessionWithLabels:inLabelsOrNil];
+}
+
+-(void)internalResumeSessionWithLabels:(id<NSObject>)inLabelsOrNil {
+    [self setOptOutStatus:[QuantcastMeasurement isOptedOutStatus]];
+    
     if ( !self.isOptedOut ) {
-        
+
         if ( self.isMeasurementActive ) {
             QuantcastEvent* e = [QuantcastEvent resumeSessionEventWithSessionID:self.currentSessionID enforcingPolicy:self.dataManager.policy eventLabels:inLabelsOrNil];
-        
+            
             [self recordEvent:e];
             
             [self startNewSessionIfUsersAdPrefChanged];
@@ -537,10 +645,10 @@ QuantcastMeasurement* gSharedInstance = nil;
                         NSLog(@"QC Measurement: Starting new session after app being paused for extend period of time.");
                     }
                 }
-
+                
                 self.sessionPauseStartTime = nil;
             }
-        
+            
         }
         else {
             NSLog(@"QC Measurement: resumeSessionWithLabels: was called without first calling beginMeasurementSession:");
@@ -548,7 +656,7 @@ QuantcastMeasurement* gSharedInstance = nil;
     }
 }
 
--(void)startNewSessionIfUsersAdPrefChanged {    
+-(void)startNewSessionIfUsersAdPrefChanged {
     if ( [self hasUserAdvertisingPrefChangeWithCurrentPref:self.advertisingTrackingEnabled]) {
         if (self.enableLogging) {
             NSLog(@"QC Measurement: The user has changed their advertising tracking preference. Adjusting identifiers and starting a new session.");
@@ -723,7 +831,6 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     if (self.isOptedOut) {
         return nil;
     }
-
     
     if ( nil == inUserIdentifierOrNil ) {
         // the "log out" semantics
@@ -761,8 +868,8 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
         originalHashedUserId = [[_hashedUserId copy] autorelease];
     }
     
-    NSString* hashedUserId = [self setUserIdentifier:inUserIdentifierOrNil];
     
+    NSString* hashedUserId = [self setUserIdentifier:inUserIdentifierOrNil];
     if ( ( originalHashedUserId == nil && hashedUserId != nil ) ||
          ( originalHashedUserId != nil && hashedUserId == nil ) ||
          ( originalHashedUserId != nil && [originalHashedUserId compare:hashedUserId] != NSOrderedSame ) ) {
@@ -1007,13 +1114,24 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
             [self stopReachabilityNotifier];
             [self appendUserAgent:NO];
             [self setOptOutCookie:YES];
+            if (self.usesOneStep) {
+                [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationWillTerminateNotification object:nil];
+                [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationDidEnterBackgroundNotification object:nil];
+                [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationWillEnterForegroundNotification object:nil];
+                self.setupLabels = nil;
+            }
         }
         else {
             // remove opt-out pastboard if it exists
             [UIPasteboard removePasteboardWithName:QCMEASUREMENT_OPTOUT_PASTEBOARD];
             
             // if the opt out status goes to NO (meaning we can do measurement), begin a new session
-            [self beginMeasurementSessionWithAPIKey:self.quantcastAPIKey labels:@"OPT-IN"];
+            if (self.usesOneStep) {
+                [self setupMeasurementSessionWithAPIKey:self.quantcastAPIKey userIdentifier:nil labels:@"_OPT-IN"];
+            }
+            else {
+                [self beginMeasurementSessionWithAPIKey:self.quantcastAPIKey labels:@"_OPT-IN"];
+            }
             
             [self startGeoLocationMeasurement];
             [self startReachabilityNotifier];
@@ -1042,16 +1160,16 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
 -(void)displayUserPrivacyDialogOver:(UIViewController*)inCurrentViewController withDelegate:(id<QuantcastOptOutDelegate>)inDelegate {
  
     QuantcastOptOutViewController* optOutController = [[[QuantcastOptOutViewController alloc] initWithMeasurement:self delegate:inDelegate] autorelease];
+    UINavigationController* navWrapper = [[[UINavigationController alloc] initWithRootViewController:optOutController] autorelease];
     
-    optOutController.modalPresentationStyle = UIModalPresentationFormSheet;
-    
+    navWrapper.modalPresentationStyle = UIModalPresentationFormSheet;
     if ([inCurrentViewController respondsToSelector:@selector(presentViewController:animated:completion:)]) {
-        [inCurrentViewController presentViewController:optOutController animated:YES completion:NULL];
+        [inCurrentViewController presentViewController:navWrapper animated:YES completion:NULL];
     }
     else {
         // pre-iOS 5
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-        [inCurrentViewController presentModalViewController:optOutController animated:YES];
+        [inCurrentViewController presentModalViewController:navWrapper animated:YES];
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
     }
 

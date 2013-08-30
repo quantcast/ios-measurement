@@ -155,11 +155,11 @@
                                              error:&jsonError];
     }
 #if QCMEASUREMENT_ENABLE_JSONKIT 
-    else {
+    else if(nil != NSClassFromString(@"JSONDecoder")) {
         // try with JSONKit
        policyDict = [[JSONDecoder decoder] objectWithData:inJSONData error:&jsonError];
     }
-#else
+#endif
     else {
         NSLog( @"QC Measurement: ERROR - There is no available JSON decoder to user. Please enable JSONKit in your project!" );
         @synchronized(self){
@@ -168,7 +168,7 @@
         }
         return;
     }
-#endif
+
     
     if ( nil != jsonError ) {
         NSLog(@"QC Measurement: Unable to parse policy JSON data. error = %@", jsonError);

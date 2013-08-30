@@ -121,8 +121,6 @@
 
 #pragma mark - Measurement Database Management
 
-#define QCSQL_CREATETABLE_SETTING   @"create table settings ( name varchar not null unique, value varchar not null );"
-#define QCSQL_CREATETABLE_BLACKLIST @"create table blacklist ( parameter varchar not null unique );"
 #define QCSQL_CREATETABLE_EVENTS    @"create table events ( id integer primary key autoincrement, sessionId varchar not null, timestamp integer not null );"
 #define QCSQL_CREATETABLE_EVENT     @"create table event ( eventid integer, name varchar not null, value varchar not null, FOREIGN KEY( eventid ) REFERENCES events ( id ) );"
 #define QCSQL_CREATEINDEX_EVENT     @"create index event_eventid_idx on event (eventid);"
@@ -140,8 +138,6 @@
         
         [inDB beginDatabaseTransaction];
         [inDB executeSQL:@"PRAGMA foreign_keys = ON;"];
-        [inDB executeSQL:QCSQL_CREATETABLE_SETTING];
-        [inDB executeSQL:QCSQL_CREATETABLE_BLACKLIST];
         [inDB executeSQL:QCSQL_CREATETABLE_EVENTS];
         [inDB executeSQL:QCSQL_CREATETABLE_EVENT];
         [inDB executeSQL:QCSQL_CREATEINDEX_EVENT];

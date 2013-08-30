@@ -75,10 +75,11 @@
 #define QCPARAMETER_VAC               @"vac"
 #define QCPARAMETER_OPTOUT            @"optout"
 #define QCPARAMETER_REASON            @"nsr"
+#define QCPARAMETER_INSTALL           @"inst"
 
 // Latency event
 #define QCPARAMETER_LATENCY           @"latency"
-#define QCPARAMETER_LATENCY_VALUE     @"value"
+#define QCPARAMETER_LATENCY_VALUE     @"latency-value"
 #define QCPARAMETER_LATENCY_UPLID     @"uplid"
 
 // Load event types
@@ -100,8 +101,8 @@
 // Quantcast Measurement SDK
 //
 
-#define QCMEASUREMENT_API_VERSION               @"1_2_7"
-#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.2.7"
+#define QCMEASUREMENT_API_VERSION               @"1_2_8"
+#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.2.8"
 #define QCMEASUREMENT_CONN_TIMEOUT_SECONDS      60
 
 #ifndef QCMEASUREMENT_UPLOAD_URL

@@ -328,6 +328,23 @@
         }
         
     }
+    
+    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    if ([paths count] > 0) {
+        NSString* base = [paths objectAtIndex:0];
+        NSError* error = nil;
+        NSDictionary* attrib = [[NSFileManager defaultManager] attributesOfItemAtPath:base error:&error];
+        if (nil != error && e.enableLogging) {
+            NSLog(@"QC Measurement: Error creating user agent regular expression = %@ ", error );
+        }
+        else {
+            NSDate* created = [attrib objectForKey:NSFileCreationDate];
+            if (nil != created) {
+                [e putParameter:QCPARAMETER_INSTALL withValue:[NSString stringWithFormat:@"%lu",(unsigned long)[created timeIntervalSince1970]*1000] enforcingPolicy:inPolicy];
+            }
+        }
+    }
+    
     struct utsname systemInfo;
     uname(&systemInfo);
     
@@ -403,16 +420,8 @@
     QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID enforcingPolicy:inPolicy];
 
     [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_LATENCY enforcingPolicy:inPolicy];
-
-    if ([inPolicy isBlacklistedParameter:QCPARAMETER_LATENCY_UPLID] || [inPolicy isBlacklistedParameter:QCPARAMETER_LATENCY_VALUE]) {
-        return e;
-    }
-    
-    unsigned long latencyValue = inLatencyMilliseconds;
-    
-    NSString* latencyJSONStr = [NSString stringWithFormat:@"{\"%@\":\"%@\",\"%@\":\"%lu\"}",QCPARAMETER_LATENCY_UPLID,inUploadID,QCPARAMETER_LATENCY_VALUE,latencyValue];
-    
-    [e putParameter:QCPARAMETER_LATENCY withValue:latencyJSONStr enforcingPolicy:inPolicy];
+    [e putParameter:QCPARAMETER_LATENCY_UPLID withValue:inUploadID enforcingPolicy:inPolicy];
+    [e putParameter:QCPARAMETER_LATENCY_VALUE withValue:[NSString stringWithFormat:@"%lu",(unsigned long)inLatencyMilliseconds] enforcingPolicy:inPolicy];
     
     return e;
 }
