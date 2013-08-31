@@ -4,9 +4,9 @@ Quantcast iOS SDK
 
 Thank you for downloading the Quantcast iOS SDK! This implementation guide provides steps for integrating the SDK, so you can take advantage of valuable, actionable insights:
 
-* **Traffic Stats & Return Usage** - see your audience visitation trends
-* **Combined Web / App Audiences** - understand your aggregate audience across all screens by taking a few additional steps outlined in this guide.
-* **Labels** – segment your traffic by customizing views within your app.
+* **Know Your Audience** - End the guesswork and limitations of survey-based mobile demographics. Quantcast uses direct measurement and machine learning to build accurate and detailed demographic profiles.
+* **Compare and Compete** - Gauge user loyalty by analyzing visit frequency, retention and upgrades over time
+* **Showcase and Validate** – Choose to showcase your most powerful data points to advertisers and partners via your public profile. 
 
 If you have any implementation questions, please email mobilesupport@quantcast.com. We're here to help.
 
@@ -159,7 +159,7 @@ Note that you should only enable geo-tracking if your app has some location-awar
 The Quantcast iOS SDK will automatically pause geo-tracking while your app is in the background. This is done for both battery life and privacy considerations.
 
 #### Digital Magazines and Periodicals ####
-Quantcast Measure provides measurement features specific to digital magazines and periodicals. These options allow the measurement of specific issues, articles and pages in addition to the general measurement of the app hosting the magazine. In order to take advantage of this measurement, you must at a minimum tag when a particular issue has been opened and closed and when each page in that issue has been viewed (in addition to the basic SDK integration). You may also optional tag when a particular article has been viewed. For more information, please refer to the documentation in the header file which can be found in the SDK source folder at `Optional/QuantcastMeasurement+Periodicals.h`.  
+Quantcast Measure provides measurement features specific to digital magazines and periodicals. These options allow the measurement of specific issues, articles and pages in addition to the general measurement of the app hosting the magazine. In order to take advantage of this measurement, you must at a minimum tag when a particular issue has been opened and closed and when each page in that issue has been viewed (in addition to the basic SDK integration). You may also optionally tag when a particular article has been viewed. For more information, please refer to the documentation in the Periodicals header file which can be found in the SDK source folder at `Optional/QuantcastMeasurement+Periodicals.h`.  
 
 #### Combined Web/App Audiences ####
 Quantcast Measure enables you to measure your combined web and mobile app audiences, allowing you to understand the differences and similarities of your online and mobile app audiences, or even the combined audiences of your different apps. To enable this feature, you will need to provide a user identifier, which Quantcast will always anonymize with a 1-way hash before it is transmitted from the user's device. This user identifier should also be provided for your website(s); please see [Quantcast's web measurement documentation](https://www.quantcast.com/learning-center/guides/cross-platform-audience-measurement-guide) for instructions.
