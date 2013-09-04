@@ -101,7 +101,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 @synthesize setupLabels;
 
 +(QuantcastMeasurement*)sharedInstance {
-
+    
     @synchronized( [QuantcastMeasurement class] ) {
         if ( nil == gSharedInstance ) {
             
@@ -153,7 +153,7 @@ QuantcastMeasurement* gSharedInstance = nil;
     
     [_dataManager release];
     [_hashedUserId release];
-
+    
     [telephoneInfo release];
     
     [setupLabels release];
@@ -211,15 +211,13 @@ QuantcastMeasurement* gSharedInstance = nil;
 -(BOOL)advertisingTrackingEnabled {
     BOOL userAdvertisingPreference = YES;
     
-    Class adManagerClass = NSClassFromString(@"ASIdentifierManager");
-    
-    if ( nil != adManagerClass ) {
+    if ([ASIdentifierManager class]) {
         
-        ASIdentifierManager* adPrefManager = [adManagerClass sharedManager];
+        ASIdentifierManager* adPrefManager = [ASIdentifierManager sharedManager];
         
         userAdvertisingPreference = adPrefManager.advertisingTrackingEnabled;
     }
-
+    
     return userAdvertisingPreference;
 }
 
@@ -232,11 +230,9 @@ QuantcastMeasurement* gSharedInstance = nil;
     
     NSString* udidStr = nil;
     
-    Class adManagerClass = NSClassFromString(@"ASIdentifierManager");
-    
-    if ( nil != adManagerClass ) {
+    if ([ASIdentifierManager class]) {
         
-        ASIdentifierManager* manager = [adManagerClass sharedManager];
+        ASIdentifierManager* manager = [ASIdentifierManager sharedManager];
         
         if ( manager.advertisingTrackingEnabled) {
             NSUUID* uuid = manager.advertisingIdentifier;
@@ -256,9 +252,9 @@ QuantcastMeasurement* gSharedInstance = nil;
     else if ([[[UIDevice currentDevice] systemVersion] compare:@"6.0" options:NSNumericSearch] != NSOrderedAscending) {
         NSLog(@"QC Measurement: ERROR - This app is running on iOS 6 or later and is not properly linked with the AdSupport.framework");
     }
-
+    
     return udidStr;
-
+    
 }
 
 -(NSString*)appInstallIdentifier {
@@ -271,7 +267,7 @@ QuantcastMeasurement* gSharedInstance = nil;
     if ( self.isOptedOut ) {
         return nil;
     }
-   
+    
     // first, check if one exists and use it contents
     
     NSString* cacheDir = [QuantcastUtils quantcastCacheDirectoryPathCreatingIfNeeded];
@@ -281,12 +277,12 @@ QuantcastMeasurement* gSharedInstance = nil;
     }
     
     NSError* writeError = nil;
-
+    
     NSString* identFile = [cacheDir stringByAppendingPathComponent:QCMEASUREMENT_IDENTIFIER_FILENAME];
     
     // first thing is to determine if apple's ad ID pref has changed. If so, create a new app id.
     
-
+    
     BOOL adIdPrefHasChanged = [self hasUserAdvertisingPrefChangeWithCurrentPref:inAdvertisingTrackingEnabled];
     
     
@@ -334,10 +330,10 @@ QuantcastMeasurement* gSharedInstance = nil;
 
 
 -(BOOL)hasUserAdvertisingPrefChangeWithCurrentPref:(BOOL)inCurrentPref {
-
+    
     NSString* cacheDir = [QuantcastUtils quantcastCacheDirectoryPathCreatingIfNeeded];
     NSString* adIdPrefFile = [cacheDir stringByAppendingPathComponent:QCMEASUREMENT_ADIDPREF_FILENAME];
-
+    
     BOOL adIdPrefHasChanged = NO;
     NSNumber* adIdPrefValue = [NSNumber numberWithBool:inCurrentPref];
     NSString* currentAdIdPref = [adIdPrefValue stringValue];
@@ -372,7 +368,7 @@ QuantcastMeasurement* gSharedInstance = nil;
     }
     
     return adIdPrefHasChanged;
-
+    
 }
 
 #pragma mark - Event Recording
@@ -386,7 +382,7 @@ QuantcastMeasurement* gSharedInstance = nil;
     // this method is factored out primarily for unit testing reasons
     
     [self.dataManager enableDataUploadingWithReachability:self];
-
+    
 }
 
 #pragma mark - Session Management
@@ -488,7 +484,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 }
 
 -(NSString*)beginMeasurementSessionWithAPIKey:(NSString*)inQuantcastAPIKey userIdentifier:(NSString*)inUserIdentifierOrNil labels:(id<NSObject>)inLabelsOrNil {
-
+    
     if(self.usesOneStep){
         NSLog(@"QC Measurement: ERROR - No need to explictly call any beginMeasurementSessionWithAPIKey when setupMeasurementSessionWithAPIKey is used.");
         return nil;
@@ -501,7 +497,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 
 //Internal Begin Method
 -(NSString*)internalBeginSessionWithAPIKey:(NSString*)inQuantcastAPIKey userIdentifier:(NSString*)inUserIdentifierOrNil labels:(id<NSObject>)inLabelsOrNil{
-     // first check that app ID is proprly formatted
+    // first check that app ID is proprly formatted
     
     if ( ![self isQuantcastAPIKeyValid:inQuantcastAPIKey] ) {
         return nil;
@@ -556,7 +552,7 @@ QuantcastMeasurement* gSharedInstance = nil;
         
         if ( self.isMeasurementActive ) {
             QuantcastEvent* e = [QuantcastEvent closeSessionEventWithSessionID:self.currentSessionID enforcingPolicy:self.dataManager.policy eventLabels:inLabelsOrNil];
-        
+            
             [self recordEvent:e];
             
             [self stopGeoLocationMeasurement];
@@ -574,7 +570,7 @@ QuantcastMeasurement* gSharedInstance = nil;
             NSLog(@"QC Measurement: endMeasurementSessionWithLabels: was called without first calling beginMeasurementSession:");
         }
     }
-
+    
 }
 
 -(void)pauseSessionWithLabels:(id<NSObject>)inLabelsOrNil {
@@ -584,12 +580,12 @@ QuantcastMeasurement* gSharedInstance = nil;
     }
     
     [self internalPauseSessionWithLabels:inLabelsOrNil];
-        
-
+    
+    
 }
 
 -(void)internalPauseSessionWithLabels:(id<NSObject>)inLabelsOrNil {
- 
+    
     if ( !self.isOptedOut ) {
         
         if ( self.isMeasurementActive ) {
@@ -623,7 +619,7 @@ QuantcastMeasurement* gSharedInstance = nil;
     [self setOptOutStatus:[QuantcastMeasurement isOptedOutStatus]];
     
     if ( !self.isOptedOut ) {
-
+        
         if ( self.isMeasurementActive ) {
             QuantcastEvent* e = [QuantcastEvent resumeSessionEventWithSessionID:self.currentSessionID enforcingPolicy:self.dataManager.policy eventLabels:inLabelsOrNil];
             
@@ -677,7 +673,7 @@ QuantcastMeasurement* gSharedInstance = nil;
     
     NSString* apiKeyRegex = @"[a-zA-Z0-9]{16}-[a-zA-Z0-9]{16}";
     NSPredicate* checkAPIKey = [NSPredicate predicateWithFormat:@"SELF MATCHES %@", apiKeyRegex];
-
+    
     BOOL valid = [checkAPIKey evaluateWithObject:inQuantcastAppId];
     
     if ( !valid ) {
@@ -696,7 +692,7 @@ QuantcastMeasurement* gSharedInstance = nil;
     if ( nil != self.telephoneInfo ) {
         carrier = self.telephoneInfo.subscriberCellularProvider;
     }
-        
+    
     return carrier;
 }
 
@@ -714,14 +710,14 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
         NSLog(@"QC Measurement: info was wrong class in QuantcastReachabilityCallback");
         return;
     }
-
+    
     NSAutoreleasePool* myPool = [[NSAutoreleasePool alloc] init];
     
     QuantcastMeasurement* qcMeasurement = (QuantcastMeasurement*) info;
     
     
     [[NSNotificationCenter defaultCenter] postNotificationName:kQuantcastNetworkReachabilityChangedNotification object:qcMeasurement];
-
+    
     
     [qcMeasurement logNetworkReachability];
     
@@ -731,7 +727,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
 
 -(void)logNetworkReachability {
     if ( !self.isOptedOut && self.isMeasurementActive ) {
-                
+        
         
         QuantcastEvent* e = [QuantcastEvent networkReachabilityEventWithNetworkStatus:[self currentReachabilityStatus]
                                                                         withSessionID:self.currentSessionID
@@ -748,12 +744,12 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     
     if ( NULL == _reachability ) {
         SCNetworkReachabilityContext    context = {0, self, NULL, NULL, NULL};
-
+        
         NSURL* url = [NSURL URLWithString:QCMEASUREMENT_UPLOAD_URL];
         
         _reachability = SCNetworkReachabilityCreateWithName(NULL, [[url host] UTF8String]);
         
-
+        
         if(SCNetworkReachabilitySetCallback(_reachability, QuantcastReachabilityCallback, &context))
         {
             if(SCNetworkReachabilityScheduleWithRunLoop(_reachability, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode))
@@ -782,7 +778,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     if ( NULL == _reachability ) {
         return QuantcastNotReachable;
     }
-
+    
     QuantcastNetworkStatus retVal = QuantcastNotReachable;
     SCNetworkReachabilityFlags flags;
     if (SCNetworkReachabilityGetFlags(_reachability, &flags))
@@ -792,15 +788,15 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
             // if target host is not reachable
             return QuantcastNotReachable;
         }
-
+        
         if ((flags & kSCNetworkReachabilityFlagsConnectionRequired) == 0)
         {
             // if target host is reachable and no connection is required
             //  then we'll assume (for now) that your on Wi-Fi
             retVal = QuantcastReachableViaWiFi;
         }
-
-
+        
+        
         if ((((flags & kSCNetworkReachabilityFlagsConnectionOnDemand ) != 0) ||
              (flags & kSCNetworkReachabilityFlagsConnectionOnTraffic) != 0))
         {
@@ -813,7 +809,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
                 retVal = QuantcastReachableViaWiFi;
             }
         }
-
+        
         if ((flags & kSCNetworkReachabilityFlagsIsWWAN) == kSCNetworkReachabilityFlagsIsWWAN)
         {
             // ... but WWAN connections are OK if the calling application
@@ -836,18 +832,18 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
         // the "log out" semantics
         [_hashedUserId release];
         _hashedUserId = nil;
-                
+        
         return nil;
     }
-
+    
     NSString* hashedUserID = [QuantcastUtils quantcastHash:inUserIdentifierOrNil];
-        
+    
     if ( nil != _hashedUserId ) {
         [_hashedUserId release];
         _hashedUserId = nil;
     }
     _hashedUserId = [hashedUserID retain];
-
+    
     return hashedUserID;
 }
 
@@ -871,11 +867,11 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     
     NSString* hashedUserId = [self setUserIdentifier:inUserIdentifierOrNil];
     if ( ( originalHashedUserId == nil && hashedUserId != nil ) ||
-         ( originalHashedUserId != nil && hashedUserId == nil ) ||
-         ( originalHashedUserId != nil && [originalHashedUserId compare:hashedUserId] != NSOrderedSame ) ) {
+        ( originalHashedUserId != nil && hashedUserId == nil ) ||
+        ( originalHashedUserId != nil && [originalHashedUserId compare:hashedUserId] != NSOrderedSame ) ) {
         [self startNewSessionAndGenerateEventWithReason:QCPARAMETER_REASONTYPE_USERHASH withLabels:inLabelsOrNil];
     }
-
+    
     return hashedUserId;
 }
 
@@ -887,7 +883,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
                                                                eventLabels:inLabelsOrNil
                                                                  sessionID:self.currentSessionID
                                                            enforcingPolicy:self.dataManager.policy];
-                                 
+            
             [self recordEvent:e];
         }
         else {
@@ -1012,7 +1008,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     
     
     if ( !self.geocoder.geocoding ) {
-        [self.geocoder reverseGeocodeLocation:newLocation 
+        [self.geocoder reverseGeocodeLocation:newLocation
                             completionHandler:^(NSArray* inPlacemarkList, NSError* inError) {
                                 if ( nil == inError && [inPlacemarkList count] > 0 && !self.isOptedOut && self.isMeasurementActive ) {
                                     CLPlacemark* placemark = (CLPlacemark*)[inPlacemarkList objectAtIndex:0];
@@ -1027,13 +1023,13 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
                                     self.geoCountry = nil;
                                     self.geoProvince = nil;
                                     self.geoCity = nil;
-                                   
+                                    
                                 }
                                 
                             } ];
         
-    
-    
+        
+        
     }
     
 }
@@ -1082,7 +1078,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     // if there is no pasteboard, the user has not opted out
     if (nil != optOutPastboard) {
         optOutPastboard.persistent = YES;
-
+        
         // if there is a pastboard, check the contents to verify opt-out status.
         if ( [QCMEASUREMENT_OPTOUT_STRING compare:[optOutPastboard string]] == NSOrderedSame ) {
             return YES;
@@ -1098,7 +1094,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
         _isOptedOut = inOptOutStatus;
         
         self.dataManager.isOptOut = inOptOutStatus;
-
+        
         if ( inOptOutStatus ) {
             // setting the data manager to opt out will cause the cache directory to be emptied. No need to do further work here deleting files.
             
@@ -1158,7 +1154,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
 }
 
 -(void)displayUserPrivacyDialogOver:(UIViewController*)inCurrentViewController withDelegate:(id<QuantcastOptOutDelegate>)inDelegate {
- 
+    
     QuantcastOptOutViewController* optOutController = [[[QuantcastOptOutViewController alloc] initWithMeasurement:self delegate:inDelegate] autorelease];
     UINavigationController* navWrapper = [[[UINavigationController alloc] initWithRootViewController:optOutController] autorelease];
     
@@ -1172,7 +1168,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
         [inCurrentViewController presentModalViewController:navWrapper animated:YES];
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
     }
-
+    
 }
 
 #pragma mark - SDK Customization
@@ -1218,7 +1214,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
 
 -(void)logSDKError:(NSString*)inSDKErrorType withError:(NSError*)inErrorOrNil errorParameter:(NSString*)inErrorParametOrNil {
     if ( !self.isOptedOut && self.isMeasurementActive ) {
-
+        
         QuantcastEvent* e = [QuantcastEvent logSDKError:inSDKErrorType withErrorObject:inErrorOrNil errorParameter:inErrorParametOrNil withSessionID:self.currentSessionID enforcingPolicy:self.dataManager.policy];
         
         [self recordEvent:e];
