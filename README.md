@@ -31,7 +31,6 @@ Once you have downloaded the Quantcast iOS SDK's code, perform the following ste
 1.	Import the code into your project from the Quantcast-iOS-Measurement folder in the Quantcast repository you just created.
 2.	Link the following iOS frameworks to your project if they are not already:
 	*	`CoreGraphics`
-	*	`CoreLocation`
 	*	`CoreTelephony`
 	*	`Foundation`
 	*	`SystemConfiguration`
@@ -73,7 +72,7 @@ In order integration using One Step Integration:
 
 	The `labels:` parameter may be nil and is discussed in more detail in the [Event Labels](#event-labels) section under Optional Code Integrations.
 
-By using the `setupMeasurementSessionWithAPIKey:userIdentifier:labels:` call, it is not necessary to add the `beginMeasurementSessionWithAPIKey:userIdentifier:labels:`, `pauseSessionWithLabels:`, or `resumeSessionWithLabels:` to the code.   You may optionally call `endMeasurementSessionWithLabels:` at any time to explicitly end the measurement session, but this is not required.
+By using the `setupMeasurementSessionWithAPIKey:userIdentifier:labels:` call, it is not necessary to add the `beginMeasurementSessionWithAPIKey:userIdentifier:labels:`, `pauseSessionWithLabels:`, or `resumeSessionWithLabels:` calls to the code. You may optionally call `endMeasurementSessionWithLabels:` at any time to explicitly end the measurement session, but this is not required.
 
 #### Detailed SDK Integration ####
 
@@ -146,15 +145,25 @@ The `labels:` argument of most Quantcast SDK methods is typed to be an `id` poin
 While there is no specific constraint on the intended use of the label dimension, it is not recommended that you use it to indicate discrete events; in these cases, use the `logEvent:withLabels:` method described under [Tracking App Events](#tracking-app-events).
 
 #### Geo-Location Measurement ####
-To turn on geo-tracking, insert the following call into your `UIApplication` delegate's `application:didFinishLaunchingWithOptions:` method after you call either form of the `beginMeasurementSession:` methods:
+To turn on geo-location measurement, please take the following steps:
 
-```objective-c
-[QuantcastMeasurement sharedInstance].geoLocationEnabled = YES;
-```
+1. Link your project to the `CoreLocation` framework
+2. Ensure that the `QuantcastGeoManager.m` compile unit , which can be found in the `Optional` folder of the SDK, has been added to your project.
+3. Add the following line to your project's pre-compiled header file:
+   
+   ```objective-c
+   #define QCMEASUREMENT_ENABLE_GEOMEASUREMENT 1
+   ```
 
-You may also safely change the state of the `geoLocationEnabled` at any point after your app has launched and the Quantcast SDK will always adhere to its current setting.
+4. Insert the following call into your `UIApplication` delegate's `application:didFinishLaunchingWithOptions:` method after you call either form of the `beginMeasurementSession:` methods:
 
-Note that you should only enable geo-tracking if your app has some location-aware purpose.
+   ```objective-c
+   [QuantcastMeasurement sharedInstance].geoLocationEnabled = YES;
+   ```
+
+You may also safely change the state of the `geoLocationEnabled` at any point after your app has launched. The Quantcast SDK will always adhere to its current setting.
+
+Note that you should only enable geo-tracking if your app has some location-aware purpose for the user.
 
 The Quantcast iOS SDK will automatically pause geo-tracking while your app is in the background. This is done for both battery life and privacy considerations.
 

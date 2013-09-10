@@ -16,7 +16,7 @@
 // Requires iOS 4 and Xcode 4.5 or later. 
 //
 // Frameworks required:
-//      SystemConfiguration, Foundation, UIKit, CoreLocation, CoreTelephony
+//      SystemConfiguration, Foundation, UIKit, CoreTelephony
 //
 // Frameworks that should be weak-linked:
 //      AdSupport
@@ -35,6 +35,12 @@
 //
 //      And place the following in your precompiled header:
 //          #define QCMEASUREMENT_USE_SECURE_CONNECTIONS 1
+//
+// Additional frameworks that are required if geo-location measurement is desired:
+//      CoreLocation
+//
+//      And place the following in your precompiled header:
+//          #define QCMEASUREMENT_ENABLE_GEOMEASUREMENT 1
 //
 
 #import <Foundation/Foundation.h>
@@ -167,9 +173,10 @@
 /*!
  @property geoLocationEnabled
  @abstract Property that controls whether geo-location is logged
- @discussion By default, geo-location logging is off (NO). If you wish for Quantcast to provide measurement services pertaining to the user's geo-location, you should enable (set to YES) this property shortly after starting a measurement session. In order to protect user privacy, Quantcast will not log locations any more granular than "city", and will not log device location while your app is in the background. NOTE - Geolocation measurment is only supported on iOS 5 or later. Attempting to set this property to YES on a device running iOS 4.x will have no affect. You do not have to set this property to NO in order to pause geo-location tracking when the app goes into the background, as this is done automatically by the API.
+ @discussion By default, geo-location logging is off (NO). If you wish for Quantcast to provide measurement services pertaining to the user's geo-location, you should enable (set to YES) this property shortly after starting a measurement session. Furthermore, see the notes at the top of this file about which frameworks to add to your project. NOTE - Geolocation measurment is only supported on iOS 5 or later. Attempting to set this property to YES on a device running iOS 4.x will have no affect.
  */
 @property (assign,nonatomic) BOOL geoLocationEnabled;
+
 
 #pragma mark - User Privacy Management
 

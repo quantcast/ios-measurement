@@ -62,7 +62,7 @@
     
     if ( !self.isOptedOut ) {
         if (self.isMeasurementActive) {
-            QuantcastEvent* e = [QuantcastEvent eventWithSessionID:self.currentSessionID enforcingPolicy:self.dataManager.policy];
+            QuantcastEvent* e = [QuantcastEvent eventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy];
             
             NSString* issueTimeStamp = nil;
             
@@ -102,7 +102,7 @@
 
     if ( !self.isOptedOut ) {
         if (self.isMeasurementActive) {
-            QuantcastEvent* e = [QuantcastEvent eventWithSessionID:self.currentSessionID enforcingPolicy:self.dataManager.policy];
+            QuantcastEvent* e = [QuantcastEvent eventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy];
             
             NSString* issueTimeStamp = nil;
             
@@ -140,7 +140,7 @@
 
     if ( !self.isOptedOut ) {
         if (self.isMeasurementActive) {
-            QuantcastEvent* e = [QuantcastEvent eventWithSessionID:self.currentSessionID enforcingPolicy:self.dataManager.policy];
+            QuantcastEvent* e = [QuantcastEvent eventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy];
             
             NSString* issueTimeStamp = nil;
             
@@ -178,7 +178,7 @@
 
     if ( !self.isOptedOut ) {
         if (self.isMeasurementActive) {
-            QuantcastEvent* e = [QuantcastEvent eventWithSessionID:self.currentSessionID enforcingPolicy:self.dataManager.policy];
+            QuantcastEvent* e = [QuantcastEvent eventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy];
             
             NSString* issueTimeStamp = nil;
             
@@ -224,7 +224,7 @@
 
     if ( !self.isOptedOut ) {
         if (self.isMeasurementActive) {
-            QuantcastEvent* e = [QuantcastEvent eventWithSessionID:self.currentSessionID enforcingPolicy:self.dataManager.policy];
+            QuantcastEvent* e = [QuantcastEvent eventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy];
             
             NSString* issueTimeStamp = nil;
 

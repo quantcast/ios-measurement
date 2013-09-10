@@ -30,13 +30,18 @@
 #import "QuantcastUtils.h"
 #import "QuantcastPolicy.h"
 #import "QuantcastOptOutViewController.h"
+#import "QuantcastEventLogger.h"
 #import "QuantcastNetworkReachability.h"
 #import "QuantcastOptOutDelegate.h"
+
+#if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
+#import "QuantcastGeoManager.h"
+#endif
 
 QuantcastMeasurement* gSharedInstance = nil;
 
 
-@interface QuantcastMeasurement ()<QuantcastNetworkReachability, CLLocationManagerDelegate>{
+@interface QuantcastMeasurement () <QuantcastEventLogger,QuantcastNetworkReachability> {
     SCNetworkReachabilityRef _reachability;
     
     NSString* _hashedUserId;
@@ -46,16 +51,15 @@ QuantcastMeasurement* gSharedInstance = nil;
     BOOL _geoLocationEnabled;
 }
 
-@property (retain,nonatomic) NSString* currentSessionID;
+#if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
+@property (retain,nonatomic) QuantcastGeoManager* geoManager;
+#endif
+
+@property (retain,nonatomic) NSString* cachedAppInstallIdentifier;
 @property (retain,nonatomic) QuantcastDataManager* dataManager;
 @property (retain,nonatomic) NSString* quantcastAPIKey;
-@property (retain,nonatomic) CLLocationManager* locationManager;
-@property (retain,nonatomic) CLGeocoder* geocoder;
 @property (readonly,nonatomic) BOOL isMeasurementActive;
 @property (retain,nonatomic) NSDate* sessionPauseStartTime;
-@property (retain,nonatomic) NSString* geoCountry;
-@property (retain,nonatomic) NSString* geoProvince;
-@property (retain,nonatomic) NSString* geoCity;
 @property (readonly,nonatomic) BOOL advertisingTrackingEnabled;
 @property (retain, nonatomic) CTTelephonyNetworkInfo* telephoneInfo;
 @property (readonly,nonatomic) CTCarrier* carrier;
@@ -63,6 +67,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 @property (assign,nonatomic) BOOL usesOneStep;
 
 +(NSString*)generateSessionID;
++(NSString*)getSessionID:(BOOL)inLoadSavedIfAvailable withLogging:(BOOL)inDoLogging;
 +(BOOL)isOptedOutStatus;
 
 -(NSString*)appInstallIdentifierWithUserAdvertisingPreference:(BOOL)inAdvertisingTrackingEnabled;
@@ -82,20 +87,15 @@ QuantcastMeasurement* gSharedInstance = nil;
 
 -(NSString*)setUserIdentifier:(NSString*)inUserIdentifierOrNil;
 
--(void)startGeoLocationMeasurement;
--(void)stopGeoLocationMeasurement;
--(void)pauseGeoLocationMeasurement;
--(void)resumeGeoLocationMeasurment;
--(void)generateGeoEventWithCurrentLocation;
-
 -(void)logNetworkReachability;
 -(BOOL)startReachabilityNotifier;
 -(void)stopReachabilityNotifier;
+
+-(void)setGeoManagerGeoLocationEnable:(BOOL)inGeoLocationEnabled;
+
 @end
 
 @implementation QuantcastMeasurement
-@synthesize locationManager;
-@synthesize geocoder;
 @synthesize sessionPauseStartTime;
 @synthesize telephoneInfo;
 @synthesize setupLabels;
@@ -116,15 +116,15 @@ QuantcastMeasurement* gSharedInstance = nil;
 -(id)init {
     self = [super init];
     if (self) {
-        self.enableLogging = NO;
+        _enableLogging = NO;
+        _geoLocationEnabled = NO;
+        _cachedAppInstallIdentifier = nil;
         
         // the first thing to do is determine user opt-out status, as that will guide everything else.
         _isOptedOut = [QuantcastMeasurement isOptedOutStatus];
         if (_isOptedOut) {
             [self setOptOutCookie:YES];
         }
-        
-        _geoLocationEnabled = NO;
         
         Class telephonyClass = NSClassFromString(@"CTTelephonyNetworkInfo");
         if ( nil != telephonyClass ) {
@@ -144,10 +144,12 @@ QuantcastMeasurement* gSharedInstance = nil;
 -(void)dealloc {
     
     [self stopReachabilityNotifier];
-    self.geoLocationEnabled = NO;
     
-    [geocoder release];
-    [locationManager release];
+#if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
+    self.geoLocationEnabled = NO;
+    [_geoManager release];
+#endif
+
     [sessionPauseStartTime release];
     [quantcastAPIKey release];
     
@@ -155,6 +157,7 @@ QuantcastMeasurement* gSharedInstance = nil;
     [_hashedUserId release];
 
     [telephoneInfo release];
+    [_cachedAppInstallIdentifier release];
     
     [setupLabels release];
     
@@ -215,12 +218,20 @@ QuantcastMeasurement* gSharedInstance = nil;
     
     if ( nil != adManagerClass ) {
         
-        ASIdentifierManager* adPrefManager = [adManagerClass sharedManager];
+        ASIdentifierManager* adPrefManager = [ASIdentifierManager sharedManager];
         
         userAdvertisingPreference = adPrefManager.advertisingTrackingEnabled;
     }
 
     return userAdvertisingPreference;
+}
+
+-(QuantcastPolicy*)policy {
+    if (nil != self.dataManager ) {
+        return self.dataManager.policy;
+    }
+    
+    return nil;
 }
 
 #pragma mark - Device Identifier
@@ -236,7 +247,7 @@ QuantcastMeasurement* gSharedInstance = nil;
     
     if ( nil != adManagerClass ) {
         
-        ASIdentifierManager* manager = [adManagerClass sharedManager];
+        ASIdentifierManager* manager = [ASIdentifierManager sharedManager];
         
         if ( manager.advertisingTrackingEnabled) {
             NSUUID* uuid = manager.advertisingIdentifier;
@@ -262,7 +273,11 @@ QuantcastMeasurement* gSharedInstance = nil;
 }
 
 -(NSString*)appInstallIdentifier {
-    return [self appInstallIdentifierWithUserAdvertisingPreference:self.advertisingTrackingEnabled];
+    if ( nil == self.cachedAppInstallIdentifier ) {
+        self.cachedAppInstallIdentifier = [self appInstallIdentifierWithUserAdvertisingPreference:self.advertisingTrackingEnabled];
+    }
+    
+    return self.cachedAppInstallIdentifier;
 }
 
 -(NSString*)appInstallIdentifierWithUserAdvertisingPreference:(BOOL)inAdvertisingTrackingEnabled {
@@ -405,6 +420,46 @@ QuantcastMeasurement* gSharedInstance = nil;
     return sessionID;
 }
 
++(NSString*)getSessionID:(BOOL)inLoadSavedIfAvailable withLogging:(BOOL)inDoLogging {
+    NSString* cacheDir = [QuantcastUtils quantcastCacheDirectoryPathCreatingIfNeeded];
+    NSString* sessionIdFile = [cacheDir stringByAppendingPathComponent:QCMEASUREMENT_SESSIONID_FILENAME];
+   
+    NSString* sessionID = nil;
+    
+    if ( inLoadSavedIfAvailable && [[NSFileManager defaultManager] fileExistsAtPath:sessionIdFile]) {
+        NSError* readError = nil;
+        
+        sessionID = [NSString stringWithContentsOfFile:sessionIdFile encoding:NSUTF8StringEncoding error:&readError];
+        
+        if ( nil != readError ) {
+            if ( inDoLogging ) {
+                NSLog(@"QC Measurement: Error in loding sessions ID from file. Creating new session ID. Error = %@", readError);
+            }
+            sessionID = nil;
+        }
+        else if ( nil != sessionID && sessionID.length != 36 ) {
+            if ( inDoLogging ) {
+                NSLog(@"QC Measurement: Loaded improperly formated session ID from file. Creating new session ID. Bad session ID = %@", sessionID );
+            }
+            sessionID = nil;
+        }
+    }
+    
+    if ( nil == sessionID ) {
+        sessionID = [QuantcastMeasurement generateSessionID];
+        
+        NSError* writeError = nil;
+        
+        [sessionID writeToFile:sessionIdFile atomically:YES encoding:NSUTF8StringEncoding error:&writeError];
+        
+        if ( nil != writeError && inDoLogging ) {
+            NSLog(@"QC Measurement: Error writing new session id '%@' to file. error = %@", sessionID, writeError );
+        }
+    }
+
+    return sessionID;
+}
+
 -(BOOL)isMeasurementActive {
     return nil != self.currentSessionID;
 }
@@ -452,29 +507,36 @@ QuantcastMeasurement* gSharedInstance = nil;
 
 -(void)startNewSessionAndGenerateEventWithReason:(NSString*)inReason withLabels:(id<NSObject>)inLabelsOrNil {
     
-    self.currentSessionID = [QuantcastMeasurement generateSessionID];
+    // if app is launched in background, load last saved session instead of generating a new one.
+    
+    BOOL isAppLaunchedInBackground = [UIApplication sharedApplication].applicationState == UIApplicationStateBackground && [inReason compare:QCPARAMETER_REASONTYPE_LAUNCH] == NSOrderedSame;
+    self.currentSessionID = [QuantcastMeasurement getSessionID:isAppLaunchedInBackground withLogging:self.enableLogging];
     
     if ( nil != self.dataManager.policy ) {
         [self.dataManager.policy downloadLatestPolicyWithReachability:self];
     }
     
-    QuantcastEvent* e = [QuantcastEvent openSessionEventWithClientUserHash:_hashedUserId
-                                                          newSessionReason:inReason
-                                                             networkStatus:[self currentReachabilityStatus]
-                                                                 sessionID:self.currentSessionID
-                                                           quantcastAPIKey:self.quantcastAPIKey
-                                                          deviceIdentifier:self.deviceIdentifier
-                                                      appInstallIdentifier:self.appInstallIdentifier
-                                                           enforcingPolicy:self.dataManager.policy
-                                                               eventLabels:inLabelsOrNil
-                                                                   carrier:self.carrier];
+    if (!isAppLaunchedInBackground) {
+        QuantcastEvent* e = [QuantcastEvent openSessionEventWithClientUserHash:_hashedUserId
+                                                              newSessionReason:inReason
+                                                                 networkStatus:[self currentReachabilityStatus]
+                                                                     sessionID:self.currentSessionID
+                                                               quantcastAPIKey:self.quantcastAPIKey
+                                                              deviceIdentifier:self.deviceIdentifier
+                                                          appInstallIdentifier:self.appInstallIdentifier
+                                                               enforcingPolicy:self.dataManager.policy
+                                                                   eventLabels:inLabelsOrNil
+                                                                       carrier:self.carrier];
+        
+        
+        [self recordEvent:e];
+        
+        [self.dataManager initiateDataUpload];
+    }
+    else if (self.enableLogging) {
+        NSLog(@"QC Measurement: App was launched in the background. Not generating an open session event.");
+    }
     
-    
-    [self recordEvent:e];
-    
-    [self generateGeoEventWithCurrentLocation];
-    
-    [self.dataManager initiateDataUpload];
 }
 
 
@@ -534,8 +596,15 @@ QuantcastMeasurement* gSharedInstance = nil;
             
             self.dataManager = [[[QuantcastDataManager alloc] initWithOptOut:self.isOptedOut policy:policy] autorelease];
             self.dataManager.enableLogging = self.enableLogging;
-            self.dataManager.uploadEventCount = uploadEventCount;
-            
+            self.dataManager.uploadEventCount = self.uploadEventCount;
+
+#if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
+            if (nil == self.geoManager ) {
+                self.geoManager = [[[QuantcastGeoManager alloc] initWithEventLogger:self enableLogging:self.enableLogging] autorelease];
+                self.geoManager.geoLocationEnabled = self.geoLocationEnabled;
+            }
+#endif
+
         }
         
         [self enableDataUploading];
@@ -555,11 +624,14 @@ QuantcastMeasurement* gSharedInstance = nil;
     if ( !self.isOptedOut  ) {
         
         if ( self.isMeasurementActive ) {
-            QuantcastEvent* e = [QuantcastEvent closeSessionEventWithSessionID:self.currentSessionID enforcingPolicy:self.dataManager.policy eventLabels:inLabelsOrNil];
+            QuantcastEvent* e = [QuantcastEvent closeSessionEventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy eventLabels:inLabelsOrNil];
         
             [self recordEvent:e];
+
+#if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
+            self.geoManager = nil;
+#endif
             
-            [self stopGeoLocationMeasurement];
             [self stopReachabilityNotifier];
             
             self.currentSessionID = nil;
@@ -574,7 +646,6 @@ QuantcastMeasurement* gSharedInstance = nil;
             NSLog(@"QC Measurement: endMeasurementSessionWithLabels: was called without first calling beginMeasurementSession:");
         }
     }
-
 }
 
 -(void)pauseSessionWithLabels:(id<NSObject>)inLabelsOrNil {
@@ -594,13 +665,17 @@ QuantcastMeasurement* gSharedInstance = nil;
         
         if ( self.isMeasurementActive ) {
             
-            QuantcastEvent* e = [QuantcastEvent pauseSessionEventWithSessionID:self.currentSessionID enforcingPolicy:self.dataManager.policy eventLabels:inLabelsOrNil];
+            QuantcastEvent* e = [QuantcastEvent pauseSessionEventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy eventLabels:inLabelsOrNil];
             
             [self recordEvent:e];
             
             self.sessionPauseStartTime = [NSDate date];
             
-            [self pauseGeoLocationMeasurement];
+#if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
+            if ( nil != self.geoManager) {
+                [self.geoManager handleAppPause];
+            }
+#endif
             [self stopReachabilityNotifier];
             [self.dataManager initiateDataUpload];
         }
@@ -625,15 +700,19 @@ QuantcastMeasurement* gSharedInstance = nil;
     if ( !self.isOptedOut ) {
 
         if ( self.isMeasurementActive ) {
-            QuantcastEvent* e = [QuantcastEvent resumeSessionEventWithSessionID:self.currentSessionID enforcingPolicy:self.dataManager.policy eventLabels:inLabelsOrNil];
+            QuantcastEvent* e = [QuantcastEvent resumeSessionEventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy eventLabels:inLabelsOrNil];
             
             [self recordEvent:e];
             
             [self startNewSessionIfUsersAdPrefChanged];
             
             [self startReachabilityNotifier];
-            [self resumeGeoLocationMeasurment];
             
+#if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
+            if ( nil != self.geoManager) {
+                [self.geoManager handleAppResume];
+            }
+#endif
             if ( self.sessionPauseStartTime != nil ) {
                 NSDate* curTime = [NSDate date];
                 
@@ -735,6 +814,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
         
         QuantcastEvent* e = [QuantcastEvent networkReachabilityEventWithNetworkStatus:[self currentReachabilityStatus]
                                                                         withSessionID:self.currentSessionID
+                                                                 applicationInstallID:self.appInstallIdentifier
                                                                       enforcingPolicy:self.dataManager.policy];
         
         [self recordEvent:e];
@@ -868,7 +948,6 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
         originalHashedUserId = [[_hashedUserId copy] autorelease];
     }
     
-    
     NSString* hashedUserId = [self setUserIdentifier:inUserIdentifierOrNil];
     if ( ( originalHashedUserId == nil && hashedUserId != nil ) ||
          ( originalHashedUserId != nil && hashedUserId == nil ) ||
@@ -886,6 +965,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
             QuantcastEvent* e = [QuantcastEvent logEventEventWithEventName:inEventName
                                                                eventLabels:inLabelsOrNil
                                                                  sessionID:self.currentSessionID
+                                                      applicationInstallID:self.appInstallIdentifier
                                                            enforcingPolicy:self.dataManager.policy];
                                  
             [self recordEvent:e];
@@ -901,6 +981,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
         QuantcastEvent* e = [QuantcastEvent logUploadLatency:inLatencyMilliseconds
                                                  forUploadId:inUploadID
                                                withSessionID:self.currentSessionID
+                                        applicationInstallID:self.appInstallIdentifier
                                              enforcingPolicy:self.dataManager.policy];
         
         [self recordEvent:e];
@@ -910,164 +991,30 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
 
 
 #pragma mark - Geo Location Handling
-@synthesize geoCountry, geoProvince, geoCity;
 
 -(BOOL)geoLocationEnabled {
+#if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
     return _geoLocationEnabled;
+#else
+    return NO;
+#endif
 }
 
 -(void)setGeoLocationEnabled:(BOOL)inGeoLocationEnabled {
-    
-    Class geoCoderClass = NSClassFromString(@"CLGeocoder");
-    
-    if ( nil != geoCoderClass ) {
-        CLAuthorizationStatus authStatus = [CLLocationManager authorizationStatus];
-        
-        _geoLocationEnabled = inGeoLocationEnabled && ( authStatus == kCLAuthorizationStatusNotDetermined || authStatus == kCLAuthorizationStatusAuthorized );
-        
-        if (_geoLocationEnabled) {
-            [self startGeoLocationMeasurement];
-        }
-        else {
-            [self stopGeoLocationMeasurement];
-        }
-        
-    }
-    
+    _geoLocationEnabled = inGeoLocationEnabled;
+    [self setGeoManagerGeoLocationEnable:inGeoLocationEnabled];
 }
 
--(void)startGeoLocationMeasurement {
-    self.geoCountry = nil;
-    self.geoProvince = nil;
-    self.geoCity = nil;
-    
-    if ( !self.isOptedOut && self.geoLocationEnabled ) {
-        if (self.enableLogging) {
-            NSLog(@"QC Measurement: Enabling geo-location measurement.");
-        }
-        // turn it on
-        if (nil == self.locationManager) {
-            self.locationManager = [[[CLLocationManager alloc] init] autorelease];
-            self.locationManager.desiredAccuracy = kCLLocationAccuracyKilometer;
-            self.locationManager.delegate = self;
-        }
-        
-        [self.locationManager startMonitoringSignificantLocationChanges];
-        
+-(void)setGeoManagerGeoLocationEnable:(BOOL)inGeoLocationEnabled {
+#if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
+    if ( nil != self.geoManager ) {
+        self.geoManager.geoLocationEnabled = inGeoLocationEnabled;
     }
-}
-
--(void)stopGeoLocationMeasurement {
-    if (self.enableLogging) {
-        NSLog(@"QC Measurement: Disabling geo-location measurement.");
+#else
+    if ( inGeoLocationEnabled) {
+        NSLog(@"QC Measurement: ERROR - Tried to turn geo-measurement on but code has not been compiled. Please add '#define QCMEASUREMENT_ENABLE_GEOMEASUREMENT 1' to your pre-compiled header.");
     }
-    self.geoCountry = nil;
-    self.geoProvince = nil;
-    self.geoCity = nil;
-    
-    [self.locationManager stopMonitoringSignificantLocationChanges];
-}
-
--(void)pauseGeoLocationMeasurement {
-    if ( self.geoLocationEnabled && nil != self.locationManager ) {
-        [self.locationManager stopMonitoringSignificantLocationChanges];
-    }
-}
-
--(void)resumeGeoLocationMeasurment {
-    if ( self.geoLocationEnabled && nil != self.locationManager ) {
-        [self.locationManager startMonitoringSignificantLocationChanges];
-    }
-}
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-implementations"
-- (void)locationManager:(CLLocationManager *)manager
-    didUpdateToLocation:(CLLocation *)newLocation
-           fromLocation:(CLLocation *)oldLocation
-#pragma clang diagnostic pop
-{
-    // pre-iOS 6 version of this method
-    
-    NSArray* locationList = [NSArray arrayWithObject:newLocation];
-    
-    [self locationManager:manager didUpdateLocations:locationList];
-}
-
-- (void)locationManager:(CLLocationManager *)manager didUpdateLocations:(NSArray *)locations
-{
-    if ([locations count] == 0 ) {
-        if (self.enableLogging) {
-            NSLog( @"QC Measurement: WARNING - locationManager:didUpdateLocations: Got a zero-lengthed locations list. Doing nothing");
-        }
-        
-        return;
-    }
-    
-    CLLocation* newLocation = [locations objectAtIndex:0];
-    
-    if (nil == self.geocoder ) {
-        self.geocoder = [[[CLGeocoder alloc] init] autorelease];
-    }
-    
-    
-    if ( !self.geocoder.geocoding ) {
-        [self.geocoder reverseGeocodeLocation:newLocation 
-                            completionHandler:^(NSArray* inPlacemarkList, NSError* inError) {
-                                if ( nil == inError && [inPlacemarkList count] > 0 && !self.isOptedOut && self.isMeasurementActive ) {
-                                    CLPlacemark* placemark = (CLPlacemark*)[inPlacemarkList objectAtIndex:0];
-                                    
-                                    self.geoCountry = [placemark country];
-                                    self.geoProvince = [placemark administrativeArea];
-                                    self.geoCity = [placemark locality];
-                                    
-                                    [self generateGeoEventWithCurrentLocation];
-                                }
-                                else {
-                                    self.geoCountry = nil;
-                                    self.geoProvince = nil;
-                                    self.geoCity = nil;
-                                   
-                                }
-                                
-                            } ];
-        
-    
-    
-    }
-    
-}
-
--(void)generateGeoEventWithCurrentLocation {
-    if (!self.isOptedOut && self.geoLocationEnabled) {
-        
-        if ( nil != self.geoCountry || nil != self.geoProvince || nil != self.geoCity ) {
-            
-            
-            QuantcastEvent* e = [QuantcastEvent geolocationEventWithCountry:self.geoCountry
-                                                                   province:self.geoProvince
-                                                                       city:self.geoCity
-                                                              withSessionID:self.currentSessionID
-                                                            enforcingPolicy:self.dataManager.policy ];
-            
-            [self recordEvent:e];
-            
-        }
-        
-        
-    }
-}
-
-- (void)locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error {
-    
-    if (self.enableLogging) {
-        NSLog(@"QC Measurement: The location manager failed with error = %@", error );
-    }
-    
-    self.geoCountry = nil;
-    self.geoProvince = nil;
-    self.geoCity = nil;
-    
+#endif
 }
 
 #pragma mark - User Privacy Management
@@ -1097,6 +1044,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     if ( _isOptedOut != inOptOutStatus ) {
         _isOptedOut = inOptOutStatus;
         
+        self.cachedAppInstallIdentifier = nil;
         self.dataManager.isOptOut = inOptOutStatus;
 
         if ( inOptOutStatus ) {
@@ -1107,10 +1055,12 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
             optOutPastboard.persistent = YES;
             [optOutPastboard setString:QCMEASUREMENT_OPTOUT_STRING];
             
-            
             // stop the various services
-            
-            [self stopGeoLocationMeasurement];
+#if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
+            if ( nil != self.geoManager ) {
+                [self setGeoManagerGeoLocationEnable:NO];
+            }
+#endif
             [self stopReachabilityNotifier];
             [self appendUserAgent:NO];
             [self setOptOutCookie:YES];
@@ -1133,7 +1083,10 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
                 [self beginMeasurementSessionWithAPIKey:self.quantcastAPIKey labels:@"_OPT-IN"];
             }
             
-            [self startGeoLocationMeasurement];
+            if ( self.geoLocationEnabled ) {
+                [self setGeoManagerGeoLocationEnable:self.geoLocationEnabled];
+            }
+            
             [self startReachabilityNotifier];
             [self setOptOutCookie:NO];
         }
@@ -1207,7 +1160,10 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
 -(void)setEnableLogging:(BOOL)inEnableLogging {
     _enableLogging = inEnableLogging;
     
-    self.dataManager.enableLogging=inEnableLogging;
+    self.dataManager.enableLogging = inEnableLogging;
+#if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
+    self.geoManager.enableLogging = inEnableLogging;
+#endif
 }
 
 - (NSString *)description {
@@ -1219,7 +1175,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
 -(void)logSDKError:(NSString*)inSDKErrorType withError:(NSError*)inErrorOrNil errorParameter:(NSString*)inErrorParametOrNil {
     if ( !self.isOptedOut && self.isMeasurementActive ) {
 
-        QuantcastEvent* e = [QuantcastEvent logSDKError:inSDKErrorType withErrorObject:inErrorOrNil errorParameter:inErrorParametOrNil withSessionID:self.currentSessionID enforcingPolicy:self.dataManager.policy];
+        QuantcastEvent* e = [QuantcastEvent logSDKError:inSDKErrorType withErrorObject:inErrorOrNil errorParameter:inErrorParametOrNil withSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy];
         
         [self recordEvent:e];
     }
