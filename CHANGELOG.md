@@ -1,6 +1,11 @@
 #Quantcast Measure for Apps#
 ###iOS SDK Changelog###
 
+##Version 1.2.10##
+September 12, 2013
+
+* Fixed compilation issue caused when CoreLocation is not linked to project.
+
 ##Version 1.2.9 ##
 September 10, 2013
 * Refactored geo-location code so that it is completely optional to integrate. The `CoreLocation` framework is now only required if you wish to activate geo-reporting. People who have already activated the geo-location code will need to take the following steps to maintain that activation:

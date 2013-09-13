@@ -73,7 +73,7 @@
         _waitingForUpdate = NO;
         
         _allowGeoMeasurement = NO;
-        _desiredGeoLocationAccuracy = kCLLocationAccuracyBest;
+        _desiredGeoLocationAccuracy = 10.0;
         _geoMeasurementUpdateDistance = 50.0;
 
        // first, determine if there is a saved polciy on disk, if not, create it with default polciy
@@ -280,7 +280,7 @@
             }
             
             _allowGeoMeasurement = [QuantcastPolicy booleanValueForJSONObject:[policyDict objectForKey:@"allowGeoMeasurement"] defaultValue:YES];
-            _desiredGeoLocationAccuracy = [QuantcastPolicy doubleValueForJSONObject:[policyDict objectForKey:@"desiredGeoLocationAccuracy"] defaultValue:kCLLocationAccuracyNearestTenMeters];
+            _desiredGeoLocationAccuracy = [QuantcastPolicy doubleValueForJSONObject:[policyDict objectForKey:@"desiredGeoLocationAccuracy"] defaultValue:10.0];
             _geoMeasurementUpdateDistance = [QuantcastPolicy doubleValueForJSONObject:[policyDict objectForKey:@"geoMeasurementUpdateDistance"] defaultValue:50.0];
             
             _policyHasBeenLoaded = YES;
