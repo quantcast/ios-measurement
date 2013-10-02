@@ -43,6 +43,10 @@
 @implementation QuantcastMeasurement (Periodicals)
 
 -(void)logAssetDownloadCompletedWithPeriodicalNamed:(NSString*)inPeriodicalName issueNamed:(NSString*)inIssueName issuePublicationDate:(NSDate*)inPublicationDate withLabels:(id<NSObject>)inLabelsOrNil {
+    [self logAssetDownloadCompletedWithPeriodicalNamed:inPeriodicalName issueNamed:inIssueName issuePublicationDate:inPublicationDate withAppLabels:inLabelsOrNil networkLabels:nil];
+}
+
+-(void)logAssetDownloadCompletedWithPeriodicalNamed:(NSString*)inPeriodicalName issueNamed:(NSString*)inIssueName issuePublicationDate:(NSDate*)inPublicationDate withAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil {
     
     if ( nil == inPeriodicalName ) {
         NSLog(@"QC Measurement: ERROR - The inPeriodicalName parameter cannot be nil");
@@ -74,7 +78,7 @@
             [e putParameter:QCPARAMETER_PERIODICAL_ISSUENAME withValue:[QuantcastUtils JSONEncodeString:inIssueName] enforcingPolicy:self.dataManager.policy];
             [e putParameter:QCPARAMETER_PERIODICAL_ISSUEDATE withValue:issueTimeStamp enforcingPolicy:self.dataManager.policy];
             
-            [e putLabels:inLabelsOrNil enforcingPolicy:self.dataManager.policy];
+            [e putAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil enforcingPolicy:self.dataManager.policy];
             
             [self recordEvent:e];
         }
@@ -85,6 +89,10 @@
 }
 
 -(void)logOpenIssueWithPeriodicalNamed:(NSString*)inPeriodicalName issueNamed:(NSString*)inIssueName issuePublicationDate:(NSDate*)inPublicationDate withLabels:(id<NSObject>)inLabelsOrNil {
+    [self logOpenIssueWithPeriodicalNamed:inPeriodicalName issueNamed:inIssueName issuePublicationDate:inPublicationDate withAppLabels:inLabelsOrNil networkLabels:nil];
+}
+-(void)logOpenIssueWithPeriodicalNamed:(NSString*)inPeriodicalName issueNamed:(NSString*)inIssueName issuePublicationDate:(NSDate*)inPublicationDate withAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil {
+
     if ( nil == inPeriodicalName ) {
         NSLog(@"QC Measurement: ERROR - The inPeriodicalName parameter cannot be nil");
         return;
@@ -114,6 +122,8 @@
             [e putParameter:QCPARAMETER_PERIODICAL_ISSUENAME withValue:[QuantcastUtils JSONEncodeString:inIssueName] enforcingPolicy:self.dataManager.policy];
             [e putParameter:QCPARAMETER_PERIODICAL_ISSUEDATE withValue:issueTimeStamp enforcingPolicy:self.dataManager.policy];
 
+            [e putAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil enforcingPolicy:self.dataManager.policy];
+            
             [self recordEvent:e];
         }
         else {
@@ -123,6 +133,10 @@
 }
 
 -(void)logCloseIssueWithPeriodicalNamed:(NSString*)inPeriodicalName issueNamed:(NSString*)inIssueName issuePublicationDate:(NSDate*)inPublicationDate withLabels:(id<NSObject>)inLabelsOrNil {
+    [self logCloseIssueWithPeriodicalNamed:inPeriodicalName issueNamed:inIssueName issuePublicationDate:inPublicationDate withAppLabels:inLabelsOrNil networkLabels:nil];
+}
+
+-(void)logCloseIssueWithPeriodicalNamed:(NSString*)inPeriodicalName issueNamed:(NSString*)inIssueName issuePublicationDate:(NSDate*)inPublicationDate withAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil {
     if ( nil == inPeriodicalName ) {
         NSLog(@"QC Measurement: ERROR - The inPeriodicalName parameter cannot be nil");
         return;
@@ -152,6 +166,8 @@
             [e putParameter:QCPARAMETER_PERIODICAL_ISSUENAME withValue:[QuantcastUtils JSONEncodeString:inIssueName] enforcingPolicy:self.dataManager.policy];
             [e putParameter:QCPARAMETER_PERIODICAL_ISSUEDATE withValue:issueTimeStamp enforcingPolicy:self.dataManager.policy];
             
+            [e putAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil enforcingPolicy:self.dataManager.policy];
+            
             [self recordEvent:e];
         }
         else {
@@ -161,6 +177,10 @@
 }
 
 -(void)logPeriodicalPageView:(NSUInteger)inPageNumber withPeriodicalNamed:(NSString*)inPeriodicalName issueNamed:(NSString*)inIssueName issuePublicationDate:(NSDate*)inPublicationDate withLabels:(id<NSObject>)inLabelsOrNil {
+    [self logPeriodicalPageView:inPageNumber withPeriodicalNamed:inPeriodicalName issueNamed:inIssueName issuePublicationDate:inPublicationDate withAppLabels:inLabelsOrNil networkLabels:nil];
+}
+
+-(void)logPeriodicalPageView:(NSUInteger)inPageNumber withPeriodicalNamed:(NSString*)inPeriodicalName issueNamed:(NSString*)inIssueName issuePublicationDate:(NSDate*)inPublicationDate withAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil {
     if ( nil == inPeriodicalName ) {
         NSLog(@"QC Measurement: ERROR - The inPeriodicalName parameter cannot be nil");
         return;
@@ -191,6 +211,8 @@
             [e putParameter:QCPARAMETER_PERIODICAL_ISSUEDATE withValue:issueTimeStamp enforcingPolicy:self.dataManager.policy];
             [e putParameter:QCPARAMETER_PERIODICAL_PAGE withValue:[NSNumber numberWithUnsignedInteger:inPageNumber] enforcingPolicy:self.dataManager.policy];
             
+            [e putAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil enforcingPolicy:self.dataManager.policy];
+            
             [self recordEvent:e];
         }
         else {
@@ -201,6 +223,11 @@
 
 
 -(void)logPeriodicalArticleView:(NSString*)inArticleName withPeriodicalNamed:(NSString*)inPeriodicalName issueNamed:(NSString*)inIssueName issuePublicationDate:(NSDate*)inPublicationDate articleAuthors:(NSArray*)inAuthorListOrNil withLabels:(id<NSObject>)inLabelsOrNil {
+    [self logPeriodicalArticleView:inArticleName withPeriodicalNamed:inPeriodicalName issueNamed:inIssueName issuePublicationDate:inPublicationDate articleAuthors:inAuthorListOrNil withAppLabels:inLabelsOrNil networkLabels:nil];
+}
+
+-(void)logPeriodicalArticleView:(NSString*)inArticleName withPeriodicalNamed:(NSString*)inPeriodicalName issueNamed:(NSString*)inIssueName issuePublicationDate:(NSDate*)inPublicationDate articleAuthors:(NSArray*)inAuthorListOrNil withAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil {
+    
     if ( nil == inPeriodicalName ) {
         NSLog(@"QC Measurement: ERROR - The inPeriodicalName parameter cannot be nil");
         return;
@@ -244,7 +271,7 @@
                 [e putParameter:QCPARAMETER_PERIODICAL_AUTHOR withValue:authorsString enforcingPolicy:self.dataManager.policy];
             }
             
-            [e putLabels:inLabelsOrNil enforcingPolicy:self.dataManager.policy];
+            [e putAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil enforcingPolicy:self.dataManager.policy];
             
             [self recordEvent:e];
         }

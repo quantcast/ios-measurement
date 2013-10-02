@@ -40,6 +40,7 @@
 +(NSString*)connectionTypeForNetworkStatus:(QuantcastNetworkStatus)inNetworkStatus;
 
 -(void)addTimeZoneParameterEnforcingPolicy:(QuantcastPolicy*)inPolicy;
+-(void)putLabels:(id<NSObject>)inLabelsObjectOrNil withParamterKey:(NSString*)inParameterKey enforcingPolicy:(QuantcastPolicy*)inPolicyOrNil;
 
 @end
 #pragma mark - QuantcastEvent
@@ -95,25 +96,31 @@
     return [_parameters objectForKey:inParamKey];
 }
 
--(void)putLabels:(id<NSObject>)inLabelsObjectOrNil enforcingPolicy:(QuantcastPolicy*)inPolicyOrNil {
+-(void)putAppLabels:(id<NSObject>)inAppLabelsObjectOrNil networkLabels:(id<NSObject>)inNetworkLabelsObjectOrNil enforcingPolicy:(QuantcastPolicy*)inPolicyOrNil;
+{
+    [self putLabels:inAppLabelsObjectOrNil withParamterKey:QCPARAMETER_APP_LABELS enforcingPolicy:inPolicyOrNil];
+    [self putLabels:inNetworkLabelsObjectOrNil withParamterKey:QCPARAMETER_NETWORK_LABELS enforcingPolicy:inPolicyOrNil];
+}
+
+-(void)putLabels:(id<NSObject>)inLabelsObjectOrNil withParamterKey:(NSString*)inParameterKey enforcingPolicy:(QuantcastPolicy*)inPolicyOrNil {
     if ( nil != inLabelsObjectOrNil ) {
-      
+        
         if ( [inLabelsObjectOrNil isKindOfClass:[NSString class]] ) {
             NSString* encodedLabel = [QuantcastUtils urlEncodeString:(NSString*)inLabelsObjectOrNil];
             
-            [self putParameter:QCPARAMETER_LABELS withValue:encodedLabel enforcingPolicy:inPolicyOrNil];
-
+            [self putParameter:inParameterKey withValue:encodedLabel enforcingPolicy:inPolicyOrNil];
+            
         }
         else if ( [inLabelsObjectOrNil isKindOfClass:[NSArray class]] ) {
             NSArray* labelArray = (NSArray*)inLabelsObjectOrNil;
             
             NSString* labelsString =  [QuantcastUtils encodeLabelsList:labelArray];
             
-            [self putParameter:QCPARAMETER_LABELS withValue:labelsString enforcingPolicy:inPolicyOrNil];
+            [self putParameter:inParameterKey withValue:labelsString enforcingPolicy:inPolicyOrNil];
         }
         else {
-            NSLog(@"QC Measurment: An incorrect object type was passed as a label. The object passed was: %@",inLabelsObjectOrNil);
-        
+            NSLog(@"QC Measurment:ERROR - An incorrect object type was passed as a label (type = %@). The object passed was: %@",inParameterKey,inLabelsObjectOrNil);
+            
         }
     }
 }
@@ -247,11 +254,13 @@
                                        networkStatus:(QuantcastNetworkStatus)inNetworkStatus
                                            sessionID:(NSString*)inSessionID
                                      quantcastAPIKey:(NSString*)inQuantcastAPIKey
+                               quantcastNetworkPCode:(NSString*)inQuantcastNetworkPCode
                                     deviceIdentifier:(NSString*)inDeviceID
                                 appInstallIdentifier:(NSString*)inAppInstallID
                                      enforcingPolicy:(QuantcastPolicy*)inPolicy
-                                         eventLabels:(id<NSObject>)inEventLabelsOrNil
-                                             carrier:(CTCarrier*)carrier
+                                      eventAppLabels:(id<NSObject>)inAppLabelsOrNil
+                                  eventNetworkLabels:(id<NSObject>)inNetworkLabelsOrNil
+                                             carrier:(CTCarrier*)inCarrier
 {
     
     QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID applicationInstallID:inAppInstallID enforcingPolicy:inPolicy];
@@ -260,15 +269,14 @@
 
     [e putParameter:QCPARAMETER_REASON withValue:inReason enforcingPolicy:inPolicy];
     [e putParameter:QCPARAMATER_APIKEY withValue:inQuantcastAPIKey enforcingPolicy:inPolicy];
+    [e putParameter:QCPARAMETER_NETWORKPCODE withValue:inQuantcastNetworkPCode enforcingPolicy:inPolicy];
     [e putParameter:QCPARAMETER_MEDIA withValue:@"app" enforcingPolicy:inPolicy];
     [e putParameter:QCPARAMETER_CT withValue:[QuantcastEvent connectionTypeForNetworkStatus:inNetworkStatus] enforcingPolicy:inPolicy];
-    
     
     if ( nil != inDeviceID ) {
         [e putParameter:QCPARAMETER_DID withValue:inDeviceID enforcingPolicy:inPolicy];
        
     }
-
     
     NSString* appName = [[NSBundle mainBundle] objectForInfoDictionaryKey:(NSString *)kCFBundleNameKey];
     if ( nil != appName) {
@@ -289,7 +297,7 @@
         [e putParameter:QCPARAMETER_IVER withValue:appBuildVersion enforcingPolicy:inPolicy];
     }
     
-    [e putLabels:inEventLabelsOrNil enforcingPolicy:inPolicy];
+    [e putAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil enforcingPolicy:inPolicy];
     
     if ( nil != inHashedUserIDOrNil ) {
         [e putParameter:QCPARAMETER_UH withValue:inHashedUserIDOrNil enforcingPolicy:inPolicy];
@@ -308,28 +316,28 @@
     [e addTimeZoneParameterEnforcingPolicy:inPolicy];
     
     // Cheack carrier and fill in data
-    if ( nil != carrier ) {
+    if ( nil != inCarrier ) {
     
         // Get mobile country code 
-        NSString *icc = [carrier isoCountryCode];
+        NSString *icc = [inCarrier isoCountryCode];
         if (icc != nil) {
             [e putParameter:QCPARAMETER_ICC withValue:icc enforcingPolicy:inPolicy];
         }
 
-        NSString *mcc = [carrier mobileCountryCode];
+        NSString *mcc = [inCarrier mobileCountryCode];
         if ( mcc != nil) {
             [e putParameter:QCPARAMETER_MCC withValue:mcc enforcingPolicy:inPolicy];                
         }
         
         // Get carrier name
-        NSString *carrierName = [carrier carrierName];
+        NSString *carrierName = [inCarrier carrierName];
         if (carrierName != nil) {
             [e putParameter:QCPARAMETER_MNN withValue:carrierName enforcingPolicy:inPolicy];
         }
         
         
         // Get mobile network code
-        NSString *mnc = [carrier mobileNetworkCode];
+        NSString *mnc = [inCarrier mobileNetworkCode];
         if (mnc != nil) {            
             [e putParameter:QCPARAMETER_MNC withValue:mnc enforcingPolicy:inPolicy];
         }
@@ -368,15 +376,16 @@
     return e;
 }
 
-+(QuantcastEvent*)closeSessionEventWithSessionID:(NSString*)inSessionID 
++(QuantcastEvent*)closeSessionEventWithSessionID:(NSString*)inSessionID
                             applicationInstallID:(NSString*)inAppInstallID
                                  enforcingPolicy:(QuantcastPolicy*)inPolicy
-                                     eventLabels:(id<NSObject>)inEventLabelsOrNil
+                                  eventAppLabels:(id<NSObject>)inAppLabelsOrNil
+                              eventNetworkLabels:(id<NSObject>)inNetworkLabelsOrNil
 {
     QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID applicationInstallID:inAppInstallID enforcingPolicy:inPolicy];
     
     [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_FINISHED enforcingPolicy:inPolicy];
-    [e putLabels:inEventLabelsOrNil enforcingPolicy:inPolicy];
+    [e putAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil enforcingPolicy:inPolicy];
     
     return e;
 }
@@ -384,12 +393,13 @@
 +(QuantcastEvent*)pauseSessionEventWithSessionID:(NSString*)inSessionID 
                             applicationInstallID:(NSString*)inAppInstallID
                                  enforcingPolicy:(QuantcastPolicy*)inPolicy
-                                     eventLabels:(id<NSObject>)inEventLabelsOrNil
+                                  eventAppLabels:(id<NSObject>)inAppLabelsOrNil
+                              eventNetworkLabels:(id<NSObject>)inNetworkLabelsOrNil
 {
     QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID applicationInstallID:inAppInstallID enforcingPolicy:inPolicy];
     
     [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_PAUSE enforcingPolicy:inPolicy];
-    [e putLabels:inEventLabelsOrNil enforcingPolicy:inPolicy];
+    [e putAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil enforcingPolicy:inPolicy];
     
     return e;
 }
@@ -397,19 +407,21 @@
 +(QuantcastEvent*)resumeSessionEventWithSessionID:(NSString*)inSessionID 
                              applicationInstallID:(NSString*)inAppInstallID
                                   enforcingPolicy:(QuantcastPolicy*)inPolicy
-                                      eventLabels:(id<NSObject>)inEventLabelsOrNil
+                                   eventAppLabels:(id<NSObject>)inAppLabelsOrNil
+                               eventNetworkLabels:(id<NSObject>)inNetworkLabelsOrNil
 {
     QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID applicationInstallID:inAppInstallID enforcingPolicy:inPolicy];
     
     [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_RESUME enforcingPolicy:inPolicy];    
-    [e putLabels:inEventLabelsOrNil enforcingPolicy:inPolicy];
+    [e putAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil enforcingPolicy:inPolicy];
     
     return e;
 }
 
 +(QuantcastEvent*)logEventEventWithEventName:(NSString*)inEventName
-                                 eventLabels:(id<NSObject>)inEventLabelsOrNil
-                                   sessionID:(NSString*)inSessionID 
+                              eventAppLabels:(id<NSObject>)inAppLabelsOrNil
+                          eventNetworkLabels:(id<NSObject>)inNetworkLabelsOrNil
+                                   sessionID:(NSString*)inSessionID
                         applicationInstallID:(NSString*)inAppInstallID
                              enforcingPolicy:(QuantcastPolicy*)inPolicy
 {
@@ -417,7 +429,7 @@
    
     [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_APPEVENT enforcingPolicy:inPolicy];
     [e putParameter:QCPARAMETER_APPEVENT withValue:inEventName enforcingPolicy:inPolicy];
-    [e putLabels:inEventLabelsOrNil enforcingPolicy:inPolicy];
+    [e putAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil enforcingPolicy:inPolicy];
 
     
     return e;

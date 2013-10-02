@@ -24,6 +24,7 @@
 #import <CoreTelephony/CTTelephonyNetworkInfo.h>
 #import <AdSupport/AdSupport.h>
 #import "QuantcastMeasurement.h"
+#import "QuantcastMeasurement+Internal.h"
 #import "QuantcastParameters.h"
 #import "QuantcastDataManager.h"
 #import "QuantcastEvent.h"
@@ -58,6 +59,8 @@ QuantcastMeasurement* gSharedInstance = nil;
 @property (retain,nonatomic) NSString* cachedAppInstallIdentifier;
 @property (retain,nonatomic) QuantcastDataManager* dataManager;
 @property (retain,nonatomic) NSString* quantcastAPIKey;
+@property (retain,nonatomic) NSString* quantcastNetworkPCode;
+@property (assign,nonatomic) BOOL appIsDeclaredDirectedAtChildren;
 @property (readonly,nonatomic) BOOL isMeasurementActive;
 @property (retain,nonatomic) NSDate* sessionPauseStartTime;
 @property (readonly,nonatomic) BOOL advertisingTrackingEnabled;
@@ -81,9 +84,9 @@ QuantcastMeasurement* gSharedInstance = nil;
 
 
 -(void)setOptOutStatus:(BOOL)inOptOutStatus;
--(void)startNewSessionAndGenerateEventWithReason:(NSString*)inReason withLabels:(id<NSObject>)inLabelsOrNil;
--(void)startNewSessionIfUsersAdPrefChanged;
--(BOOL)isQuantcastAPIKeyValid:(NSString*)inQuantcastAppId;
+-(void)startNewSessionAndGenerateEventWithReason:(NSString*)inReason withAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil;
+-(BOOL)startNewSessionIfUsersAdPrefChangedWithAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabels;
++(BOOL)validateQuantcastAPIKey:(NSString*)inQuantcastAppId quantcastNetworkPCode:(NSString*)inQuantcastNetworkPCode;
 
 -(NSString*)setUserIdentifier:(NSString*)inUserIdentifierOrNil;
 
@@ -116,6 +119,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 -(id)init {
     self = [super init];
     if (self) {
+        _appIsDeclaredDirectedAtChildren = NO;
         _enableLogging = NO;
         _geoLocationEnabled = NO;
         _cachedAppInstallIdentifier = nil;
@@ -487,7 +491,7 @@ QuantcastMeasurement* gSharedInstance = nil;
         [labels addObject:@"_sdk.ios.setup"];
         self.setupLabels = labels;
         
-        userhash = [self internalBeginSessionWithAPIKey:inQuantcastAPIKey userIdentifier:userIdentifierOrNil labels:self.setupLabels];
+        userhash = [self internalBeginSessionWithAPIKey:inQuantcastAPIKey attributedNetwork:nil userIdentifier:userIdentifierOrNil appLabels:inLabelsOrNil networkLabels:nil appIsDeclaredDirectedAtChildren:NO];
     }
     self.usesOneStep = YES;
     return userhash;
@@ -498,14 +502,14 @@ QuantcastMeasurement* gSharedInstance = nil;
 }
 
 -(void)pauseNotification{
-    [self internalPauseSessionWithLabels:self.setupLabels];
+    [self internalPauseSessionWithAppLabels:self.setupLabels networkLabels:nil];
 }
 
 -(void)resumeNotification{
-    [self internalResumeSessionWithLabels:self.setupLabels];
+    [self internalResumeSessionWithAppLabels:self.setupLabels networkLabels:nil];
 }
 
--(void)startNewSessionAndGenerateEventWithReason:(NSString*)inReason withLabels:(id<NSObject>)inLabelsOrNil {
+-(void)startNewSessionAndGenerateEventWithReason:(NSString*)inReason withAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil {
     
     // if app is launched in background, load last saved session instead of generating a new one.
     
@@ -522,10 +526,12 @@ QuantcastMeasurement* gSharedInstance = nil;
                                                                  networkStatus:[self currentReachabilityStatus]
                                                                      sessionID:self.currentSessionID
                                                                quantcastAPIKey:self.quantcastAPIKey
+                                                         quantcastNetworkPCode:self.quantcastNetworkPCode
                                                               deviceIdentifier:self.deviceIdentifier
                                                           appInstallIdentifier:self.appInstallIdentifier
                                                                enforcingPolicy:self.dataManager.policy
-                                                                   eventLabels:inLabelsOrNil
+                                                                eventAppLabels:inAppLabelsOrNil
+                                                            eventNetworkLabels:inNetworkLabelsOrNil
                                                                        carrier:self.carrier];
         
         
@@ -545,8 +551,7 @@ QuantcastMeasurement* gSharedInstance = nil;
         NSLog(@"QC Measurement: ERROR - No need to explictly call any beginMeasurementSessionWithAPIKey when setupMeasurementSessionWithAPIKey is used.");
         return;
     }
-    [self internalBeginSessionWithAPIKey:inQuantcastAPIKey userIdentifier:nil labels:inLabelsOrNil];
-    
+    [self internalBeginSessionWithAPIKey:inQuantcastAPIKey attributedNetwork:nil userIdentifier:nil appLabels:inLabelsOrNil networkLabels:nil appIsDeclaredDirectedAtChildren:NO];
 }
 
 -(NSString*)beginMeasurementSessionWithAPIKey:(NSString*)inQuantcastAPIKey userIdentifier:(NSString*)inUserIdentifierOrNil labels:(id<NSObject>)inLabelsOrNil {
@@ -556,16 +561,115 @@ QuantcastMeasurement* gSharedInstance = nil;
         return nil;
     }
     
-    NSString* hashedUserID = [self internalBeginSessionWithAPIKey:inQuantcastAPIKey userIdentifier:inUserIdentifierOrNil labels:inLabelsOrNil];
+    NSString* hashedUserID = [self internalBeginSessionWithAPIKey:inQuantcastAPIKey attributedNetwork:nil userIdentifier:inUserIdentifierOrNil appLabels:inLabelsOrNil networkLabels:nil appIsDeclaredDirectedAtChildren:NO];
     
     return hashedUserID;
 }
 
-//Internal Begin Method
--(NSString*)internalBeginSessionWithAPIKey:(NSString*)inQuantcastAPIKey userIdentifier:(NSString*)inUserIdentifierOrNil labels:(id<NSObject>)inLabelsOrNil{
-     // first check that app ID is proprly formatted
+
+-(void)endMeasurementSessionWithLabels:(id<NSObject>)inLabelsOrNil {
+    if (self.hasNetworkIntegration) {
+        NSLog(@"QC Measurement: ERROR - The direct app integration form of endMeasurementSessionWithLabels should not be called for network integrations. Please see QuantcastMeasurement+Networks.h for more information");
+    }
+    [self internalEndMeasurementSessionWithAppLabels:inLabelsOrNil networkLabels:nil];
+}
+
+-(void)pauseSessionWithLabels:(id<NSObject>)inLabelsOrNil {
+    if (self.usesOneStep) {
+        NSLog(@"QC Measurement: ERROR - No need to explictly call pauseSessionWithLabels when setupMeasurementSessionWithAPIKey is used.");
+        return;
+    }
+    if (self.hasNetworkIntegration) {
+        NSLog(@"QC Measurement: ERROR - The direct app integration form of pauseSessionWithLabels should not be called for network integrations. Please see QuantcastMeasurement+Networks.h for more information");
+    }
+
+    [self internalPauseSessionWithAppLabels:inLabelsOrNil networkLabels:nil];
+        
+
+}
+
+-(void)resumeSessionWithLabels:(id<NSObject>)inLabelsOrNil {
+    if (self.usesOneStep) {
+        NSLog(@"QC Measurement: ERROR - No need to explictly call any resumeSessionWithLabels when setupMeasurementSessionWithAPIKey is used.");
+        return;
+    }
+    if (self.hasNetworkIntegration) {
+        NSLog(@"QC Measurement: ERROR - The direct app integration form of resumeSessionWithLabels should not be called for network integrations. Please see QuantcastMeasurement+Networks.h for more information");
+    }
+
+    [self internalResumeSessionWithAppLabels:inLabelsOrNil networkLabels:nil];
+}
+
+
+-(BOOL)startNewSessionIfUsersAdPrefChangedWithAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabels {
+    if ( [self hasUserAdvertisingPrefChangeWithCurrentPref:self.advertisingTrackingEnabled]) {
+        if (self.enableLogging) {
+            NSLog(@"QC Measurement: The user has changed their advertising tracking preference. Adjusting identifiers and starting a new session.");
+        }
+        
+        [self startNewSessionAndGenerateEventWithReason:QCPARAMETER_REASONTYPE_ADPREFCHANGE withAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabels];
+        return YES;
+    }
     
-    if ( ![self isQuantcastAPIKeyValid:inQuantcastAPIKey] ) {
+    return NO;
+}
+
++(BOOL)validateQuantcastAPIKey:(NSString*)inQuantcastAPIKeyId quantcastNetworkPCode:(NSString*)inQuantcastNetworkPCode {
+    
+    if ( nil == inQuantcastAPIKeyId && nil == inQuantcastNetworkPCode ) {
+        NSLog(@"QC Measurement: ERROR - No Quantcast API Key or Network P-Code was passed to the SDK.");
+        
+        return NO;
+    }
+    
+    if ( nil != inQuantcastAPIKeyId ) {
+        NSString* apiKeyRegex = @"[a-zA-Z0-9]{16}-[a-zA-Z0-9]{16}";
+        NSPredicate* checkAPIKey = [NSPredicate predicateWithFormat:@"SELF MATCHES %@", apiKeyRegex];
+
+        BOOL valid = [checkAPIKey evaluateWithObject:inQuantcastAPIKeyId];
+        
+        if ( !valid ) {
+            NSLog(@"QC Measurement: ERROR - The Quantcast API Key passed to the SDK is malformed.");
+            return NO;
+        }
+    }
+    
+    if ( nil != inQuantcastNetworkPCode ) {
+        NSString* pcodeRegex = @"p\\-[\\-_a-zA-Z0-9]{13}";
+        
+        NSPredicate* checkPCode = [NSPredicate predicateWithFormat:@"SELF MATCHES %@", pcodeRegex];
+        
+        BOOL valid = [checkPCode evaluateWithObject:inQuantcastNetworkPCode];
+        
+        if ( !valid ) {
+            NSLog(@"QC Measurement: ERROR - The Quantcast Network P-Code passed to the SDK is malformed.");
+            return NO;
+        }
+    }
+    
+    return YES;
+}
+
+#pragma mark - Internal Session Management
+-(BOOL)hasNetworkIntegration {
+    return ( nil != self.quantcastNetworkPCode );
+}
+
+/*!
+ @method internalBeginSessionWithAPIKey:attributedNetwork:userIdentifier:appLabels:networkLabels:appIsDirectedAtChildren:
+ @internal
+ @abstract Begins Quantcast Measure for Apps. Common internal method for both direct app and platform/network integrations.
+ @param inQuantcastAPIKey The declared API Key for this app. May be nil, in which case inNetworkPCode must not be nil.
+ @param inNetworkPCode The network p-code this app's traffic though be syndicated to. May be nil, in which case inQuantcastAPIKey must not be nil.
+ @param inUserIdentifierOrNil the user identifier passed by the SDK user
+ @param inAppLabelsOrNil labels that should be attributed to the app integration (API Key)
+ @param inNetworkLabelsOrNil labels that should be attributed to the platform/network integration (network p-code)
+ @param inAppIsDirectedAtChildren Whether the app has declared itself as directed at children under 13 or not. This is only used (that is, not NO) for network/platform integrations. Directly quantified apps (apps with an API Key) should declare their "directed at children under 13" status at the Quantcast.com website. Ultimately, this value and the Quantcast.com value will be OR'ed together to get final determination.
+ */
+-(NSString*)internalBeginSessionWithAPIKey:(NSString*)inQuantcastAPIKey attributedNetwork:(NSString*)inNetworkPCode userIdentifier:(NSString*)inUserIdentifierOrNil appLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil appIsDeclaredDirectedAtChildren:(BOOL)inAppIsDirectedAtChildren {
+    // first check that app ID is proprly formatted
+    
+    if ( ![QuantcastMeasurement validateQuantcastAPIKey:inQuantcastAPIKey quantcastNetworkPCode:inNetworkPCode] ) {
         return nil;
     }
     
@@ -575,6 +679,8 @@ QuantcastMeasurement* gSharedInstance = nil;
     }
     
     self.quantcastAPIKey = inQuantcastAPIKey;
+    self.quantcastNetworkPCode = inNetworkPCode;
+    self.appIsDeclaredDirectedAtChildren = inAppIsDirectedAtChildren;
     
     if ( !self.isOptedOut ) {
         [self startReachabilityNotifier];
@@ -582,7 +688,8 @@ QuantcastMeasurement* gSharedInstance = nil;
         [self appendUserAgent:YES];
         
         if (nil == self.dataManager) {
-            QuantcastPolicy* policy = [QuantcastPolicy policyWithAPIKey:self.quantcastAPIKey networkReachability:self carrier:self.carrier enableLogging:self.enableLogging];
+            QuantcastPolicy* policy = [QuantcastPolicy policyWithAPIKey:self.quantcastAPIKey networkPCode:self.quantcastNetworkPCode networkReachability:self carrier:self.carrier appIsDirectAtChildren:inAppIsDirectedAtChildren enableLogging:self.enableLogging];
+            
             
             if ( nil == policy ) {
                 // policy wasn't able to be built. Stop reachability and bail, thus not activating measurement.
@@ -597,20 +704,20 @@ QuantcastMeasurement* gSharedInstance = nil;
             self.dataManager = [[[QuantcastDataManager alloc] initWithOptOut:self.isOptedOut policy:policy] autorelease];
             self.dataManager.enableLogging = self.enableLogging;
             self.dataManager.uploadEventCount = self.uploadEventCount;
-
+            
 #if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
             if (nil == self.geoManager ) {
                 self.geoManager = [[[QuantcastGeoManager alloc] initWithEventLogger:self enableLogging:self.enableLogging] autorelease];
                 self.geoManager.geoLocationEnabled = self.geoLocationEnabled;
             }
 #endif
-
+            
         }
         
         [self enableDataUploading];
         
         
-        [self startNewSessionAndGenerateEventWithReason:QCPARAMETER_REASONTYPE_LAUNCH withLabels:inLabelsOrNil];
+        [self startNewSessionAndGenerateEventWithReason:QCPARAMETER_REASONTYPE_LAUNCH withAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil];
         
         if (self.enableLogging) {
             NSLog(@"QC Measurement: Using '%@' for upload server.",[QuantcastUtils updateSchemeForURL:[NSURL URLWithString:QCMEASUREMENT_UPLOAD_URL]]);
@@ -620,14 +727,14 @@ QuantcastMeasurement* gSharedInstance = nil;
     return hashedUserID;
 }
 
--(void)endMeasurementSessionWithLabels:(id<NSObject>)inLabelsOrNil {
+-(void)internalEndMeasurementSessionWithAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabels {
     if ( !self.isOptedOut  ) {
         
         if ( self.isMeasurementActive ) {
-            QuantcastEvent* e = [QuantcastEvent closeSessionEventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy eventLabels:inLabelsOrNil];
-        
+            QuantcastEvent* e = [QuantcastEvent closeSessionEventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy eventAppLabels:inAppLabelsOrNil eventNetworkLabels:inNetworkLabels];
+            
             [self recordEvent:e];
-
+            
 #if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
             self.geoManager = nil;
 #endif
@@ -648,24 +755,12 @@ QuantcastMeasurement* gSharedInstance = nil;
     }
 }
 
--(void)pauseSessionWithLabels:(id<NSObject>)inLabelsOrNil {
-    if (self.usesOneStep) {
-        NSLog(@"QC Measurement: ERROR - No need to explictly call pauseSessionWithLabels when setupMeasurementSessionWithAPIKey is used.");
-        return;
-    }
+-(void)internalPauseSessionWithAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabels {
     
-    [self internalPauseSessionWithLabels:inLabelsOrNil];
-        
-
-}
-
--(void)internalPauseSessionWithLabels:(id<NSObject>)inLabelsOrNil {
- 
     if ( !self.isOptedOut ) {
         
         if ( self.isMeasurementActive ) {
-            
-            QuantcastEvent* e = [QuantcastEvent pauseSessionEventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy eventLabels:inLabelsOrNil];
+            QuantcastEvent* e = [QuantcastEvent pauseSessionEventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy eventAppLabels:inAppLabelsOrNil eventNetworkLabels:inNetworkLabels];
             
             [self recordEvent:e];
             
@@ -685,26 +780,15 @@ QuantcastMeasurement* gSharedInstance = nil;
     }
 }
 
--(void)resumeSessionWithLabels:(id<NSObject>)inLabelsOrNil {
-    if (self.usesOneStep) {
-        NSLog(@"QC Measurement: ERROR - No need to explictly call any resumeSessionWithLabels when setupMeasurementSessionWithAPIKey is used.");
-        return;
-    }
-    
-    [self internalResumeSessionWithLabels:inLabelsOrNil];
-}
-
--(void)internalResumeSessionWithLabels:(id<NSObject>)inLabelsOrNil {
+-(void)internalResumeSessionWithAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabels {
     [self setOptOutStatus:[QuantcastMeasurement isOptedOutStatus]];
     
     if ( !self.isOptedOut ) {
-
+        
         if ( self.isMeasurementActive ) {
-            QuantcastEvent* e = [QuantcastEvent resumeSessionEventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy eventLabels:inLabelsOrNil];
+            QuantcastEvent* e = [QuantcastEvent resumeSessionEventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy eventAppLabels:inAppLabelsOrNil eventNetworkLabels:inNetworkLabels];
             
             [self recordEvent:e];
-            
-            [self startNewSessionIfUsersAdPrefChanged];
             
             [self startReachabilityNotifier];
             
@@ -713,58 +797,24 @@ QuantcastMeasurement* gSharedInstance = nil;
                 [self.geoManager handleAppResume];
             }
 #endif
-            if ( self.sessionPauseStartTime != nil ) {
+            if (![self startNewSessionIfUsersAdPrefChangedWithAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabels] && self.sessionPauseStartTime != nil ) {
                 NSDate* curTime = [NSDate date];
                 
                 if ( [curTime timeIntervalSinceDate:self.sessionPauseStartTime] > self.dataManager.policy.sessionPauseTimeoutSeconds ) {
-                    
-                    [self startNewSessionAndGenerateEventWithReason:QCPARAMETER_REASONTYPE_RESUME withLabels:inLabelsOrNil];
+                    [self startNewSessionAndGenerateEventWithReason:QCPARAMETER_REASONTYPE_RESUME withAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabels];
                     
                     if (self.enableLogging) {
                         NSLog(@"QC Measurement: Starting new session after app being paused for extend period of time.");
                     }
                 }
-                
-                self.sessionPauseStartTime = nil;
             }
+            self.sessionPauseStartTime = nil;
             
         }
         else {
             NSLog(@"QC Measurement: resumeSessionWithLabels: was called without first calling beginMeasurementSession:");
         }
     }
-}
-
--(void)startNewSessionIfUsersAdPrefChanged {
-    if ( [self hasUserAdvertisingPrefChangeWithCurrentPref:self.advertisingTrackingEnabled]) {
-        if (self.enableLogging) {
-            NSLog(@"QC Measurement: The user has changed their advertising tracking preference. Adjusting identifiers and starting a new session.");
-        }
-        
-        [self startNewSessionAndGenerateEventWithReason:QCPARAMETER_REASONTYPE_ADPREFCHANGE withLabels:nil];
-    }
-}
-
--(BOOL)isQuantcastAPIKeyValid:(NSString*)inQuantcastAppId {
-    
-    if ( nil == inQuantcastAppId ) {
-        NSLog(@"QC Measurement: ERROR - No Quantcast API Key was passed to the SDK.");
-        
-        return NO;
-    }
-    
-    
-    NSString* apiKeyRegex = @"[a-zA-Z0-9]{16}-[a-zA-Z0-9]{16}";
-    NSPredicate* checkAPIKey = [NSPredicate predicateWithFormat:@"SELF MATCHES %@", apiKeyRegex];
-
-    BOOL valid = [checkAPIKey evaluateWithObject:inQuantcastAppId];
-    
-    if ( !valid ) {
-        NSLog(@"QC Measurement: ERROR - The Quantcast API Key passed to the SDK is malformed.");
-        return NO;
-    }
-    
-    return YES;
 }
 
 #pragma mark - Telephony
@@ -932,7 +982,14 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
 }
 
 -(NSString*)recordUserIdentifier:(NSString*)inUserIdentifierOrNil withLabels:(id<NSObject>)inLabelsOrNil {
-    
+    if (self.hasNetworkIntegration) {
+        NSLog(@"QC Measurement: ERROR - The direct app integration form of recordUserIdentifier should not be called for network integrations. Please see QuantcastMeasurement+Networks.h for more information");
+    }
+
+    return [self internalRecordUserIdentifier:inUserIdentifierOrNil withAppLabels:inLabelsOrNil networkLabels:nil];
+}
+
+-(NSString*)internalRecordUserIdentifier:(NSString*)inUserIdentifierOrNil withAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabels {
     if (self.isOptedOut) {
         return nil;
     }
@@ -950,24 +1007,33 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     
     NSString* hashedUserId = [self setUserIdentifier:inUserIdentifierOrNil];
     if ( ( originalHashedUserId == nil && hashedUserId != nil ) ||
-         ( originalHashedUserId != nil && hashedUserId == nil ) ||
-         ( originalHashedUserId != nil && [originalHashedUserId compare:hashedUserId] != NSOrderedSame ) ) {
-        [self startNewSessionAndGenerateEventWithReason:QCPARAMETER_REASONTYPE_USERHASH withLabels:inLabelsOrNil];
+        ( originalHashedUserId != nil && hashedUserId == nil ) ||
+        ( originalHashedUserId != nil && [originalHashedUserId compare:hashedUserId] != NSOrderedSame ) ) {
+        [self startNewSessionAndGenerateEventWithReason:QCPARAMETER_REASONTYPE_USERHASH withAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabels];
     }
-
+    
     return hashedUserId;
 }
 
 -(void)logEvent:(NSString*)inEventName withLabels:(id<NSObject>)inLabelsOrNil {
-    
+    if (self.hasNetworkIntegration) {
+        NSLog(@"QC Measurement: ERROR - The direct app integration form of logEvent should not be called for network integrations. Please see QuantcastMeasurement+Networks.h for more information");
+    }
+
+    [self internalLogEvent:inEventName withAppLabels:inLabelsOrNil networkLabels:nil];
+}
+
+-(void)internalLogEvent:(NSString*)inEventName withAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabels {
+
     if ( !self.isOptedOut ) {
         if (self.isMeasurementActive) {
             QuantcastEvent* e = [QuantcastEvent logEventEventWithEventName:inEventName
-                                                               eventLabels:inLabelsOrNil
+                                                            eventAppLabels:inAppLabelsOrNil
+                                                        eventNetworkLabels:inNetworkLabels
                                                                  sessionID:self.currentSessionID
                                                       applicationInstallID:self.appInstallIdentifier
                                                            enforcingPolicy:self.dataManager.policy];
-                                 
+            
             [self recordEvent:e];
         }
         else {

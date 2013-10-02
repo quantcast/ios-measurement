@@ -1,6 +1,10 @@
 #Quantcast Measure for Apps#
 ###iOS SDK Changelog###
 
+##Version 1.2.11##
+October 1, 2013
+* Added the optional Networks extension to Quantcast Measure for Apps, which allows app platforms to quantify an entire network of syndicated apps while still allowing individual apps to directly quantify.
+
 ##Version 1.2.10##
 September 12, 2013
 
@@ -12,7 +16,7 @@ September 10, 2013
   * Place this macro in your pre-compiled header file: `#define QCMEASUREMENT_ENABLE_GEOMEASUREMENT 1`
   * Add the `QuantcastGeoManager.m` compile unit found in the "Optional" folder of the SDK.
   
-  If you have not enable geo-location in the Quantcast SDK, then you do not need to take any action with this update. However, you may choose to remove `CoreLocation` from your project as it is no longer needed. Previously, `CoreLocation` was needed even if geo-location was no enabled in order to satisfy symbol resolution at link time. 
+  If you have not enabled geo-location in the Quantcast SDK, then you do not need to take any action with this update. However, you may choose to remove `CoreLocation` from your project as it is no longer needed. Previously, `CoreLocation` was needed even if geo-location was no enabled in order to satisfy symbol resolution at link time. 
 * New header file `QuantcastEventLogger.h`
 * Better handling of apps being launched in the background
 * Fixed issue where SDK code would not compile if certain third party library headers were included in a project's pre-compiled header.

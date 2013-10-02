@@ -21,7 +21,8 @@
 
 // Typed event
 #define QCPARAMETER_EVENT             @"event"
-#define QCPARAMETER_LABELS            @"labels"
+#define QCPARAMETER_APP_LABELS        @"labels"
+#define QCPARAMETER_NETWORK_LABELS    @"netlabels"
 #define QCPARAMETER_APPEVENT          @"appevent"
 
 // Typed event parameters
@@ -67,6 +68,7 @@
 #define QCPARAMETER_MEDIA             @"media"
 #define QCPARAMETER_MNC               @"mnc"
 #define QCPARAMETER_MNN               @"mnn"
+#define QCPARAMETER_NETWORKPCODE      @"pcode"
 #define QCPARAMATER_PKID              @"pkid"
 #define QCPARAMETER_SR                @"sr"
 #define QCPARAMETER_STATE             @"st"
@@ -103,15 +105,12 @@
 // Quantcast Measurement SDK
 //
 
-#define QCMEASUREMENT_API_VERSION               @"1_2_10"
-#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.2.10"
+#define QCMEASUREMENT_API_VERSION               @"1_2_11"
+#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.2.11"
 #define QCMEASUREMENT_CONN_TIMEOUT_SECONDS      60
 
 #ifndef QCMEASUREMENT_UPLOAD_URL
     #define QCMEASUREMENT_UPLOAD_URL            @"http://m.quantcount.com/mobile"
-#endif
-#ifndef QCMEASUREMENT_POLICY_URL_FORMAT
-    #define QCMEASUREMENT_POLICY_URL_FORMAT     @"http://m.quantcount.com/policy.json?a=%@&v=%@&t=%@&c=%@"
 #endif
 
 #define QCMEASUREMENT_CACHE_DIRNAME             @"qc-measurement-cache"

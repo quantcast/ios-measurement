@@ -131,7 +131,7 @@
 
 /*!
  @method pauseSessionWithLabels:
- @abstract Pauses the Quantcast Measurement Session..
+ @abstract Pauses the Quantcast Measurement Session.
  @discussion Temporarily suspends the operations of the Quantcast Measurement API. This method is NOT required if setupMeasurement is used. Ideally, this method is called from the UIApplication delegate's applicationDidEnterBackground: method.
  @param inLabelsOrNil  Either an NSString object or NSArray object containing one or more NSString objects, each of which are a distinct label to be applied to this event. A label is any arbitrary string that you want to be ascociated with this event, and will create a second dimension in Quantcast Measurement reporting. Nominally, this is a "user class" indicator. For example, you might use one of two labels in your app: one for user who ave not purchased an app upgrade, and one for users who have purchased an upgrade.
  */
@@ -152,7 +152,7 @@
  */
 
 /*!
- @method recordUserIdentifier:
+ @method recordUserIdentifier:withLabels:
  @abstract Records the user identifier that should be used for this session. 
  @discussion This feature is only useful if you implement a similar (hashed) user identifier recording with Quantcast Measurement on other platforms, such as the web. This method only needs to be called once per session, preferably immediately after the session has begun, or when the user identifier has changed (e.g., the user logged out and a new user logged in). Quantcast will use a one-way hash to encode the user identifier and record the results of that one-way hash, not what is passed here. The method will return the results of that one-way hash for your reference. You do not need to take any action on the results.
  @param inUserIdentifierOrNil a user identifier string that is meanigful to the app publisher. This is usually a user login name or anything that identifies the user (different from a device id), but there is no requirement on format of this other than that it is a meaningful user identifier to you. Quantcast will immediately one-way hash this value, thus not recording it in its raw form. You should pass nil to indicate that a user has logged out.
