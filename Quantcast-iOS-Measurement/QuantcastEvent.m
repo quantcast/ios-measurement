@@ -435,6 +435,21 @@
     return e;
 }
 
++(QuantcastEvent*)logNetworkEventEventWithEventName:(NSString*)inEventName
+                                 eventNetworkLabels:(id<NSObject>)inEventNetworkLabelsOrNil
+                                          sessionID:(NSString*)inSessionID
+                               applicationInstallID:(NSString*)inAppInstallID
+                                    enforcingPolicy:(QuantcastPolicy*)inPolicy
+{
+    QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID applicationInstallID:inAppInstallID enforcingPolicy:inPolicy];
+    
+    [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_NETWORKEVENT enforcingPolicy:inPolicy];
+    [e putParameter:QCPARAMETER_NETWORKEVENT withValue:inEventName enforcingPolicy:inPolicy];
+    [e putAppLabels:nil networkLabels:inEventNetworkLabelsOrNil enforcingPolicy:inPolicy];
+
+    return e;
+}
+
 +(QuantcastEvent*)logUploadLatency:(NSUInteger)inLatencyMilliseconds
                        forUploadId:(NSString*)inUploadID
                      withSessionID:(NSString*)inSessionID 

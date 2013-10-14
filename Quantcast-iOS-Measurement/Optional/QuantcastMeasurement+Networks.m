@@ -11,6 +11,8 @@
  */
 #import "QuantcastMeasurement+Networks.h"
 #import "QuantcastMeasurement+Internal.h"
+#import "QuantcastEvent.h"
+#import "QuantcastParameters.h"
 
 @implementation QuantcastMeasurement (Networks)
 
@@ -74,6 +76,21 @@
     [self internalLogEvent:inEventName withAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil];
 }
 
-
+-(void)logNetworkEvent:(NSString*)inNetworkEventName withNetworkLabels:(id<NSObject>)inNetworkLabelsOrNil {
+    if (!self.hasNetworkIntegration) {
+        NSLog(@"QC Measurement: ERROR - logNetworkEvent:withNetworkLabels: should only be called for network integrations. Please see QuantcastMeasurement+Networks.h for more information");
+    }
+    
+    if ( !self.isOptedOut ) {
+        if (self.isMeasurementActive) {
+            QuantcastEvent* e = [QuantcastEvent logNetworkEventEventWithEventName:inNetworkEventName eventNetworkLabels:inNetworkLabelsOrNil sessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.policy];
+             
+            [self recordEvent:e];
+        }
+        else {
+            NSLog(@"QC Measurement: logNetworkEvent:withNetworkLabels: was called without first calling beginMeasurementSession:");
+        }
+    }
+}
 
 @end

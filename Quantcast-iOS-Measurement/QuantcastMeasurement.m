@@ -31,7 +31,6 @@
 #import "QuantcastUtils.h"
 #import "QuantcastPolicy.h"
 #import "QuantcastOptOutViewController.h"
-#import "QuantcastEventLogger.h"
 #import "QuantcastNetworkReachability.h"
 #import "QuantcastOptOutDelegate.h"
 
@@ -42,7 +41,7 @@
 QuantcastMeasurement* gSharedInstance = nil;
 
 
-@interface QuantcastMeasurement () <QuantcastEventLogger,QuantcastNetworkReachability> {
+@interface QuantcastMeasurement () <QuantcastNetworkReachability> {
     SCNetworkReachabilityRef _reachability;
     
     NSString* _hashedUserId;
@@ -61,7 +60,6 @@ QuantcastMeasurement* gSharedInstance = nil;
 @property (retain,nonatomic) NSString* quantcastAPIKey;
 @property (retain,nonatomic) NSString* quantcastNetworkPCode;
 @property (assign,nonatomic) BOOL appIsDeclaredDirectedAtChildren;
-@property (readonly,nonatomic) BOOL isMeasurementActive;
 @property (retain,nonatomic) NSDate* sessionPauseStartTime;
 @property (readonly,nonatomic) BOOL advertisingTrackingEnabled;
 @property (retain, nonatomic) CTTelephonyNetworkInfo* telephoneInfo;

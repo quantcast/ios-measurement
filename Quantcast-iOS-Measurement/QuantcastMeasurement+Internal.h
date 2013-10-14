@@ -11,9 +11,11 @@
  */
 
 #import "QuantcastMeasurement.h"
+#import "QuantcastEventLogger.h"
 
-@interface QuantcastMeasurement (Internal)
+@interface QuantcastMeasurement (Internal) <QuantcastEventLogger>
 @property (readonly,nonatomic) BOOL hasNetworkIntegration;
+@property (readonly,nonatomic) BOOL isMeasurementActive;
 
 -(NSString*)internalBeginSessionWithAPIKey:(NSString*)inQuantcastAPIKey attributedNetwork:(NSString*)inNetworkPCode userIdentifier:(NSString*)inUserIdentifierOrNil appLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil appIsDeclaredDirectedAtChildren:(BOOL)inAppIsDirectedAtChildren;
 

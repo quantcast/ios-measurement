@@ -1,6 +1,10 @@
 #Quantcast Measure for Apps#
 ###iOS SDK Changelog###
 
+##Version 1.2.12##
+October 14, 2013
+* Augmented the Networks extension functionality with the ability to create a "network event", which is the network equivalent to an "app event". 
+
 ##Version 1.2.11##
 October 1, 2013
 * Added the optional Networks extension to Quantcast Measure for Apps, which allows app platforms to quantify an entire network of syndicated apps while still allowing individual apps to directly quantify.

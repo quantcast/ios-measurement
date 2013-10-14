@@ -103,13 +103,25 @@
 -(NSString*)recordUserIdentifier:(NSString*)inUserIdentifierOrNil withAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil;
 
 /*!
- @method logEvent:withLabels:
- @abstract Logs an arbitray event to the Quantcast Measurement SDK (Network form).
+ @method logEvent:withAppLabels:networkLabels:
+ @abstract Logs an arbitray app event to the Quantcast Measurement SDK (Network form).
  @discussion This is the primarily means for logging events with Quantcast Measurement. What gets logged in this method is completely up to the app developper.
  @param inEventName A string that identifies the event being logged. Hierarchical information can be indicated by using a left-to-right notation with a period as a seperator. For example, logging one event named "button.left" and another named "button.right" will create three reportable items in Quantcast App Measurement: "button.left", "button.right", and "button". There is no limit on the cardinality that this hierarchal scheme can create, though low-frequency events may not have an audience report on due to the lack of a statistically significant population. This method should only be used in conjunction with a Network integration. 
  @param inAppLabelsOrNil  Either an NSString object or NSArray object containing one or more NSString objects, each of which are a distinct label to be applied to this event for the app's API Key. A label is any arbitrary string that you want to be ascociated with this event, and will create a second dimension in Quantcast Measurement reporting. Nominally, this is a "user class" indicator. For example, you might use one of two labels in your app: one for user who ave not purchased an app upgrade, and one for users who have purchased an upgrade.
  @param inNetworkLabelsOrNil  Either an NSString object or NSArray object containing one or more NSString objects, each of which are a distinct label to be applied to this event for the network's p-code. A label is any arbitrary string that you want to be ascociated with this event, and will create a second dimension in Quantcast Measurement reporting. Nominally, this is a "user class" indicator. For example, a network or many apps might use labels to indicate the kinds of apps, or to indicate client an app was built for.
  */
 -(void)logEvent:(NSString*)inEventName withAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil;
+
+
+
+/*!
+ @method logNetworkEvent:withNetworkLabels:
+ @abstract Logs an arbitray network event to the Quantcast Measurement SDK.
+ @discussion This is the primarily means for logging Network events with Quantcast Measurement. Events logged via this method will only be reported against the attributed network.
+ @param inNetworkEventName A string that identifies the event being logged. Hierarchical information can be indicated by using a left-to-right notation with a period as a seperator. For example, logging one event named "button.left" and another named "button.right" will create three reportable items in Quantcast App Measurement: "button.left", "button.right", and "button". There is no limit on the cardinality that this hierarchal scheme can create, though low-frequency events may not have an audience report on due to the lack of a statistically significant population. This method should only be used in conjunction with a Network integration.
+ @param inNetworkLabelsOrNil  Either an NSString object or NSArray object containing one or more NSString objects, each of which are a distinct label to be applied to this event for the network's p-code. A label is any arbitrary string that you want to be ascociated with this event, and will create a second dimension in Quantcast Measurement reporting. Nominally, this is a "user class" indicator. For example, a network or many apps might use labels to indicate the kinds of apps, or to indicate client an app was built for.
+ */
+-(void)logNetworkEvent:(NSString*)inNetworkEventName withNetworkLabels:(id<NSObject>)inNetworkLabelsOrNil;
+
 
 @end

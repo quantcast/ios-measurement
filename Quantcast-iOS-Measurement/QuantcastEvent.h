@@ -99,6 +99,12 @@
                         applicationInstallID:(NSString*)inAppInstallID
                              enforcingPolicy:(QuantcastPolicy*)inPolicy;
 
++(QuantcastEvent*)logNetworkEventEventWithEventName:(NSString*)inEventName
+                                 eventNetworkLabels:(id<NSObject>)inEventNetworkLabelsOrNil
+                                          sessionID:(NSString*)inSessionID
+                               applicationInstallID:(NSString*)inAppInstallID
+                                    enforcingPolicy:(QuantcastPolicy*)inPolicy;
+
 +(QuantcastEvent*)logUploadLatency:(NSUInteger)inLatencyMilliseconds
                        forUploadId:(NSString*)inUploadID
                      withSessionID:(NSString*)inSessionID 
