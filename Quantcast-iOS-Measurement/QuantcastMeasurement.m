@@ -49,6 +49,8 @@ QuantcastMeasurement* gSharedInstance = nil;
     BOOL _enableLogging;
     BOOL _isOptedOut;
     BOOL _geoLocationEnabled;
+    
+    id<NSObject> _networkLabels;
 }
 
 #if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
@@ -64,6 +66,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 @property (readonly,nonatomic) BOOL advertisingTrackingEnabled;
 @property (retain, nonatomic) CTTelephonyNetworkInfo* telephoneInfo;
 @property (readonly,nonatomic) CTCarrier* carrier;
+@property (retain, nonatomic) NSString* radioAccess;
 @property (retain, nonatomic) id<NSObject> setupLabels;
 @property (assign,nonatomic) BOOL usesOneStep;
 
@@ -100,6 +103,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 @synthesize sessionPauseStartTime;
 @synthesize telephoneInfo;
 @synthesize setupLabels;
+@synthesize appLabels;
 
 +(QuantcastMeasurement*)sharedInstance {
 
@@ -134,10 +138,6 @@ QuantcastMeasurement* gSharedInstance = nil;
         }
         uploadEventCount = QCMEASUREMENT_DEFAULT_UPLOAD_EVENT_COUNT;
         
-        BOOL exitsOnSuspend = [[[NSBundle mainBundle] objectForInfoDictionaryKey:@"UIApplicationExitsOnSuspend"] boolValue];
-        if (exitsOnSuspend) {
-            NSLog(@"QC Measurement: ERROR - UIApplicationExitsOnSuspend found in Info.plist.  This will prevent data from being uploaded to Quantcast. Please remove this option from your Info.plist.");
-        }
     }
     
     return self;
@@ -159,9 +159,12 @@ QuantcastMeasurement* gSharedInstance = nil;
     [_hashedUserId release];
 
     [telephoneInfo release];
+    [_radioAccess release];
     [_cachedAppInstallIdentifier release];
     
+    [appLabels release];
     [setupLabels release];
+    [_networkLabels release];
     
     [super dealloc];
 }
@@ -394,9 +397,18 @@ QuantcastMeasurement* gSharedInstance = nil;
 
 #pragma mark - Event Recording
 
+-(void)recordEvent:(QuantcastEvent*)inEvent synchronously:(BOOL)sync{
+    if (sync) {
+        [self.dataManager recordEventSynchronouslyWithoutUpload:inEvent];
+    }
+    else {
+        [self.dataManager recordEvent:inEvent];
+    }
+}
+
 -(void)recordEvent:(QuantcastEvent*)inEvent {
     
-    [self.dataManager recordEvent:inEvent];
+    [self recordEvent:inEvent synchronously:NO];
 }
 
 -(void)enableDataUploading {
@@ -487,9 +499,9 @@ QuantcastMeasurement* gSharedInstance = nil;
             [labels addObject:inLabelsOrNil];
         }
         [labels addObject:@"_sdk.ios.setup"];
-        self.setupLabels = labels;
+        self.setupLabels = [QuantcastUtils combineLabels:self.appLabels withLabels:labels];
         
-        userhash = [self internalBeginSessionWithAPIKey:inQuantcastAPIKey attributedNetwork:nil userIdentifier:userIdentifierOrNil appLabels:inLabelsOrNil networkLabels:nil appIsDeclaredDirectedAtChildren:NO];
+        userhash = [self internalBeginSessionWithAPIKey:inQuantcastAPIKey attributedNetwork:nil userIdentifier:userIdentifierOrNil appLabels:self.setupLabels networkLabels:nil appIsDeclaredDirectedAtChildren:NO];
     }
     self.usesOneStep = YES;
     return userhash;
@@ -521,14 +533,14 @@ QuantcastMeasurement* gSharedInstance = nil;
     if (!isAppLaunchedInBackground) {
         QuantcastEvent* e = [QuantcastEvent openSessionEventWithClientUserHash:_hashedUserId
                                                               newSessionReason:inReason
-                                                                 networkStatus:[self currentReachabilityStatus]
+                                                                connectionType:[self connectionTypeForNetworkStatus:[self currentReachabilityStatus]]
                                                                      sessionID:self.currentSessionID
                                                                quantcastAPIKey:self.quantcastAPIKey
                                                          quantcastNetworkPCode:self.quantcastNetworkPCode
                                                               deviceIdentifier:self.deviceIdentifier
                                                           appInstallIdentifier:self.appInstallIdentifier
                                                                enforcingPolicy:self.dataManager.policy
-                                                                eventAppLabels:inAppLabelsOrNil
+                                                                eventAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:inAppLabelsOrNil]
                                                             eventNetworkLabels:inNetworkLabelsOrNil
                                                                        carrier:self.carrier];
         
@@ -682,7 +694,14 @@ QuantcastMeasurement* gSharedInstance = nil;
     
     if ( !self.isOptedOut ) {
         [self startReachabilityNotifier];
-        
+#ifdef __IPHONE_7_0
+        if ( nil != self.telephoneInfo ){
+            BOOL radioNotificationExists = (&CTRadioAccessTechnologyDidChangeNotification != NULL);
+            if( [telephoneInfo respondsToSelector:@selector(currentRadioAccessTechnology)] && radioNotificationExists ){
+                [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(radioAccessChanged:) name:CTRadioAccessTechnologyDidChangeNotification object:nil];
+            }
+        }
+#endif
         [self appendUserAgent:YES];
         
         if (nil == self.dataManager) {
@@ -729,7 +748,8 @@ QuantcastMeasurement* gSharedInstance = nil;
     if ( !self.isOptedOut  ) {
         
         if ( self.isMeasurementActive ) {
-            QuantcastEvent* e = [QuantcastEvent closeSessionEventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy eventAppLabels:inAppLabelsOrNil eventNetworkLabels:inNetworkLabels];
+            QuantcastEvent* e = [QuantcastEvent closeSessionEventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy
+                                                                eventAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:inAppLabelsOrNil] eventNetworkLabels:inNetworkLabels];
             
             [self recordEvent:e];
             
@@ -758,9 +778,11 @@ QuantcastMeasurement* gSharedInstance = nil;
     if ( !self.isOptedOut ) {
         
         if ( self.isMeasurementActive ) {
-            QuantcastEvent* e = [QuantcastEvent pauseSessionEventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy eventAppLabels:inAppLabelsOrNil eventNetworkLabels:inNetworkLabels];
+            QuantcastEvent* e = [QuantcastEvent pauseSessionEventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy
+                                                                eventAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:inAppLabelsOrNil] eventNetworkLabels:inNetworkLabels];
             
-            [self recordEvent:e];
+            BOOL exitsOnSuspend = [[[NSBundle mainBundle] objectForInfoDictionaryKey:@"UIApplicationExitsOnSuspend"] boolValue];
+            [self recordEvent:e synchronously:exitsOnSuspend];
             
             self.sessionPauseStartTime = [NSDate date];
             
@@ -784,7 +806,8 @@ QuantcastMeasurement* gSharedInstance = nil;
     if ( !self.isOptedOut ) {
         
         if ( self.isMeasurementActive ) {
-            QuantcastEvent* e = [QuantcastEvent resumeSessionEventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy eventAppLabels:inAppLabelsOrNil eventNetworkLabels:inNetworkLabels];
+            QuantcastEvent* e = [QuantcastEvent resumeSessionEventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy
+                                                                 eventAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:inAppLabelsOrNil] eventNetworkLabels:inNetworkLabels];
             
             [self recordEvent:e];
             
@@ -860,7 +883,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     if ( !self.isOptedOut && self.isMeasurementActive ) {
                 
         
-        QuantcastEvent* e = [QuantcastEvent networkReachabilityEventWithNetworkStatus:[self currentReachabilityStatus]
+        QuantcastEvent* e = [QuantcastEvent networkReachabilityEventWithConnectionType:[self connectionTypeForNetworkStatus:[self currentReachabilityStatus]]
                                                                         withSessionID:self.currentSessionID
                                                                  applicationInstallID:self.appInstallIdentifier
                                                                       enforcingPolicy:self.dataManager.policy];
@@ -952,6 +975,37 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     return retVal;
 }
 
+-(NSString*)currentRadioAccess{
+    return self.radioAccess;
+}
+
+#ifdef __IPHONE_7_0
+-(void)radioAccessChanged:(NSNotification*) inNotification{
+    self.radioAccess = self.telephoneInfo.currentRadioAccessTechnology;
+    [self logNetworkReachability];
+}
+#endif
+
+-(NSString*)connectionTypeForNetworkStatus:(QuantcastNetworkStatus)inNetworkStatus {
+    NSString* connectionType = @"unknown";
+    
+    switch ( inNetworkStatus ) {
+        case QuantcastReachableViaWiFi:
+            connectionType = @"wifi";
+            break;
+        case QuantcastReachableViaWWAN:
+            connectionType = self.radioAccess == nil ? @"wwan" : self.radioAccess;
+            break;
+        case QuantcastNotReachable:
+            connectionType = @"disconnected";
+            break;
+        default:
+            break;
+    }
+    
+    return connectionType;
+}
+
 #pragma mark - Measurement and Analytics
 
 -(NSString*)setUserIdentifier:(NSString*)inUserIdentifierOrNil {
@@ -1026,7 +1080,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     if ( !self.isOptedOut ) {
         if (self.isMeasurementActive) {
             QuantcastEvent* e = [QuantcastEvent logEventEventWithEventName:inEventName
-                                                            eventAppLabels:inAppLabelsOrNil
+                                                            eventAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:inAppLabelsOrNil]
                                                         eventNetworkLabels:inNetworkLabels
                                                                  sessionID:self.currentSessionID
                                                       applicationInstallID:self.appInstallIdentifier
@@ -1128,12 +1182,14 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
             [self stopReachabilityNotifier];
             [self appendUserAgent:NO];
             [self setOptOutCookie:YES];
+            
             if (self.usesOneStep) {
                 [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationWillTerminateNotification object:nil];
                 [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationDidEnterBackgroundNotification object:nil];
                 [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationWillEnterForegroundNotification object:nil];
                 self.setupLabels = nil;
             }
+            self.currentSessionID = nil;
         }
         else {
             // remove opt-out pastboard if it exists

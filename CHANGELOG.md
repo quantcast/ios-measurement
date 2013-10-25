@@ -1,6 +1,12 @@
 #Quantcast Measure for Apps#
 ###iOS SDK Changelog###
 
+##Version 1.2.13##
+October 25, 2013
+* Added new cellular connection type added in iOS7
+* Now compatible with UIApplicationExitsOnSuspend
+* Added new property "appLabels" to be able to set static labels across all calls.  Convienient for app always passing the same labels to all the calls.
+
 ##Version 1.2.12##
 October 14, 2013
 * Augmented the Networks extension functionality with the ability to create a "network event", which is the network equivalent to an "app event". 

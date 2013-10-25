@@ -13,6 +13,12 @@
 #import "QuantcastMeasurement+Internal.h"
 #import "QuantcastEvent.h"
 #import "QuantcastParameters.h"
+#import "QuantcastUtils.h"
+
+@interface QuantcastMeasurement (){
+    id<NSObject> _networkLabels;
+}
+@end
 
 @implementation QuantcastMeasurement (Networks)
 
@@ -28,7 +34,8 @@
         return nil;
     }
     
-    NSString* hashedUserID = [self internalBeginSessionWithAPIKey:inQuantcastAPIKey attributedNetwork:inNetworkPCode userIdentifier:inUserIdentifierOrNil appLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil appIsDeclaredDirectedAtChildren:inIsAppDirectedAtChildren];
+    NSString* hashedUserID = [self internalBeginSessionWithAPIKey:inQuantcastAPIKey attributedNetwork:inNetworkPCode userIdentifier:inUserIdentifierOrNil appLabels:inAppLabelsOrNil
+                                                    networkLabels:[QuantcastUtils combineLabels:self.networkLabels withLabels:inNetworkLabelsOrNil] appIsDeclaredDirectedAtChildren:inIsAppDirectedAtChildren];
     
     return hashedUserID;
 }
@@ -38,7 +45,7 @@
         NSLog(@"QC Measurement: ERROR - The network form of endMeasurementSession should only be called for network integrations. Please see QuantcastMeasurement+Networks.h for more information");
     }
     
-    [self internalEndMeasurementSessionWithAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil];
+    [self internalEndMeasurementSessionWithAppLabels:inAppLabelsOrNil networkLabels:[QuantcastUtils combineLabels:self.networkLabels withLabels:inNetworkLabelsOrNil]];
 }
 
 -(void)pauseSessionWithAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil {
@@ -46,7 +53,7 @@
         NSLog(@"QC Measurement: ERROR - The network form of pauseSession should only be called for network integrations. Please see QuantcastMeasurement+Networks.h for more information");
     }
 
-    [self internalPauseSessionWithAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil];
+    [self internalPauseSessionWithAppLabels:inAppLabelsOrNil networkLabels:[QuantcastUtils combineLabels:self.networkLabels withLabels:inNetworkLabelsOrNil]];
 }
 
 
@@ -55,7 +62,7 @@
         NSLog(@"QC Measurement: ERROR - The network form of resumeSession should only be called for network integrations. Please see QuantcastMeasurement+Networks.h for more information");
     }
     
-    [self internalResumeSessionWithAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil];
+    [self internalResumeSessionWithAppLabels:inAppLabelsOrNil networkLabels:[QuantcastUtils combineLabels:self.networkLabels withLabels:inNetworkLabelsOrNil]];
 }
 
 
@@ -64,7 +71,7 @@
         NSLog(@"QC Measurement: ERROR - The network form of recordUserIdentifier should only be called for network integrations. Please see QuantcastMeasurement+Networks.h for more information");
     }
     
-    return [self internalRecordUserIdentifier:inUserIdentifierOrNil withAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil];
+    return [self internalRecordUserIdentifier:inUserIdentifierOrNil withAppLabels:inAppLabelsOrNil networkLabels:[QuantcastUtils combineLabels:self.networkLabels withLabels:inNetworkLabelsOrNil]];
 }
 
 
@@ -73,7 +80,7 @@
         NSLog(@"QC Measurement: ERROR - The network form of logEvent should only be called for network integrations. Please see QuantcastMeasurement+Networks.h for more information");
     }
     
-    [self internalLogEvent:inEventName withAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil];
+    [self internalLogEvent:inEventName withAppLabels:inAppLabelsOrNil networkLabels:[QuantcastUtils combineLabels:self.networkLabels withLabels:inNetworkLabelsOrNil]];
 }
 
 -(void)logNetworkEvent:(NSString*)inNetworkEventName withNetworkLabels:(id<NSObject>)inNetworkLabelsOrNil {
@@ -83,7 +90,7 @@
     
     if ( !self.isOptedOut ) {
         if (self.isMeasurementActive) {
-            QuantcastEvent* e = [QuantcastEvent logNetworkEventEventWithEventName:inNetworkEventName eventNetworkLabels:inNetworkLabelsOrNil sessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.policy];
+            QuantcastEvent* e = [QuantcastEvent logNetworkEventEventWithEventName:inNetworkEventName eventNetworkLabels:[QuantcastUtils combineLabels:self.networkLabels withLabels:inNetworkLabelsOrNil] sessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.policy];
              
             [self recordEvent:e];
         }
@@ -93,4 +100,12 @@
     }
 }
 
+-(void)setNetworkLabels:(id<NSObject>)networkLabels{
+    [_networkLabels autorelease];
+    _networkLabels = [networkLabels retain];
+}
+
+-(id<NSObject>)networkLabels{
+    return _networkLabels;
+}
 @end

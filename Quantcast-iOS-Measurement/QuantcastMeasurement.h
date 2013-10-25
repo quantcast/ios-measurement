@@ -84,6 +84,13 @@
  */
 @property (readonly) NSString* appInstallIdentifier;
 
+/*!
+ @property appLabels
+ @abstract Property that contains a static application labels
+ @discussion This property can be set to either an NSString or an NSArray of NSStrings.  When set, the label(s) will be automatically passed to all calls which take labels.  This is a convience property for applications that segment their audience by a fairly static group of labels.   This property can be changed at any time.
+ */
+@property (retain,nonatomic) id<NSObject> appLabels;
+
 #pragma mark - Session Management
 
 /*!

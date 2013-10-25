@@ -62,7 +62,7 @@
 
 +(QuantcastEvent*)openSessionEventWithClientUserHash:(NSString*)inHashedUserIDOrNil
                                     newSessionReason:(NSString*)inReason
-                                       networkStatus:(QuantcastNetworkStatus)inNetworkStatus
+                                      connectionType:(NSString*)connectionType
                                            sessionID:(NSString*)inSessionID
                                      quantcastAPIKey:(NSString*)inQuantcastAPIKey
                                quantcastNetworkPCode:(NSString*)inQuantcastNetworkPCode
@@ -120,10 +120,10 @@
                          applicationInstallID:(NSString*)inAppInstallID
                               enforcingPolicy:(QuantcastPolicy*)inPolicy;
 
-+(QuantcastEvent*)networkReachabilityEventWithNetworkStatus:(QuantcastNetworkStatus)inNetworkStatus
-                                              withSessionID:(NSString*)inSessionID
-                                       applicationInstallID:(NSString*)inAppInstallID
-                                            enforcingPolicy:(QuantcastPolicy*)inPolicy;
++(QuantcastEvent*)networkReachabilityEventWithConnectionType:(NSString*)connectionType
+                                               withSessionID:(NSString*)inSessionID
+                                        applicationInstallID:(NSString*)inAppInstallID
+                                             enforcingPolicy:(QuantcastPolicy*)inPolicy;
 
 +(QuantcastEvent*)logSDKError:(NSString*)inSDKErrorType
               withErrorObject:(NSError*)inErrorDescOrNil

@@ -142,6 +142,8 @@ Most of Quantcast SDK's public methods have an option to provide one or more lab
 
 The `labels:` argument of most Quantcast SDK methods is typed to be an `id` pointer. However, it only accepts either a `NSString` object representing a single label, or a `NSArray` object containing one or more `NSString` objects representing a collection of labels to be applied to the event.
 
+Labels can also be set via the appLabels property.   These labels can be changed at any time and will be automatically combined with the labels passed in any call taking labels.  This can be convenient for those apps who find themselves passing the same labels everywhere. 
+
 While there is no specific constraint on the intended use of the label dimension, it is not recommended that you use it to indicate discrete events; in these cases, use the `logEvent:withLabels:` method described under [Tracking App Events](#tracking-app-events).
 
 #### Geo-Location Measurement ####

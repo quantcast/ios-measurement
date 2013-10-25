@@ -37,7 +37,6 @@
 
 @interface QuantcastEvent ()
 +(NSString*)hashDeviceID:(NSString*)inDeviceID withSalt:(NSString*)inSalt;
-+(NSString*)connectionTypeForNetworkStatus:(QuantcastNetworkStatus)inNetworkStatus;
 
 -(void)addTimeZoneParameterEnforcingPolicy:(QuantcastPolicy*)inPolicy;
 -(void)putLabels:(id<NSObject>)inLabelsObjectOrNil withParamterKey:(NSString*)inParameterKey enforcingPolicy:(QuantcastPolicy*)inPolicyOrNil;
@@ -214,27 +213,6 @@
     }
 }
 
-+(NSString*)connectionTypeForNetworkStatus:(QuantcastNetworkStatus)inNetworkStatus {
-    NSString* connectionType = @"unknown";
-    
-    switch ( inNetworkStatus ) {
-        case QuantcastReachableViaWiFi:
-            connectionType = @"wifi";
-            break;
-        case QuantcastReachableViaWWAN:
-            connectionType = @"wwan";
-            break;
-        case QuantcastNotReachable:
-            connectionType = @"disconnected";
-            break;
-        default:
-            break;
-    }
-
-    return connectionType;
-}
-
-
 +(QuantcastEvent*)eventWithSessionID:(NSString*)inSessionID 
                 applicationInstallID:(NSString*)inAppInstallID
                      enforcingPolicy:(QuantcastPolicy*)inPolicy
@@ -251,7 +229,7 @@
 
 +(QuantcastEvent*)openSessionEventWithClientUserHash:(NSString*)inHashedUserIDOrNil
                                     newSessionReason:(NSString*)inReason
-                                       networkStatus:(QuantcastNetworkStatus)inNetworkStatus
+                                      connectionType:(NSString*)connectionType
                                            sessionID:(NSString*)inSessionID
                                      quantcastAPIKey:(NSString*)inQuantcastAPIKey
                                quantcastNetworkPCode:(NSString*)inQuantcastNetworkPCode
@@ -271,7 +249,7 @@
     [e putParameter:QCPARAMATER_APIKEY withValue:inQuantcastAPIKey enforcingPolicy:inPolicy];
     [e putParameter:QCPARAMETER_NETWORKPCODE withValue:inQuantcastNetworkPCode enforcingPolicy:inPolicy];
     [e putParameter:QCPARAMETER_MEDIA withValue:@"app" enforcingPolicy:inPolicy];
-    [e putParameter:QCPARAMETER_CT withValue:[QuantcastEvent connectionTypeForNetworkStatus:inNetworkStatus] enforcingPolicy:inPolicy];
+    [e putParameter:QCPARAMETER_CT withValue:connectionType enforcingPolicy:inPolicy];
     
     if ( nil != inDeviceID ) {
         [e putParameter:QCPARAMETER_DID withValue:inDeviceID enforcingPolicy:inPolicy];
@@ -488,7 +466,7 @@
     return e;
 }
 
-+(QuantcastEvent*)networkReachabilityEventWithNetworkStatus:(QuantcastNetworkStatus)inNetworkStatus
++(QuantcastEvent*)networkReachabilityEventWithConnectionType:(NSString*)connectionType
                                               withSessionID:(NSString*)inSessionID
                                        applicationInstallID:(NSString*)inAppInstallID
                                             enforcingPolicy:(QuantcastPolicy*)inPolicy
@@ -496,7 +474,7 @@
     QuantcastEvent* e = [QuantcastEvent eventWithSessionID:inSessionID applicationInstallID:inAppInstallID enforcingPolicy:inPolicy];
 
     [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_NETINFO enforcingPolicy:inPolicy];
-    [e putParameter:QCPARAMETER_CT withValue:[QuantcastEvent connectionTypeForNetworkStatus:inNetworkStatus] enforcingPolicy:inPolicy];
+    [e putParameter:QCPARAMETER_CT withValue:connectionType enforcingPolicy:inPolicy];
 
     return e;
 }
