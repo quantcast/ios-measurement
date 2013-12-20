@@ -1,12 +1,11 @@
-
 Quantcast iOS SDK
 =================
 
-Thank you for downloading the Quantcast iOS SDK! This implementation guide provides steps for integrating the SDK, so you can take advantage of valuable, actionable insights:
+This implementation guide provides steps for integrating the Quantcast Measure for Apps SDK, so you can take advantage of valuable, actionable insights:
 
-* **Know Your Audience** - End the guesswork and limitations of survey-based mobile demographics. Quantcast uses direct measurement and machine learning to build accurate and detailed demographic profiles.
-* **Compare and Compete** - Gauge user loyalty by analyzing visit frequency, retention and upgrades over time
-* **Showcase and Validate** – Choose to showcase your most powerful data points to advertisers and partners via your public profile. 
+* **Know Your Audience** - Quantcast uses direct measurement and machine learning to build accurate and detailed demographic profiles.
+* **Compare and Compete** - Gauge user loyalty by analyzing visit frequency, retention and upgrades over time.
+* **Attract Advertising** – Attract advertisers by showcasing your most powerful data points using a trusted source. 
 
 If you have any implementation questions, please email mobilesupport@quantcast.com. We're here to help.
 
@@ -14,84 +13,194 @@ If you have any implementation questions, please email mobilesupport@quantcast.c
 Integrating Quantcast Measure for Mobile Apps
 ---------------------------------------------
 
-### Project Setup ###
+To integrate Quantcast’s SDK into your iOS app, you must use Xcode 4.5 or later. The Quantcast SDK supports apps built for iOS 4.3 and later. 
 
-To integrate Quantcast’s SDK into your iOS app, you must use Xcode 4.5 or later. Please ensure you are using the latest version of Xcode before you begin the required code integration. The Quantcast SDK fully supports apps built for iOS 5 and later. With some modification, the Quantcast iOS SDK can also support iOS 4.3 and later.
+### Download the SDK ###
 
-Begin by cloning the Quantcast iOS SDK's git repository and initializing all of its submodules. Open the Terminal application in your Mac and issue the following commands:
+There are two ways to get the SDK.  You can download it directly from [the Quantcast website] (https://www.quantcast.com/user/quantcast-app-measurement-sdk.zip "Quantcast Measure for Apps SDK"), or you can use GitHub.  If you download the file from our site, unzip the file before continuing to the section [Set Up Your Xcode Project] (#set-up-your-xcode-project).
+
+#### (optional) Getting the Quantcast SDK from GitHub ####
+
+If you use Git for your version control, we recommend that you make the Quantcast SDK repository a submodule in your project’s Git repository. To do so, open the Terminal application in your Mac, cd into your Git repository folder, and issue the following commands:
+
+``` bash
+git submodule add https://github.com/quantcast/ios-measurement.git 
+git submodule update --init 
+cd ios-measurement
+git submodule update --init 
+```
+
+If you don’t want to make the Quantcast SDK repository a submodule in your repository, you can use Git to clone the Quantcast iOS SDK's Git repository and initialize all of its submodules. 
 
 ``` bash
 git clone https://github.com/quantcast/ios-measurement.git ./quantcast-ios-sdk
 cd ./quantcast-ios-sdk/
 git submodule update --init
 ```
+### Set Up Your Xcode Project ###
 
-Once you have downloaded the Quantcast iOS SDK's code, perform the following steps:
+1.	Import the Quantcast SDK code into your project.  In Xcode, select your project and choose the option “Add Files to <Your Project Name>“, then select the Quantcast-iOS-Measurement folder from your download.
 
-1.	Import the code into your project from the Quantcast-iOS-Measurement folder in the Quantcast repository you just created.
-2.	Link the following iOS frameworks to your project if they are not already:
+	![Screenshot - Add Files to Project](https://raw.github.com/quantcast-engineering/quantcast-documentation/master/ios/images/image001.png "Add Files to Project")
+
+2.	Link the following iOS frameworks and libraries to your project if they are not already.  From your project properties, go to the “General” section, the scroll down to “Linked Frameworks and Libraries” and hit the “+” at the bottom left.  Then use the Command key to multiselect and add the following:
+	*	`AdSupport`
 	*	`CoreGraphics`
 	*	`CoreTelephony`
 	*	`Foundation`
+	*	`libsqlite3.dylib`
+	*	`libz.dylib`
 	*	`SystemConfiguration`
 	*	`UIKit`
-3.	Weak-link (that is, make "optional") the following iOS frameworks to your project if they are not already:
+
+	![Screenshot - Add Frameworks and Libraries](https://raw.github.com/quantcast-engineering/quantcast-documentation/master/ios/images/image002.png)
+
+3.	Make the following iOS framework optional (weak link): 
 	*	`AdSupport`
-4.	Link the following libraries to your project, if they aren't already:
-	*	`libsqlite3`
-	*	`libz`
 
-If you intend to support iOS 4.3 and later, you must perform the following steps:
+	![Screenshot - Make Linking Optional](https://raw.github.com/quantcast-engineering/quantcast-documentation/master/ios/images/image005.png)
 
-5.	If you do not have the latest version of JSONKit integrated into your project, import the code from the JSONKit folder in the Quantcast github repository into your project.
-6.	Add the following preprocessor macro definition to your project's precompiled header file (the file that ends with '.pch'):
+#### Supporting Automatic Reference Counting (ARC) ####
+
+If your project uses automatic reference counting (ARC), take the following steps to set a compiler flag for Quantcast source files. Otherwise, skip to the next section.
+
+1.	In your project configuration screen, click on the “Build Phases” section, then expand “Compile Sources”.  
+
+	![Screenshot - Expand Compile Sources](https://raw.github.com/quantcast-engineering/quantcast-documentation/master/ios/images/image007.png)
+
+2.	Multi-select every Quantcast source file by holding down the Command button and choosing every filename that begins with “Quantcast”. 
+
+	![Screenshot - Multi-select Quantcast Files](https://raw.github.com/quantcast-engineering/quantcast-documentation/master/ios/images/image009.png)
+
+3.	Hit enter to bring up a text input box, then type in “–fno-obj-arc” and hit enter. 
+
+	![Screenshot - Set Compile Flag](https://raw.github.com/quantcast-engineering/quantcast-documentation/master/ios/images/image011.png)
+
+#### Supporting iOS 4.3-4.6 ####
+
+If you intend to support iOS 4.3 - 4.6, perform these additional steps. Otherwise, skip to the next section.
+
+1.	Import the latest version of JSONKit into your project.  The JSONKit code is available in your Quantcast SDK download, or in the Quantcast github repository under the JSONKit folder.  In Xcode, select your project and choose the option “Add Files to <Your Project Name>“, then select the JSONKit folder.
+
+
+2.	Add the following preprocessor macro definition to your project's precompiled header file (the file that ends with '.pch'):
 
 	```objective-c
 	#define QCMEASUREMENT_ENABLE_JSONKIT 1
 	```
+	
+	![Screenshot - Enable JSONKIT](https://raw.github.com/quantcast-engineering/quantcast-documentation/master/ios/images/image015.png)
 
 ### SDK Integration ###
-There are two ways to integrate the Quantcast SDK. The first is a [One Step Integration](#one-step-sdk-integration) which allows you to integrate the Quantcast SDK with a single line of code. Most integrations should use this method. However, if you need want more control over how the Quantcast SDK logs your apps pause and resume events, then you should use the [Detailed SDK Integration](#detailed-sdk-integration) which can be accomplished with four lines of code. You would use the Detailed SDK Integration if you need to pass updated or different labels when the app pauses or resumes.
 
-#### One Step SDK Integration ####
-
-One Step Integration can be used for simpler implementations of the Quantcast SDK.  Projects that use constant or no [Event Labels](#event-labels) will benefit the most.   This method automatically sets up the pause/resume/end methods for you so this will be the only call you need to make to accomplish the minimum integration. If you use this integration method, you are still free to utilize the optional features, such as [Tracking App Events](#tracking-app-events).  
-
-In order integration using One Step Integration:
+The recommended way to integrate the Quantcast SDK requires only a single line of code: 
 
 1.	Import `QuantcastMeasurement.h` into your `UIApplication` delegate class
+
+	```objective-c
+	#import "QuantcastMeasurement.h"
+	```
+
+	![Screenshot - Import Header](https://raw.github.com/quantcast-engineering/quantcast-documentation/master/ios/images/image017.png)
+
 2.	In your `UIApplication` delegate's `application:didFinishLaunchingWithOptions:` method, place the following:
 
 	```objective-c
-	[[QuantcastMeasurement sharedInstance] setupMeasurementSessionWithAPIKey:@"<*Insert your API Key Here*>" userIdentifier:userIdentifierStrOrNil labels:nil];
+	[[QuantcastMeasurement sharedInstance] setupMeasurementSessionWithAPIKey:@"<Insert your API Key Here>" 
+userIdentifier:nil labels:nil];
     ```
 
-	Replace "<\*Insert your API Key Here\*>" with your Quantcast API Key, which can be generated in your Quantcast account homepage on [the Quantcast website](http://www.quantcast.com "Quantcast.com"). The API Key is used as the basic reporting entity for Quantcast Measure. The same API Key can be used across multiple apps (i.e. AppName Free / AppName Paid) and/or app platforms (i.e. iOS / Android). For all apps under each unique API Key, Quantcast will report the aggregate audience among them all, and also identify/report on the individual app versions.
+	Replace "<_Insert your API Key Here_>" with your Quantcast API Key. The API Key can be found in the file “api-key.txt” in your Quantcast SDK folder. All your API keys can also be found on your Quantcast dashboard: [https://www.quantcast.com/user/resources?listtype=apps] (https://www.quantcast.com/user/resources?listtype=apps). For more information about how and when to use the API Key, read [Understanding the API Key] (#optional-understanding-the-api-key).
 
-	The `userIdentifier:` parameter is a string that uniquely identifies an individual user, such as an account login.  This is not to be confused with a unique device identifier. Passing this information allows Quantcast to provide reports on your combined audience across all your properties: online, mobile web and mobile app. This parameter may be nil if your app does not have a user identifier available at the time your app launches. If the user identifier is not known at the time `setupMeasurementSessionWithAPIKey:userIdentifier:labels:` is called, the user identifier can be recorded at a later time. Please see the [Combined Web/App Audiences](#combined-webapp-audiences) section for more information.
+	The `userIdentifier:` parameter accepts a string that uniquely identifies an individual user, such as an account login. Passing this information allows Quantcast to provide reports on your combined audience across all your properties: online, mobile web and mobile app. Please see the [Combined Web/App Audiences](#combined-webapp-audiences) section for more information.
 
-	The `labels:` parameter may be nil and is discussed in more detail in the [Event Labels](#event-labels) section under Optional Code Integrations.
+	The `labels:` parameter may be nil and is used to create Audience Segments.  Learn more in the [Audience Labels](#audience-labels) section.
 
-By using the `setupMeasurementSessionWithAPIKey:userIdentifier:labels:` call, it is not necessary to add the `beginMeasurementSessionWithAPIKey:userIdentifier:labels:`, `pauseSessionWithLabels:`, or `resumeSessionWithLabels:` calls to the code. You may optionally call `endMeasurementSessionWithLabels:` at any time to explicitly end the measurement session, but this is not required.
+	![Screenshot - SetupMeasurement](https://raw.github.com/quantcast-engineering/quantcast-documentation/master/ios/images/image019.png)
 
-#### Detailed SDK Integration ####
+#### (optional) Understanding the API Key ####
+The API key is used as the basic reporting entity for Quantcast Measure. The same API Key can be used across multiple apps (i.e. AppName Free / AppName Paid) and/or app platforms (i.e. iOS / Android). For all apps under each unique API Key, Quantcast will report the aggregate audience among them all, and also identify/report on the individual app versions.
 
-For those application wishing to utilize more control over audience segmentation and labeling then the Quantcast iOS SDK has four points of required code integration. If you utilize the Detailed SDK Integration method, then the `setupMeasurementSessionWithAPIKey:userIdentifier:labels:` should not be called.  The four points of integration is a set of required calls to the SDK to indicate when the iOS app has been launched, paused (put into the background), resumed, and quit. 
+### Compile and Test ###
+
+You’re now ready to test your integration.  Build and run your project. Quantcast Measure will record activities and events from your iOS emulator, as long as you quit your app properly (as opposed to closing the emulator window while the app is running).  After finishing an app session, you will see your session recorded in your [Quantcast Measure dashboard](https://www.quantcast.com/) the following day.  If you don’t, you can refer to our [troubleshooting guide](#trouble-shooting) for tips.  Questions?  Please email us at mobilesupport@quantcast.com.
+
+Congratulations! Now that you’ve completed basic integration, explore how you can enable powerful features to understand your audience and track usage of your app. 
+
+*	Read about [User Privacy](#user-privacy) disclosure and options.
+*	Learn about Audience Segments, which you implement via [Labels](#audience-labels).
+*	If you have a web property, get a combined view of your [mobile app and web audiences](#combined-webapp-audiences).
+*	Read about all the additional ways you can use the SDK, including [Geo Location](#geo-location-measurement) and [Digital Magazine](#digital-magazines-and-periodicals) measurement.
+
+### User Privacy ###
+
+#### Privacy Notification ####
+Quantcast believes in informing users of how their data is being used.  We recommend that you disclose in your privacy policy that you use Quantcast to understand your audiences. You may link to Quantcast's privacy policy: [https://www.quantcast.com/privacy](https://www.quantcast.com/privacy).
+
+#### User Opt-Out ####
+You can give users the option to opt out of Quantcast Measure by providing access to the Quantcast Measure Opt-Out dialog. This should be accomplished with a button or a table view cell (if your options are based on a grouped table view) in your app's options view with the title "Measurement Options" or "Privacy". When a user taps the button you provide, call the Quantcast’s Opt-Out dialog using the following method:
+
+```objective-c
+[[QuantcastMeasurement sharedInstance] displayUserPrivacyDialogOver:currentViewController withDelegate:nil];
+```
+		
+The `currentViewController` argument is the current view controller. The SDK needs to know this due to how the iOS SDK presents modal dialogs (see [Apple's documentation](http://developer.apple.com/library/ios/#documentation/uikit/reference/UIViewController_Class/Reference/Reference.html) for `presentViewController:animated:completion:`). The delegate is an optional parameter and is explained in the `QuantcastOptOutDelegate` protocol header.
+	
+Note: when a user opts out of Quantcast Measure, the SDK immediately stops transmitting information to or from the user's device and deletes any cached information that may have retained. 
+
+### Optional Code Integrations ###
+
+#### Audience Labels ####
+Use labels to create Audience Segments, or groups of users that share a common property or attribute.  For instance, you can create an audience segment of users who purchase in your app.  For each audience segment you create, Quantcast will track membership of the segment over time, and generate an audience report that includes their demographics.  If you have implemented the same audience segments on your website(s), you will see a combined view of your web and app audiences for each audience segment. Learn more about how to use audience segments, including how to create segment hierarchies using the dot notation, here: [https://www.quantcast.com/help/showcase-your-audience-segments/] (https://www.quantcast.com/help/showcase-your-audience-segments/). 
+
+There are two ways to assign labels.  The first is via the `appLabels` property.  Set the `appLabels` property to record labels related to user properties.  For example, to assign two labels, “purchaser.ebook” and “sharer.onFB”, you could do this:
+
+``` objective-c
+NSArray *myUserSegmentMembership = @[@“purchaser.ebook”,@”sharer.onFB”];
+[QuantcastMeasurement sharedInstance].appLabels = myUserSegmentMembership; 
+```
+
+Setting the `appLabels` property has the effect of passing these labels with every method call of the Quantcast SDK.  At any time however, you can temporarily add to the labels you’ve assigned using `appLabels` by setting the `labels:` argument in your Quantcast method call.  
+
+Here is an example that adds the label “sharer.firstShare” in addition to the labels you’ve already assigned (“sharer.onFB”, “purchaser.ebook”) via the `appLabels` property.  This example uses the `logEvent:withLabels:` method, which you can learn about under [Tracking App Events](#tracking-app-events).
+
+```objective-c
+NSString *newLabel = @”sharer.firstShare”;
+NSString *theEventStr = @”tweeted”;
+[[QuantcastMeasurement sharedInstance] logEvent:theEventStr withLabels:newLabel]; 
+```
+
+All labels that are set during the course of an app session will register a visit for that app session, but only labels set via the `appLabels` property will persist across sessions. A session is started when an app is launched, or when it is woken from the background after more than 30 minutes. A session is defined as ended when an app is closed or when a new session starts.  In the example above, the session will register a visit on audience segments: “sharer.onFB”, “purchaser.ebook”, and “sharer.firstShare”. If the app is then suspended for more than 30 minutes, then awakened, our servers will record a new app session.  If no additional calls are made to QuantcastMeasurement, only the segments assigned via the `appLabels` property, “sharer.onFB” and “purchaser.ebook”, will register a visit for that session.  
+
+The `labels:` argument of most Quantcast SDK methods is typed to be an `id` pointer. However, it only accepts either a `NSString` object representing a single label, or a `NSArray` object containing one or more `NSString` objects representing a collection of labels to be applied to the event.
+
+While there is no specific constraint on the intended use of the label dimension, it is not recommended that you use it to indicate discrete events; in these cases, use the `logEvent:withLabels:` method described under [Tracking App Events](#tracking-app-events).
+
+
+#### Applying Audience Labels Upon App Suspension and Resume ####
+
+If you need more control over how labels are applied when your app is suspended and resumed, you can use the following integration of the Quantcast iOS SDK, which includes a set of 4 required calls to indicate when the app has been launched, paused (put into the background), resumed, and quit.  These 4 calls replace the integration using the `setupMeasurementSessionWithAPIKey` call – they cannot be used concurrently. 
 
 To implement the required set of SDK calls, perform the following steps:
 
 1.	Import `QuantcastMeasurement.h` into your `UIApplication` delegate class
+
+	```objective-c
+	#import "QuantcastMeasurement.h"
+	```
+
 2.	In your `UIApplication` delegate's `application:didFinishLaunchingWithOptions:` method, place the following:
 
 	```objective-c
-	[[QuantcastMeasurement sharedInstance] beginMeasurementSessionWithAPIKey:@"<*Insert your API Key Here*>" userIdentifier:userIdentifierStrOrNil labels:nil];
-	```
-		
-	Replace "<\*Insert your API Key Here\*>" with your Quantcast API Key, which can be generated in your Quantcast account homepage on [the Quantcast website](http://www.quantcast.com "Quantcast.com"). The API Key is used as the basic reporting entity for Quantcast Measure. The same API Key can be used across multiple apps (i.e. AppName Free / AppName Paid) and/or app platforms (i.e. iOS / Android). For all apps under each unique API Key, Quantcast will report the aggregate audience among them all, and also identify/report on the individual app versions.
+	[[QuantcastMeasurement sharedInstance] beginMeasurementSessionWithAPIKey:@"<Insert your API Key Here>" 
+userIdentifier:nil labels:nil];
+    ```
 
-	The `userIdentifier:` parameter is a string that uniquely identifies an individual user, such as an account login.  This is not to be confused with a unique device identifier. Passing this information allows Quantcast to provide reports on your combined audience across all your properties: online, mobile web and mobile app. This parameter may be nil if your app does not have a user identifier available at the time your app launches. If the user identifier is not known at the time the `application:didFinishLaunchingWithOptions:` method is called, the user identifier can be recorded at a later time. Please see the [Combined Web/App Audiences](#combined-webapp-audiences) section for more information.
-	
-	The labels parameter may be nil and is discussed in more detail in the [Event Labels](#event-labels) section under Optional Code Integrations.
+	Replace "<_Insert your API Key Here_>" with your Quantcast API Key. The API Key can be found in the file “api-key.txt” in your Quantcast SDK folder. All your API keys can also be found on your Quantcast dashboard: [https://www.quantcast.com/user/resources?listtype=apps] (https://www.quantcast.com/user/resources?listtype=apps). 
+
+	The `userIdentifier:` parameter accepts a string that uniquely identifies an individual user, such as an account login. Passing this information allows Quantcast to provide reports on your combined audience across all your properties: online, mobile web and mobile app. Please see the [Combined Web/App Audiences](#combined-webapp-audiences) section for more information.
+
+	The `labels:` parameter may be nil and is used to create Audience Segments.  Learn more in the [Audience Labels](#audience-labels) section.
 	
 3.	In your `UIApplication` delegate's `applicationWillTerminate:` method, place the following:
 
@@ -111,24 +220,6 @@ To implement the required set of SDK calls, perform the following steps:
 	[[QuantcastMeasurement sharedInstance] resumeSessionWithLabels:nil];
 	```
 
-### User Privacy ###
-
-#### Privacy Notification ####
-Quantcast believes in informing users of how their data is being used.  We recommend that you disclose in your privacy policy that you use Quantcast to understand your audiences. You may link to Quantcast's privacy policy [here](https://www.quantcast.com/privacy).
-
-#### User Opt-Out ####
-You can give users the option to opt out of Quantcast Measure by providing access to the Quantcast Measure Opt-Out dialog. This should be accomplished with a button or a table view cell (if your options are based on a grouped table view) in your app's options view with the title "Measurement Options" or "Privacy". When a user taps the button you provide, call the Quantcast’s Opt-Out dialog using the following method:
-
-```objective-c
-[[QuantcastMeasurement sharedInstance] displayUserPrivacyDialogOver:currentViewController withDelegate:nil];
-```
-		
-The `currentViewController` argument is the current view controller. The SDK needs to know this due to how the iOS SDK presents modal dialogs (see [Apple's documentation](http://developer.apple.com/library/ios/#documentation/uikit/reference/UIViewController_Class/Reference/Reference.html) for `presentViewController:animated:completion:`). The delegate is an optional parameter and is explained in the `QuantcastOptOutDelegate` protocol header.
-	
-Note: when a user opts out of Quantcast Measure, the SDK immediately stops transmitting information to or from the user's device and deletes any cached information that may have retained. Furthermore, when a user opts out of any single app on a device, the action affects all other apps on the device that are integrated with Quantcast Measure the next time they are launched.
-
-### Optional Code Integrations ###
-
 #### Tracking App Events ####
 Quantcast Measure can be used to measure audiences that engage in certain activities within your app. To log the occurrence of an app event or activity, call the following method:
 
@@ -136,15 +227,6 @@ Quantcast Measure can be used to measure audiences that engage in certain activi
 [[QuantcastMeasurement sharedInstance] logEvent:theEventStr withLabels:nil];
 ```
 `theEventStr` is the string that is associated with the event you are logging. Hierarchical information can be indicated by using a left-to-right notation with a period as a separator. For example, logging one event named "button.left" and another named "button.right" will create three reportable items in Quantcast Measure: "button.left", "button.right", and "button". There is no limit on the cardinality that this hierarchal scheme can create, though low-frequency events may not have an audience report due to the lack of a statistically significant population.
-
-#### Event Labels ####
-Most of Quantcast SDK's public methods have an option to provide one or more labels, or `nil` if no label is desired. A label is any arbitrary string that you want associated with an event. The label will create a second dimension in Quantcast Measure audience reporting. Normally, this dimension is a "user class" indicator. For example, you could use one of two labels in your app: one for users who have not purchased an app upgrade, and one for users who have purchased an upgrade.
-
-The `labels:` argument of most Quantcast SDK methods is typed to be an `id` pointer. However, it only accepts either a `NSString` object representing a single label, or a `NSArray` object containing one or more `NSString` objects representing a collection of labels to be applied to the event.
-
-Labels can also be set via the appLabels property.   These labels can be changed at any time and will be automatically combined with the labels passed in any call taking labels.  This can be convenient for those apps who find themselves passing the same labels everywhere. 
-
-While there is no specific constraint on the intended use of the label dimension, it is not recommended that you use it to indicate discrete events; in these cases, use the `logEvent:withLabels:` method described under [Tracking App Events](#tracking-app-events).
 
 #### Geo-Location Measurement ####
 To turn on geo-location measurement, please take the following steps:
@@ -167,7 +249,7 @@ You may also safely change the state of the `geoLocationEnabled` at any point af
 
 Note that you should only enable geo-tracking if your app has some location-aware purpose for the user.
 
-The Quantcast iOS SDK will automatically pause geo-tracking while your app is in the background. This is done for both battery life and privacy considerations.
+The Quantcast iOS SDK will automatically pause geo-tracking while your app is in the background. 
 
 #### Digital Magazines and Periodicals ####
 Quantcast Measure provides measurement features specific to digital magazines and periodicals. These options allow the measurement of specific issues, articles and pages in addition to the general measurement of the app hosting the magazine. In order to take advantage of this measurement, you must at a minimum tag when a particular issue has been opened and closed and when each page in that issue has been viewed (in addition to the basic SDK integration). You may also optionally tag when a particular article has been viewed. For more information, please refer to the documentation in the Periodicals header file which can be found in the SDK source folder at `Optional/QuantcastMeasurement+Periodicals.h`.  
@@ -215,11 +297,10 @@ Note that using secure data uploads causes your app to use encryption technology
 ### Trouble Shooting ###
 
 **Little or No App Traffic Showing Up In App's Profile On Quantcast.com**<br>
-Quantcast updates its website with your app's latest audience measurement data daily. If even after 1 day no data is showing up in your app's profile on quantcast.com, there are several things to check:
-* If you are using the [Detailed SDK Integration](#detailed-sdk-integration) method to integrate, please ensure that you have fully integrated as described above.
-* Check to ensure that your app does not have the `UIApplicationExitsOnSuspend` property set to `YES` in your app's `Info.plist`. For the Quantcast iOS SDK to function correctly, the `UIApplicationExitsOnSuspend` property should be removed from your app's `Info.plist`.
+Quantcast updates its website with your app's latest audience measurement data daily. If even after 1 day no data is showing up in your app's profile on quantcast.com, please check the following:
 * The Quantcast SDK does most of its data uploading when your app is transitioned to the background. If during your development and testing workflow in Xcode you regularly end a test run of your app by pressing "stop" within Xcode, your app has not necessarily had a chance to upload usage data. To ensure your app gets a chance to upload usage data to Quantcast while you are testing, be sure to click the Home button on the device being tested in order to put your app into the background and thus trigger a usage data upload to Quantcast.
-
+* If you encounter trouble with your build, please review the documentation for the project setup and SDK integration.  The most common errors involve missing one of the steps outlined. 
+If you have are still having trouble, please email mobilesupport@quantcast.com. 
 
 
 ## License ##
