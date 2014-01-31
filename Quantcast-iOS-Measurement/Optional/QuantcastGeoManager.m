@@ -1,13 +1,13 @@
 /*
- * Copyright 2013 Quantcast Corp.
+ * © Copyright 2012-2014 Quantcast Corp.
  *
  * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
  * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
  * (the “License”). You may not use this file unless (1) you sign up for an account at
  * https://www.quantcast.com and click your agreement to the License and (2) are in
  * compliance with the License. See the License for the specific language governing
- * permissions and limitations under the License.
- *
+ * permissions and limitations under the License. Unauthorized use of this file constitutes
+ * copyright infringement and violation of law.
  */
 
 #ifndef __has_feature
@@ -28,6 +28,7 @@
 #import "QuantcastGeoManager.h"
 #import "QuantcastEvent.h"
 #import "QuantcastPolicy.h"
+#import "QuantcastUtils.h"
 
 #define GEOTIMER_START_WAIT_TIME_SECONDS 60*10
 #define GEOTIMER_MAX_DETAILED_MEASURE_SECONDS 60*1
@@ -65,16 +66,16 @@
 
 @implementation QuantcastGeoManager
 
--(id)initWithEventLogger:(id<QuantcastEventLogger>)inEventLogger enableLogging:(BOOL)inEnableLogging{
+-(id)initWithEventLogger:(id<QuantcastEventLogger>)inEventLogger{
     
     self = [super init];
     if (nil != self) {
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleAppPause) name:UIApplicationDidEnterBackgroundNotification object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleAppResume) name:UIApplicationWillEnterForegroundNotification object:nil];
         _eventLogger = inEventLogger;
         _detailedGeoMeasureWaitInterval = GEOTIMER_START_WAIT_TIME_SECONDS;
         _detailedMeasurementUpdateCount = 0;
         _geoLocationEnabled = NO;
-        _enableLogging = inEnableLogging;
-
     }
     
     return self;
@@ -118,9 +119,7 @@
             [self.opQueue setName:@"com.quantcast.measure.operationsqueue.geomanager"];
         }
         
-        if (self.enableLogging) {
-            NSLog(@"QC Measurement: Enabling geo-monitoring." );
-        }
+       QUANTCAST_LOG(@"Enabling geo-monitoring." );
         
         if ( ( ![CLLocationManager significantLocationChangeMonitoringAvailable] ) && [UIApplication sharedApplication].applicationState != UIApplicationStateBackground ) {
             [self startLocationMeasurement];
@@ -128,24 +127,22 @@
         else if ( [CLLocationManager significantLocationChangeMonitoringAvailable] ) {
             [self.locationManager startMonitoringSignificantLocationChanges];
         }
-        else if ( self.enableLogging ) {
-            NSLog(@"QC Measurement: Could not start geo measurement due to configuration: significantLocationChangeMonitoringAvailable = %@, UIApplicationStateBackground = %@", GENERATE_YESNO_STR( [CLLocationManager significantLocationChangeMonitoringAvailable] ), GENERATE_YESNO_STR( [UIApplication sharedApplication].applicationState == UIApplicationStateBackground ) );
+        else {
+           QUANTCAST_LOG(@"Could not start geo measurement due to configuration: significantLocationChangeMonitoringAvailable = %@, UIApplicationStateBackground = %@", GENERATE_YESNO_STR( [CLLocationManager significantLocationChangeMonitoringAvailable] ), GENERATE_YESNO_STR( [UIApplication sharedApplication].applicationState == UIApplicationStateBackground ) );
         }
     }
-    else if (self.enableLogging && _geoLocationEnabled && self.eventLogger.isOptedOut ) {
-        NSLog(@"QC Measurement: Geo measurement was requested but not enabled due to user opt out.");
+    else if (_geoLocationEnabled && self.eventLogger.isOptedOut ) {
+       QUANTCAST_LOG(@"Geo measurement was requested but not enabled due to user opt out.");
     }
-    else if (self.enableLogging && _geoLocationEnabled && !self.eventLogger.policy.allowGeoMeasurement && self.eventLogger.policy.hasUpdatedPolicyBeenDownloaded ) {
-        NSLog(@"QC Measurement: Geo measurement was requested but not enabled due to the current privacy policy for this app.");
+    else if (_geoLocationEnabled && !self.eventLogger.policy.allowGeoMeasurement && self.eventLogger.policy.hasPolicyBeenLoaded ) {
+       QUANTCAST_LOG(@"Geo measurement was requested but not enabled due to the current privacy policy for this app.");
     }
 }
 
 -(void)stopGeoMonitoring {
     
     if (nil != self.locationManager ) {
-        if (self.enableLogging) {
-            NSLog(@"QC Measurement: Disabling geo-monitoring.");
-        }
+       QUANTCAST_LOG(@"QC Measurement: Disabling geo-monitoring.");
         [self invalidateActiveLocationMeasurementTimer];
         [self.locationManager stopUpdatingLocation];
         
@@ -210,9 +207,7 @@
     [self invalidateActiveLocationMeasurementTimer];
 
     if ( self.detailedGeoMeasureInProgress  ) {
-        if (self.enableLogging) {
-            NSLog(@"QC Measurement: Detailed geo-measurement has been taken. Returning geo-measurement to monitoring significant changes.");
-        }
+       QUANTCAST_LOG(@"QC Measurement: Detailed geo-measurement has been taken. Returning geo-measurement to monitoring significant changes.");
         
         [self.locationManager stopUpdatingLocation];
         self.detailedGeoMeasureInProgress = NO;
@@ -239,9 +234,7 @@
                                                                       selector:@selector(detailedGeoMeasureTimerAction:)
                                                                       userInfo:nil
                                                                        repeats:NO];
-        if (self.enableLogging) {
-            NSLog(@"QC Measurement: Starting detailed geo-measurement timer with a wait time of %d seconds. Fire date = %@", (NSInteger)self.detailedGeoMeasureWaitInterval, [self.locationMeasurementTimer.fireDate description]);
-        }
+       QUANTCAST_LOG(@"QC Measurement: Starting detailed geo-measurement timer with a wait time of %.0f seconds. Fire date = %@", self.detailedGeoMeasureWaitInterval, [self.locationMeasurementTimer.fireDate description]);
     }
 }
 
@@ -254,9 +247,7 @@
 
 -(void)detailedGeoMeasureTimerAction:(NSTimer*)inTimer {
     self.locationMeasurementTimer = nil;
-    if (self.enableLogging) {
-        NSLog(@"QC Measurement: Detailed geo measurement timer fired. Starting a detailed geo-measurement" );
-    }
+   QUANTCAST_LOG(@"Detailed geo measurement timer fired. Starting a detailed geo-measurement" );
     [self startLocationMeasurement];
 }
 
@@ -281,9 +272,7 @@
 
 -(void)stopDetailedGeoMeasureTimerAction:(NSTimer*)innTimer {
     self.locationMeasurementTimer = nil;
-    if (self.enableLogging) {
-        NSLog(@"QC Measurement: Max time passed while in detailed geo measurement. Returning geo-measurement to monitoring significant changes." );
-    }    
+   QUANTCAST_LOG(@"Max time passed while in detailed geo measurement. Returning geo-measurement to monitoring significant changes." );
     [self restartDetailedGeoMeasurementTimerWithResetTimerInterval:YES];
 }
 
@@ -306,10 +295,7 @@
 - (void)locationManager:(CLLocationManager *)manager didUpdateLocations:(NSArray *)locations
 {
     if ([locations count] == 0 ) {
-        if (self.enableLogging) {
-            NSLog( @"QC Measurement: WARNING - locationManager:didUpdateLocations: Got a zero-lengthed locations list. Doing nothing");
-        }
-        
+        QUANTCAST_WARN( @"locationManager:didUpdateLocations: Got a zero-lengthed locations list. Doing nothing");
         return;
     }
     
@@ -336,9 +322,7 @@
         
         if ( self.detailedMeasurementUpdateCount < MAX_DETAILED_MEASURE_ATTEMPTS && mostRecentLocation.horizontalAccuracy > self.eventLogger.policy.desiredGeoLocationAccuracy ) {
             // don't stop detailed measurement nor restart timer
-            if (self.enableLogging) {
-                NSLog(@"QC Measurement: Continuing with detailed geo measurments. Measure count = %d, measure accuracy = %f", self.detailedMeasurementUpdateCount, mostRecentLocation.horizontalAccuracy );
-            }
+           QUANTCAST_LOG(@"Continuing with detailed geo measurments. Measure count = %lu, measure accuracy = %f", (unsigned long)self.detailedMeasurementUpdateCount, mostRecentLocation.horizontalAccuracy );
         }
         else {
             // only change the lastLocationProcessed if moved significant distance
@@ -397,11 +381,8 @@
             return;
         }
         
-        if (self.enableLogging) {
-            NSLog(@"QC Measurement: Logging location event = %@, with country = %@, province = %@, city = %@", inLocation, geoCountry, geoProvince, geoCity );
-        }
-
-         
+       QUANTCAST_LOG(@"QC Measurement: Logging location event = %@, with country = %@, province = %@, city = %@", inLocation, geoCountry, geoProvince, geoCity );
+        
         [self recordGeoEventWithCountry:geoCountry
                                province:geoProvince
                                    city:geoCity
@@ -412,25 +393,24 @@
 
 -(void)recordGeoEventWithCountry:(NSString*)inCountry province:(NSString*)inProvince city:(NSString*)inCity timestamp:(NSDate*)inTimestamp isAppInBackground:(BOOL)inIsAppInBackground {
     
-    // first check to ensure optout hasn't changed
-    if ( self.geoLocationEnabled) {
-        QuantcastEvent* e = [QuantcastEvent geolocationEventWithCountry:inCountry
-                                                               province:inProvince
-                                                                   city:inCity
-                                                         eventTimestamp:inTimestamp
-                                                      appIsInBackground:inIsAppInBackground
-                                                          withSessionID:self.eventLogger.currentSessionID
-                                                   applicationInstallID:self.eventLogger.appInstallIdentifier
-                                                        enforcingPolicy:self.eventLogger.policy];
-        
-        [self.eventLogger recordEvent:e];
-    }
+    [self.eventLogger launchOnQuantcastThread:^(NSDate *unusedTimestamp) {
+        // first check to ensure optout hasn't changed
+        if ( self.geoLocationEnabled) {
+            QuantcastEvent* e = [QuantcastEvent geolocationEventWithCountry:inCountry
+                                                                   province:inProvince
+                                                                       city:inCity
+                                                             eventTimestamp:inTimestamp
+                                                          appIsInBackground:inIsAppInBackground
+                                                              withSessionID:self.eventLogger.currentSessionID
+                                                       applicationInstallID:self.eventLogger.appInstallIdentifier];
+            
+            [self.eventLogger recordEvent:e];
+        }
+    }];
 }
 
 - (void)locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error {
-    if (self.enableLogging) {
-        NSLog(@"QC Measurement: The location manager failed with error = %@", error );
-    }
+   QUANTCAST_LOG(@"The location manager failed with error = %@", error );
 }
 
 

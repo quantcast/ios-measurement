@@ -156,7 +156,7 @@ Use labels to create Audience Segments, or groups of users that share a common p
 There are two ways to assign labels.  The first is via the `appLabels` property.  Set the `appLabels` property to record labels related to user properties.  For example, to assign two labels, “purchaser.ebook” and “sharer.onFB”, you could do this:
 
 ``` objective-c
-NSArray *myUserSegmentMembership = @[@“purchaser.ebook”,@”sharer.onFB”];
+NSArray *myUserSegmentMembership = @[@"purchaser.ebook",@"sharer.onFB"];
 [QuantcastMeasurement sharedInstance].appLabels = myUserSegmentMembership; 
 ```
 
@@ -165,8 +165,8 @@ Setting the `appLabels` property has the effect of passing these labels with eve
 Here is an example that adds the label “sharer.firstShare” in addition to the labels you’ve already assigned (“sharer.onFB”, “purchaser.ebook”) via the `appLabels` property.  This example uses the `logEvent:withLabels:` method, which you can learn about under [Tracking App Events](#tracking-app-events).
 
 ```objective-c
-NSString *newLabel = @”sharer.firstShare”;
-NSString *theEventStr = @”tweeted”;
+NSString *newLabel = @"sharer.firstShare";
+NSString *theEventStr = @"tweeted";
 [[QuantcastMeasurement sharedInstance] logEvent:theEventStr withLabels:newLabel]; 
 ```
 

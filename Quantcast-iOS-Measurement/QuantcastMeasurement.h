@@ -1,14 +1,15 @@
 /*
- * Copyright 2012 Quantcast Corp.
+ * © Copyright 2012-2014 Quantcast Corp.
  *
  * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
  * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
  * (the “License”). You may not use this file unless (1) you sign up for an account at
  * https://www.quantcast.com and click your agreement to the License and (2) are in
  * compliance with the License. See the License for the specific language governing
- * permissions and limitations under the License.
- *
+ * permissions and limitations under the License. Unauthorized use of this file constitutes
+ * copyright infringement and violation of law.
  */
+
 
 //
 // ** IMPORTANT **
@@ -69,28 +70,6 @@
  */
 +(QuantcastMeasurement*)sharedInstance;
 
-/*!
- @property deviceIdentifier
- @abstract The device identifier used by Quantcast Measurement. 
- @discussion Returns the device identifier used by Quantcast. A non-nil value is only available on iOS 6 or later. Will return nil if the user is opted out of Quantcast measurement, the user has turned off advertising tracking for their device, the app is running on an iOS version prior to 6.0, or if the iOS 6.0.0 advertising identifier bug is present.
- */
-@property (readonly) NSString* deviceIdentifier;
-
-
-/*!
- @property appInstallIdentifier
- @abstract An application scoped identifier used by Quantcast Measurement.
- @discussion Returns a unique installation identifier for this app. Will return nil if the user is opted out of Quantcast measurement. This identifier is created and managed by the Quantcast Measurement SDK, and persists only as long as the app is installed on a device, or the user opts out of Quantcast Measurement on the device.
- */
-@property (readonly) NSString* appInstallIdentifier;
-
-/*!
- @property appLabels
- @abstract Property that contains a static application labels
- @discussion This property can be set to either an NSString or an NSArray of NSStrings.  When set, the label(s) will be automatically passed to all calls which take labels.  This is a convience property for applications that segment their audience by a fairly static group of labels.   This property can be changed at any time.
- */
-@property (retain,nonatomic) id<NSObject> appLabels;
-
 #pragma mark - Session Management
 
 /*!
@@ -106,6 +85,67 @@
  @param inLabelsOrNil Either an NSString object or NSArray object containing one or more NSString objects, each of which are a distinct label to be applied to this event. A label is any arbitrary string that you want to be ascociated with this event, and will create a second dimension in Quantcast Measurement reporting. Nominally, this is a "user class" indicator. For example, you might use one of two labels in your app: one for user who ave not purchased an app upgrade, and one for users who have purchased an upgrade.
  */
 -(NSString*)setupMeasurementSessionWithAPIKey:(NSString*)inQuantcastAPIKey userIdentifier:(NSString*)userIdentifierOrNil labels:(id<NSObject>)inLabelsOrNil;
+
+
+/*!
+ @method logEvent:withLabels:
+ @abstract Logs an arbitray event to the Quantcast Measurement SDK.
+ @discussion This is the primarily means for logging events with Quantcast Measurement. What gets logged in this method is completely up to the app developper.
+ @param inEventName A string that identifies the event being logged. Hierarchical information can be indicated by using a left-to-right notation with a period as a seperator. For example, logging one event named "button.left" and another named "button.right" will create three reportable items in Quantcast App Measurement: "button.left", "button.right", and "button". There is no limit on the cardinality that this hierarchal scheme can create, though low-frequency events may not have an audience report on due to the lack of a statistically significant population.
+ @param inLabelsOrNil  Either an NSString object or NSArray object containing one or more NSString objects, each of which are a distinct label to be applied to this event. A label is any arbitrary string that you want to be ascociated with this event, and will create a second dimension in Quantcast Measurement reporting. Nominally, this is a "user class" indicator. For example, you might use one of two labels in your app: one for user who ave not purchased an app upgrade, and one for users who have purchased an upgrade.
+ */
+-(void)logEvent:(NSString*)inEventName withLabels:(id<NSObject>)inLabelsOrNil;
+
+/*!
+ @method recordUserIdentifier:withLabels:
+ @abstract Records the user identifier that should be used for this session.
+ @discussion This feature is only useful if you implement a similar (hashed) user identifier recording with Quantcast Measurement on other platforms, such as the web. This method only needs to be called once per session, preferably immediately after the session has begun, or when the user identifier has changed (e.g., the user logged out and a new user logged in). Quantcast will use a one-way hash to encode the user identifier and record the results of that one-way hash, not what is passed here. The method will return the results of that one-way hash for your reference. You do not need to take any action on the results.
+ @param inUserIdentifierOrNil a user identifier string that is meanigful to the app publisher. This is usually a user login name or anything that identifies the user (different from a device id), but there is no requirement on format of this other than that it is a meaningful user identifier to you. Quantcast will immediately one-way hash this value, thus not recording it in its raw form. You should pass nil to indicate that a user has logged out.
+ @param inLabelsOrNil  Either an NSString object or NSArray object containing one or more NSString objects, each of which are a distinct label to be applied to this event. A label is any arbitrary string that you want to be ascociated with this event, and will create a second dimension in Quantcast Measurement reporting. Nominally, this is a "user class" indicator. For example, you might use one of two labels in your app: one for user who ave not purchased an app upgrade, and one for users who have purchased an upgrade.
+ @result The hashed version of the uer identifier passed on to Quantcast. You do not need to take any action with this. It is only returned for your reference. nil will be returned if the user has opted out or an error occurs.
+ */
+-(NSString*)recordUserIdentifier:(NSString*)inUserIdentifierOrNil withLabels:(id<NSObject>)inLabelsOrNil;
+
+#pragma mark - User Privacy Management
+
+/*!
+ @methodgroup User Privacy Management
+ */
+
+/*!
+ @property isOptedOut
+ @abstract Indicates whether the user has opted out of Quantcast Measurement or not.
+ @discussion You can use this method to determine if the user has opted out of measurement on this device either via your app or another on the device. Whether the user opted out via this app or another is not determinable as Quantcast Measurement opt out is on a per-device basis. If the user wishes to change their opt out status on their device, they must do so through the Quantcast User Privacy dialog presented with the displayUserPrivacyDialogOver:withDelegate: method.
+ */
+@property (readonly,nonatomic) BOOL isOptedOut;
+
+/*!
+ @method displayUserPrivacyDialogOver:withDelegate:
+ @abstract Displays the Quantcast User Privacy dialog, which enables the user to opt out of Quantcast Measurement on a device.
+ @discussion Will display a model dialog that provides the user with information on Quantcast Measurement and allows them to adjust their Quantcast App Measurement privacy settings for their device.
+ @param inCurrentViewController This should be the current UIViewController. The Quantcast dialog will be displayed over this view.
+ @param inDelegateOrNil An optional object that adopts the QuantcastOptOutDelegate protocol.
+ */
+-(void)displayUserPrivacyDialogOver:(UIViewController*)inCurrentViewController withDelegate:(id<QuantcastOptOutDelegate>)inDelegateOrNil;
+
+
+#pragma mark - Optional Detailed Integration
+
+/*!
+ @property appLabels
+ @abstract Property that contains a static application labels
+ @discussion This property can be set to either an NSString or an NSArray of NSStrings.  When set, the label(s) will be automatically passed to all calls which take labels.  This is a convience property for applications that segment their audience by a fairly static group of labels.   This property can be changed at any time.
+ */
+@property (retain,nonatomic) id<NSObject> appLabels;
+
+
+/*!
+ @property geoLocationEnabled
+ @abstract Property that controls whether geo-location is logged
+ @discussion By default, geo-location logging is off (NO). If you wish for Quantcast to provide measurement services pertaining to the user's geo-location, you should enable (set to YES) this property shortly after starting a measurement session. Furthermore, see the notes at the top of this file about which frameworks to add to your project. NOTE - Geolocation measurment is only supported on iOS 5 or later. Attempting to set this property to YES on a device running iOS 4.x will have no affect.
+ */
+@property (assign,nonatomic) BOOL geoLocationEnabled;
+
 
 /*!
  @method beginMeasurementSessionWithAPIKey:labels:
@@ -152,61 +192,6 @@
  */
 -(void)resumeSessionWithLabels:(id<NSObject>)inLabelsOrNil;
 
-#pragma mark - Measurement and Analytics
-
-/*!
- @methodgroup Measurement and Analytics
- */
-
-/*!
- @method recordUserIdentifier:withLabels:
- @abstract Records the user identifier that should be used for this session. 
- @discussion This feature is only useful if you implement a similar (hashed) user identifier recording with Quantcast Measurement on other platforms, such as the web. This method only needs to be called once per session, preferably immediately after the session has begun, or when the user identifier has changed (e.g., the user logged out and a new user logged in). Quantcast will use a one-way hash to encode the user identifier and record the results of that one-way hash, not what is passed here. The method will return the results of that one-way hash for your reference. You do not need to take any action on the results.
- @param inUserIdentifierOrNil a user identifier string that is meanigful to the app publisher. This is usually a user login name or anything that identifies the user (different from a device id), but there is no requirement on format of this other than that it is a meaningful user identifier to you. Quantcast will immediately one-way hash this value, thus not recording it in its raw form. You should pass nil to indicate that a user has logged out.
- @param inLabelsOrNil  Either an NSString object or NSArray object containing one or more NSString objects, each of which are a distinct label to be applied to this event. A label is any arbitrary string that you want to be ascociated with this event, and will create a second dimension in Quantcast Measurement reporting. Nominally, this is a "user class" indicator. For example, you might use one of two labels in your app: one for user who ave not purchased an app upgrade, and one for users who have purchased an upgrade.
- @result The hashed version of the uer identifier passed on to Quantcast. You do not need to take any action with this. It is only returned for your reference. nil will be returned if the user has opted out or an error occurs.
- */
--(NSString*)recordUserIdentifier:(NSString*)inUserIdentifierOrNil withLabels:(id<NSObject>)inLabelsOrNil;
-
-/*!
- @method logEvent:withLabels:
- @abstract Logs an arbitray event to the Quantcast Measurement SDK.
- @discussion This is the primarily means for logging events with Quantcast Measurement. What gets logged in this method is completely up to the app developper.
- @param inEventName A string that identifies the event being logged. Hierarchical information can be indicated by using a left-to-right notation with a period as a seperator. For example, logging one event named "button.left" and another named "button.right" will create three reportable items in Quantcast App Measurement: "button.left", "button.right", and "button". There is no limit on the cardinality that this hierarchal scheme can create, though low-frequency events may not have an audience report on due to the lack of a statistically significant population.
- @param inLabelsOrNil  Either an NSString object or NSArray object containing one or more NSString objects, each of which are a distinct label to be applied to this event. A label is any arbitrary string that you want to be ascociated with this event, and will create a second dimension in Quantcast Measurement reporting. Nominally, this is a "user class" indicator. For example, you might use one of two labels in your app: one for user who ave not purchased an app upgrade, and one for users who have purchased an upgrade.
- */
--(void)logEvent:(NSString*)inEventName withLabels:(id<NSObject>)inLabelsOrNil;
-
-/*!
- @property geoLocationEnabled
- @abstract Property that controls whether geo-location is logged
- @discussion By default, geo-location logging is off (NO). If you wish for Quantcast to provide measurement services pertaining to the user's geo-location, you should enable (set to YES) this property shortly after starting a measurement session. Furthermore, see the notes at the top of this file about which frameworks to add to your project. NOTE - Geolocation measurment is only supported on iOS 5 or later. Attempting to set this property to YES on a device running iOS 4.x will have no affect.
- */
-@property (assign,nonatomic) BOOL geoLocationEnabled;
-
-
-#pragma mark - User Privacy Management
-
-/*!
- @methodgroup User Privacy Management
- */
-
-/*!
- @property isOptedOut
- @abstract Indicates whether the user has opted out of Quantcast Measurement or not.
- @discussion You can use this method to determine if the user has opted out of measurement on this device either via your app or another on the device. Whether the user opted out via this app or another is not determinable as Quantcast Measurement opt out is on a per-device basis. If the user wishes to change their opt out status on their device, they must do so through the Quantcast User Privacy dialog presented with the displayUserPrivacyDialogOver:withDelegate: method. 
- */
-@property (readonly,nonatomic) BOOL isOptedOut;
-
-/*!
- @method displayUserPrivacyDialogOver:withDelegate:
- @abstract Displays the Quantcast User Privacy dialog, which enables the user to opt out of Quantcast Measurement on a device.
- @discussion Will display a model dialog that provides the user with information on Quantcast Measurement and allows them to adjust their Quantcast App Measurement privacy settings for their device. 
- @param inCurrentViewController This should be the current UIViewController. The Quantcast dialog will be displayed over this view. 
- @param inDelegateOrNil An optional object that adopts the QuantcastOptOutDelegate protocol. 
- */
--(void)displayUserPrivacyDialogOver:(UIViewController*)inCurrentViewController withDelegate:(id<QuantcastOptOutDelegate>)inDelegateOrNil;
-
 #pragma mark - SDK Customization
 
 /*!
@@ -231,9 +216,17 @@
 @property (assign,nonatomic) BOOL enableLogging;
 
 /*!
- @method description
- @abstract Returns a string description of this object. Used only for debugging.
+ @property deviceIdentifier
+ @abstract The device identifier used by Quantcast Measurement.
+ @discussion Returns the device identifier used by Quantcast. A non-nil value is only available on iOS 6 or later. Will return nil if the user is opted out of Quantcast measurement, the user has turned off advertising tracking for their device, the app is running on an iOS version prior to 6.0, or if the iOS 6.0.0 advertising identifier bug is present.
  */
-- (NSString *)description;
+@property (readonly) NSString* deviceIdentifier;
+
+/*!
+ @property appInstallIdentifier
+ @abstract An application scoped identifier used by Quantcast Measurement.
+ @discussion Returns a unique installation identifier for this app. Will return nil if the user is opted out of Quantcast measurement. This identifier is created and managed by the Quantcast Measurement SDK, and persists only as long as the app is installed on a device, or the user opts out of Quantcast Measurement on the device.
+ */
+@property (readonly) NSString* appInstallIdentifier;
 
 @end

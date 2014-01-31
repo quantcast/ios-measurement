@@ -1,16 +1,15 @@
 /*
- * Copyright 2012 Quantcast Corp.
+ * © Copyright 2012-2014 Quantcast Corp.
  *
  * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
  * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
  * (the “License”). You may not use this file unless (1) you sign up for an account at
  * https://www.quantcast.com and click your agreement to the License and (2) are in
  * compliance with the License. See the License for the specific language governing
- * permissions and limitations under the License.
- *
+ * permissions and limitations under the License. Unauthorized use of this file constitutes
+ * copyright infringement and violation of law.
  */
 
-#import <Foundation/Foundation.h>
 
 #pragma mark - Event Constants
 
@@ -100,13 +99,14 @@
 #define QC_SDKERRORTYPE_UPLOADFAILURE               @"json-upload-failure"
 #define QC_SDKERRORTYPE_POLICYDOWNLOADFAILURE       @"policy-download-failure"
 #define QC_SDKERRORTYPE_GEOCODERFAILURE             @"geo-coder-failure"
+#define QC_SDKERRORTYPE_SESSIONREADFAILURE          @"session-read-failure"
 
 // 
 // Quantcast Measurement SDK
 //
 
-#define QCMEASUREMENT_API_VERSION               @"1_2_13"
-#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.2.13"
+#define QCMEASUREMENT_API_VERSION               @"1_2_14"
+#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.2.14"
 #define QCMEASUREMENT_CONN_TIMEOUT_SECONDS      60
 
 #ifndef QCMEASUREMENT_UPLOAD_URL
@@ -117,10 +117,11 @@
 #define QCMEASUREMENT_POLICY_FILENAME           @"qc-policy.json"
 #define QCMEASUREMENT_DATABASE_FILENAME         @"qcmeasurement.db"
 #define QCMEASUREMENT_IDENTIFIER_FILENAME       @"qc-identifier.txt"
-#define QCMEASUREMENT_ADIDPREF_FILENAME         @"ad-id-pref.txt"
 #define QCMEASUREMENT_SESSIONID_FILENAME        @"session-id.txt"
 
-#define QCMEASUREMENT_OPTOUT_PASTEBOARD         @"com.quantcast.measurement.optout"
+#define QCMEASUREMENT_ADIDPREF_DEFAULTS         @"com.quantcast.measure.pref.prior-ad-targeting"
+#define QCMEASUREMENT_OPTOUT_DEFAULTS           @"com.quantcast.measure.pref.optout"
+
 #define QCMEASUREMENT_OPTOUT_STRING             @"QC-OPT-OUT"
 
 #define QCMEASUREMENT_UA_PREFIX                 @" QuantcastSDK"
@@ -130,7 +131,7 @@
 #endif
 
 #ifndef QCMEASUREMENT_DEFAULT_UPLOAD_EVENT_COUNT
-#define QCMEASUREMENT_DEFAULT_UPLOAD_EVENT_COUNT 100
+#define QCMEASUREMENT_DEFAULT_UPLOAD_EVENT_COUNT 50
 #endif
 
 #ifndef QCMEASUREMENT_DEFAULT_BACKGROUND_UPLOAD_EVENT_COUNT

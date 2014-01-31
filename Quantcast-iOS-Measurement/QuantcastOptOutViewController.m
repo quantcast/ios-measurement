@@ -1,21 +1,14 @@
 /*
- * Copyright 2012 Quantcast Corp.
+ * © Copyright 2012-2014 Quantcast Corp.
  *
  * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
  * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
  * (the “License”). You may not use this file unless (1) you sign up for an account at
  * https://www.quantcast.com and click your agreement to the License and (2) are in
  * compliance with the License. See the License for the specific language governing
- * permissions and limitations under the License.
- *
+ * permissions and limitations under the License. Unauthorized use of this file constitutes
+ * copyright infringement and violation of law.
  */
-
-#ifndef __has_feature
-#define __has_feature(x) 0
-#endif
-#ifndef __has_extension
-#define __has_extension __has_feature // Compatibility with pre-3.0 compilers.
-#endif
 
 #if __has_feature(objc_arc) && __clang_major__ >= 3
 #error "Quantcast Measurement is not designed to be used with ARC. Please add '-fno-objc-arc' to this file's compiler flags"
@@ -25,6 +18,7 @@
 #import "QuantcastOptOutViewController.h"
 #import "QuantcastOptOutDelegate.h"
 #import "QuantcastMeasurement.h"
+#import "QuantcastUtils.h"
 
 @interface QuantcastMeasurement ()
 
@@ -40,26 +34,22 @@
 @end
 
 @implementation QuantcastOptOutViewController
-@synthesize measurement;
-@synthesize delegate;
 
--(id)initWithMeasurement:(QuantcastMeasurement*)inMeasurement delegate:(id<QuantcastOptOutDelegate>)inDelegate {
+-(id)initWithDelegate:(id<QuantcastOptOutDelegate>)inDelegate {
     self = [super init];
     if ( self ) {
         self.title = @"About Quantcast";
-        self.measurement = inMeasurement;
         self.delegate = inDelegate;
         
-        _originalOptOutStatus = self.measurement.isOptedOut;
+        _originalOptOutStatus = [QuantcastMeasurement sharedInstance].isOptedOut;
         
     }
     
-return self;
+    return self;
 }
 
 -(void)dealloc {
-    [measurement release];
-    delegate = nil;
+    _delegate = nil;
     
     [super dealloc];
 }
@@ -101,7 +91,7 @@ return self;
     [allowText release];
     
     _onOffSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(211, 10, 79, 27)];
-    _onOffSwitch.on = !self.measurement.isOptedOut;
+    _onOffSwitch.on = ![QuantcastMeasurement sharedInstance].isOptedOut;
     [_onOffSwitch addTarget:self action:@selector(optOutStatusChanged:) forControlEvents:UIControlEventValueChanged];
     [switchContainer addSubview:_onOffSwitch];
     [_onOffSwitch release];
@@ -174,10 +164,10 @@ return self;
     
     if ( _originalOptOutStatus != !_onOffSwitch.on ) {
         
-        [self.measurement setOptOutStatus:!_onOffSwitch.on];
+        [[QuantcastMeasurement sharedInstance] setOptOutStatus:!_onOffSwitch.on];
 
         if ( nil != self.delegate && [self.delegate respondsToSelector:@selector(quantcastOptOutStatusDidChange:)] ) {
-            [self.delegate quantcastOptOutStatusDidChange:self.measurement.isOptedOut];
+            [self.delegate quantcastOptOutStatusDidChange:[QuantcastMeasurement sharedInstance].isOptedOut];
         }
     }
 

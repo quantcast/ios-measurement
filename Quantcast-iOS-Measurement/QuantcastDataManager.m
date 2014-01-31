@@ -1,21 +1,15 @@
 /*
- * Copyright 2012 Quantcast Corp.
+ * © Copyright 2012-2014 Quantcast Corp.
  *
  * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
  * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
  * (the “License”). You may not use this file unless (1) you sign up for an account at
  * https://www.quantcast.com and click your agreement to the License and (2) are in
  * compliance with the License. See the License for the specific language governing
- * permissions and limitations under the License.
- *
+ * permissions and limitations under the License. Unauthorized use of this file constitutes
+ * copyright infringement and violation of law.
  */
 
-#ifndef __has_feature
-#define __has_feature(x) 0
-#endif
-#ifndef __has_extension
-#define __has_extension __has_feature // Compatibility with pre-3.0 compilers.
-#endif
 
 #if __has_feature(objc_arc) && __clang_major__ >= 3
 #error "Quantcast Measurement is not designed to be used with ARC. Please add '-fno-objc-arc' to this file's compiler flags"
@@ -31,37 +25,40 @@
 #import "QuantcastPolicy.h"
 #import "QuantcastNetworkReachability.h"
 
+#if QCMEASUREMENT_ENABLE_JSONKIT
+#import "JSONKit.h"
+#endif
+
 #ifndef QCMEASUREMENT_DEFAULT_MAX_EVENT_RETENTION_COUNT 
 #define QCMEASUREMENT_DEFAULT_MAX_EVENT_RETENTION_COUNT 10000
 #endif
 
-@interface QuantcastDataManager ()
-@property (readonly) QuantcastDatabase* db;
-@property (assign,nonatomic) NSUInteger maxEventRetentionCount;
-@property (assign) BOOL isDataDumpInprogress;
+@interface QuantcastDataManager (){
+    QuantcastDatabase*  _db;
+    
+    QuantcastUploadManager* _uploadManager;
+    
+    BOOL _enableLogging;
+    BOOL _isOptOut;
+    BOOL _isDataDumpInprogress;
+    
+    NSUInteger _maxEventRetentionCount;
+}
 
 -(BOOL)setUpEventDatabaseConnection;
-
--(NSArray*)recordedEventsWithDeleteDBEvents:(BOOL)inDoDeleteDBEvents;
-
+-(void)trimEventsDatabaseBy:(NSUInteger)inEventsToDelete;
 @end
 
 @implementation QuantcastDataManager
-@synthesize db=_db;
-@synthesize uploadManager=_uploadManager;
-@synthesize policy=_policy;
-@synthesize maxEventRetentionCount;
-@synthesize opQueue=_opQueue;
-@synthesize isDataDumpInprogress;
 
--(id)initWithOptOut:(BOOL)inOptOutStatus policy:(QuantcastPolicy*)inPolicy {
+-(id)initWithOptOut:(BOOL)inOptOutStatus {
     self = [super init];
     
     if (self) {
-        uploadEventCount = QCMEASUREMENT_DEFAULT_UPLOAD_EVENT_COUNT;
-        backgroundUploadEventCount = QCMEASUREMENT_DEFAULT_BACKGROUND_UPLOAD_EVENT_COUNT;
-        maxEventRetentionCount = QCMEASUREMENT_DEFAULT_MAX_EVENT_RETENTION_COUNT;
-        isDataDumpInprogress = NO;
+        _uploadEventCount = QCMEASUREMENT_DEFAULT_UPLOAD_EVENT_COUNT;
+        _backgroundUploadEventCount = QCMEASUREMENT_DEFAULT_BACKGROUND_UPLOAD_EVENT_COUNT;
+        _maxEventRetentionCount = QCMEASUREMENT_DEFAULT_MAX_EVENT_RETENTION_COUNT;
+        _isDataDumpInprogress = NO;
         
         _isOptOut = inOptOutStatus;
         
@@ -70,29 +67,14 @@
         }
 
         _uploadManager = nil;
-        
-        _opQueue = [[NSOperationQueue alloc] init];
-        _opQueue.maxConcurrentOperationCount = 4; // prevent too many events from hitting datbase at once
-        [_opQueue setName:@"com.quantcast.measure.operationsqueue.datamanager"];
-         
-        if ( nil != inPolicy) {
-            _policy = [inPolicy retain];
-        }
     }
     
     return self;
 }
 
 -(void)dealloc {
-    
-    [_opQueue cancelAllOperations];
-    [_opQueue release];
-    _opQueue = nil;
-
-    
     [_uploadManager release];
     [_db release];
-    [_policy release];
     
     [super dealloc];
 }
@@ -101,21 +83,12 @@
     
     if ( nil == _uploadManager ) {
         _uploadManager = [[QuantcastUploadManager alloc] initWithReachability:inNetworkReachability];
-        _uploadManager.enableLogging = self.enableLogging;
     }
 }
-#pragma mark - Debugging
-@synthesize enableLogging=_enableLogging;
 
--(void)setEnableLogging:(BOOL)inEnableLogging {
-    _enableLogging = inEnableLogging;
-    
-    self.uploadManager.enableLogging = inEnableLogging;
-    self.db.enableLogging = inEnableLogging;
-    self.policy.enableLogging = inEnableLogging;
-}
+#pragma mark - Debugging
 - (NSString *)description {
-    return [NSString stringWithFormat:@"<QuantcastDataManager %p: database = %@>", self, self.db ];
+    return [NSString stringWithFormat:@"<QuantcastDataManager %p: database = %@>", self, _db ];
 }
 
 
@@ -134,16 +107,14 @@
 
 +(void)initializeMeasurementDatabase:(QuantcastDatabase*)inDB {
     
-    @synchronized( self ) {
-        // first determine if this is a new database.
-        
-        [inDB beginDatabaseTransaction];
-        [inDB executeSQL:@"PRAGMA foreign_keys = ON;"];
-        [inDB executeSQL:QCSQL_CREATETABLE_EVENTS];
-        [inDB executeSQL:QCSQL_CREATETABLE_EVENT];
-        [inDB executeSQL:QCSQL_CREATEINDEX_EVENT];
-        [inDB endDatabaseTransaction];
-    }
+    // first determine if this is a new database.
+    
+    [inDB beginDatabaseTransaction];
+    [inDB executeSQL:@"PRAGMA foreign_keys = ON;"];
+    [inDB executeSQL:QCSQL_CREATETABLE_EVENTS];
+    [inDB executeSQL:QCSQL_CREATETABLE_EVENT];
+    [inDB executeSQL:QCSQL_CREATEINDEX_EVENT];
+    [inDB endDatabaseTransaction];
 }
 
 -(BOOL)setUpEventDatabaseConnection {
@@ -162,359 +133,220 @@
     
     if (isNewDB) {
         // it's a new database, set it up.
-        
         [QuantcastDataManager initializeMeasurementDatabase:_db];
     }
     
     
     // create prepared queries
-    
-    [self.db prepareQuery:QCSQL_PREPAREDQUERY_INSERTNEWEVENT withKey:QCSQL_PREPAREDQUERYKEY_INSERTNEWEVENT];
-    [self.db prepareQuery:QCSQL_PREPAREDQUERY_INSERTNEWEVENTPARAMS withKey:QCSQL_PREPAREDQUERYKEY_INSERTNEWEVENTPARAMS];
+    [_db prepareQuery:QCSQL_PREPAREDQUERY_INSERTNEWEVENT withKey:QCSQL_PREPAREDQUERYKEY_INSERTNEWEVENT];
+    [_db prepareQuery:QCSQL_PREPAREDQUERY_INSERTNEWEVENTPARAMS withKey:QCSQL_PREPAREDQUERYKEY_INSERTNEWEVENTPARAMS];
     
     return YES;
 }
 
 
 #pragma mark - Recording Events
-@synthesize uploadEventCount;
-@synthesize backgroundUploadEventCount;
 
--(void)recordEvent:(QuantcastEvent*)inEvent {
-    if ( nil != self.policy && (self.policy.isMeasurementBlackedout ) ) {
+-(void)recordEvent:(QuantcastEvent*)inEvent withPolicy:(QuantcastPolicy *)inPolicy{
+    if ( inPolicy.isMeasurementBlackedout ) {
         return;
     }
     
-    [self.opQueue addOperationWithBlock:^{
-        [self recordEventSynchronouslyWithoutUpload:inEvent];
-        
-        NSUInteger eventCount = [self eventCount];
-        if ( self.policy.hasUpdatedPolicyBeenDownloaded && !self.isDataDumpInprogress && ( eventCount >= self.uploadEventCount || ([UIApplication sharedApplication].applicationState == UIApplicationStateBackground && eventCount >= self.backgroundUploadEventCount ) ) ) {
-            [self initiateDataUpload];
-        }
-        else if ( eventCount >= self.maxEventRetentionCount ) {
-            // delete the equivalent a upload
-            [self trimEventsDatabaseBy:self.uploadEventCount];
-        }
-        
-    } ];
-    
+    [self recordEventWithoutUpload:inEvent withPolicy:inPolicy];
+    [self uploadEventsWithPolicy:inPolicy];
  }
 
--(void)recordEventSynchronouslyWithoutUpload:(QuantcastEvent*)inEvent{
-    if ( nil != self.policy && (self.policy.isMeasurementBlackedout ) ) {
-        return;
-    }
-    
-    if ( nil == self.db ) {
-        if (self.enableLogging) {
-            NSLog(@"QC Measurement: Tried to log event %@, but there was no database connection available.", inEvent);
-        }
-        return;
-    }
-    
-    NSArray* eventInsertBoundData = [NSArray arrayWithObjects:inEvent.sessionID,[NSString stringWithFormat:@"%qi",(int64_t)[inEvent.timestamp timeIntervalSince1970]],nil];
-    
-    @synchronized( self ) {
-        [self.db beginDatabaseTransaction];
-        
-        [self.db executePreparedQuery:QCSQL_PREPAREDQUERYKEY_INSERTNEWEVENT bindingInsertData:eventInsertBoundData];
-        
-        int64_t eventId = [self.db getLastInsertRowId];
-        
-        for (NSString* param in [inEvent.parameters allKeys]) {
-            
-            if ( nil != self.policy && [self.policy isBlacklistedParameter:param] ) {
-                continue;
-            }
-            
-            id valueObj = [inEvent.parameters objectForKey:param];
-            
-            NSString* valueStr;
-            
-            if ( [valueObj isKindOfClass:[NSValue class]] ) {
-                valueStr = [valueObj stringValue];
-            }
-            else if ( [valueObj isKindOfClass:[NSString class]] ) {
-                valueStr = (NSString*)valueObj;
-            }
-            else {
-                valueStr = [valueObj description];
-            }
-            
-            NSArray* paramsInsertBoundData = [NSArray arrayWithObjects:[NSString stringWithFormat:@"%qi",eventId], param, valueStr, nil];
-            
-            [self.db executePreparedQuery:QCSQL_PREPAREDQUERYKEY_INSERTNEWEVENTPARAMS bindingInsertData:paramsInsertBoundData];
-        }
-        
-        [self.db endDatabaseTransaction];
-    }
-}
-
--(void)initiateDataUpload {
-    if ( self.isDataDumpInprogress ) {
-        return;
-    }
-    
-    self.isDataDumpInprogress = YES;
-    
-    [self.opQueue addOperationWithBlock:^{
-        __block UIBackgroundTaskIdentifier backgroundTask = UIBackgroundTaskInvalid;
-        
-        backgroundTask = [[UIApplication sharedApplication] beginBackgroundTaskWithExpirationHandler:^{
-            
-            if ( UIBackgroundTaskInvalid != backgroundTask ) {
-                if (self.enableLogging) {
-                    NSLog(@"QC Measurement: Ran out of time on background task %d", backgroundTask );
-                }
-                UIBackgroundTaskIdentifier taskToEnd = backgroundTask;
-                backgroundTask = UIBackgroundTaskInvalid;
-                [[UIApplication sharedApplication] endBackgroundTask:taskToEnd];
-            }
-        } ];
-
-#ifndef QUANTCAST_UNIT_TEST // beginBackgroundTaskWithExpirationHandler: always returns UIBackgroundTaskInvalid when unit testing
-        if ( UIBackgroundTaskInvalid == backgroundTask ) {
-            if (self.enableLogging ) {
-                  NSLog(@"QC Measurement: Could not start data manager dump due to the system providing a UIBackgroundTaskInvalid");
-            }
-            
+-(void)recordEventWithoutUpload:(QuantcastEvent*)inEvent withPolicy:(QuantcastPolicy *)inPolicy{
+    //don't record anything if measurement it blacked out.
+    if(!inPolicy.isMeasurementBlackedout){
+        if ( nil == _db ) {
+           QUANTCAST_LOG(@"Tried to log event %@, but there was no database connection available.", inEvent);
             return;
         }
-#endif
         
-        if (self.enableLogging ) {
-            NSLog(@"QC Measurement: Started data manager dump with background task %d", backgroundTask );
+        NSArray* eventInsertBoundData = [NSArray arrayWithObjects:inEvent.sessionID,[NSString stringWithFormat:@"%qi",(int64_t)[inEvent.timestamp timeIntervalSince1970]],nil];
+        
+        [_db beginDatabaseTransaction];
+        
+        [_db executePreparedQuery:QCSQL_PREPAREDQUERYKEY_INSERTNEWEVENT bindingInsertData:eventInsertBoundData];
+        
+        int64_t eventId = [_db getLastInsertRowId];
+        
+        for (NSString* param in [inEvent.parameters allKeys]) {
+            id valueObj = [inEvent.parameters objectForKey:param];
+            NSString* valueStr = [QuantcastUtils stringFromObject:valueObj defaultValue:[valueObj description]];
+            NSArray* paramsInsertBoundData = [NSArray arrayWithObjects:[NSString stringWithFormat:@"%qi",eventId], param, valueStr, nil];
+            [_db executePreparedQuery:QCSQL_PREPAREDQUERYKEY_INSERTNEWEVENTPARAMS bindingInsertData:paramsInsertBoundData];
         }
         
-        @synchronized(self) {
-            if (self.policy.hasUpdatedPolicyBeenDownloaded) {
-                NSString* uploadID = [QuantcastUploadManager generateUploadID];
-                
-                NSString* jsonFilePath = [self dumpDataManagerToFileWithUploadID:uploadID];
-                
-                if (self.enableLogging) {
-                    NSLog(@"QC Measurement: Dumped data manager to JSON file = %@",jsonFilePath);
-                }
-                
-                if ( nil != self.uploadManager ) {
-                    [self.uploadManager initiateUploadForReadyJSONFilesWithDataManager:self];
-                }
-                
-            }
-            
-            self.isDataDumpInprogress = NO;           
-        }
-        
-        if ( UIBackgroundTaskInvalid != backgroundTask ) {
-            // sleep for a bit so that upload tasks have some time to start
-            [NSThread sleepForTimeInterval:2.0];
-            if (self.enableLogging ) {
-                NSLog(@"QC Measurement: Ended data dump background task %d", backgroundTask);
-            }
-            UIBackgroundTaskIdentifier taskToEnd = backgroundTask;
-            backgroundTask = UIBackgroundTaskInvalid;
-            [[UIApplication sharedApplication] endBackgroundTask:taskToEnd];
-        }
-    } ];
+        [_db endDatabaseTransaction];
+    }
+}
+
+-(void)uploadEventsWithPolicy:(QuantcastPolicy*)inPolicy {
+    NSUInteger eventCount = [self eventCount];
+    if ( inPolicy.hasPolicyBeenLoaded && !_isDataDumpInprogress && ( eventCount >= self.uploadEventCount || ([UIApplication sharedApplication].applicationState == UIApplicationStateBackground && eventCount >= self.backgroundUploadEventCount ) ) ) {
+        [self initiateDataUploadWithPolicy:inPolicy];
+    }
+    else if ( eventCount >= _maxEventRetentionCount ) {
+        // delete the equivalent a upload
+        [self trimEventsDatabaseBy:self.uploadEventCount];
+    }
+}
+
+-(void)initiateDataUploadWithPolicy:(QuantcastPolicy*)inPolicy {
+    if ( _isDataDumpInprogress || !inPolicy.hasPolicyBeenLoaded) {
+        return;
+    }
+    
+    _isDataDumpInprogress = YES;
+    
+    NSString* uploadID = [QuantcastUtils generateUUID];
+    
+    NSString* jsonFilePath = [self dumpDataManagerToFileWithUploadID:uploadID withPolicy:inPolicy];
+    
+   QUANTCAST_LOG(@"QC Measurement: Dumped data manager to JSON file = %@",jsonFilePath);
+    
+    [_uploadManager initiateUploadForReadyJSONFilesWithDataManager:self];
+
+    _isDataDumpInprogress = NO;
     
 }
 
--(NSArray*)recordedEvents {
+-(NSArray*)recordedEvents{
     return [self recordedEventsWithDeleteDBEvents:NO];
 }
 
 -(NSArray*)recordedEventsWithDeleteDBEvents:(BOOL)inDoDeleteDBEvents {
 
-    if ( nil == self.db ) {
-        if (self.enableLogging) {
-            NSLog(@"QC Measurement: Could not generate list of recorded events because there is no database connection");
-        }
+    if ( nil == _db ) {
+        QUANTCAST_LOG(@"QC Measurement: Could not generate list of recorded events because there is no database connection");
         return nil;
-        
     }
+    
+    
     NSMutableArray* eventList = nil;
     
-    @synchronized( self ) {
-        [self.db beginDatabaseTransaction];
-        
-        NSArray* dbEventList = nil;
-        
-        // first we move up to self.uploadEventCount records into a working table
-        
-        NSString* tempTableName = [NSString stringWithFormat:@"events_%qi", (int64_t) floor([[NSDate date] timeIntervalSince1970]*1000) ];
-        
-        NSString* createTempTableSQL = [NSString stringWithFormat:@"CREATE TEMPORARY TABLE %@ ( id integer primary key, sessionId varchar not null, timestamp integer not null );", tempTableName];
-        
-        [self.db executeSQL:createTempTableSQL];
-        
-        NSString* moveToTmpSQL = [NSString stringWithFormat:@"INSERT INTO %@ ( id, sessionId, timestamp ) SELECT id, sessionId, timestamp FROM events ORDER BY id LIMIT %d;", tempTableName, self.uploadEventCount ];
-        
-        if ( ![self.db executeSQL:moveToTmpSQL] ) {
-            if (self.enableLogging) {
-                NSLog(@"QC Measurement: Could not move events to dump to temporary table named %@", tempTableName );
-            }
-            
-            return nil;
-        }
-        
+    [_db beginDatabaseTransaction];
+    
+    NSArray* dbEventList = nil;
+    
+    // first we move up to self.uploadEventCount records into a working table
+    
+    NSString* tempTableName = [self makeTempTableWithEvents:self.uploadEventCount];
+    
+    if( nil != tempTableName ){
         NSString* getEventsSQL = [NSString stringWithFormat:@"SELECT id, sessionId, timestamp FROM %@;", tempTableName];
         
-        if ( ![self.db executeSQL:getEventsSQL withResultsColumCount:3 producingResults:&dbEventList]) {
+        if ( ![_db executeSQL:getEventsSQL withResultsColumCount:3 producingResults:&dbEventList]) {
             return nil;
         }
 
-        if ( self.enableLogging ) {
-            NSLog(@"QC Measurement: Starting dump of %d events from the event database.", [dbEventList count]);
-        }
+        QUANTCAST_LOG(@"QC Measurement: Starting dump of %lu events from the event database.", (unsigned long)[dbEventList count]);
         
         eventList = [NSMutableArray arrayWithCapacity:[dbEventList count]];
-
+        
         for ( NSArray* dbEventListRow in dbEventList ) {
             
             NSString* eventIdStr = [dbEventListRow objectAtIndex:0];
-            
-            
-            int64_t eventId = 0;
-            
-            if (![[NSScanner scannerWithString:eventIdStr] scanLongLong:&eventId]) {
-                if (self.enableLogging) {
-                    NSLog(@"QC Measurement: Could not scan an int64_t event ID from eventIdStr = %@ - skipping",eventIdStr);
-                }
-                continue;
-            }
-            
+            int64_t eventId = [eventIdStr longLongValue];
             
             NSString* sessionId = [dbEventListRow objectAtIndex:1];
-            
             NSString* eventTimeIntervalStr = [dbEventListRow objectAtIndex:2];
             
-            int64_t eventTimeStamp = 0;
-            if (![[NSScanner scannerWithString:eventTimeIntervalStr] scanLongLong:&eventTimeStamp]) {
-                if (self.enableLogging) {
-                    NSLog(@"QC Measurement: Could not scan an long long timestamp from eventTimeItnervalStr = %@ - skipping",eventTimeIntervalStr);
-                }
-                continue;
-            }
-            
-            
+            int64_t eventTimeStamp = [eventTimeIntervalStr longLongValue];
             NSDate* timestamp = [NSDate dateWithTimeIntervalSince1970:eventTimeStamp];
             
-            QuantcastEvent* e = [[[QuantcastEvent alloc] initWithSessionID:sessionId timeStamp:timestamp] autorelease];
-            
             NSArray* eventParamList = nil;
-            
-            if (![self.db executeSQL:[NSString stringWithFormat:@"SELECT name, value FROM event WHERE eventid = %qi;",eventId] withResultsColumCount:2 producingResults:&eventParamList]) {
+            if (![_db executeSQL:[NSString stringWithFormat:@"SELECT name, value FROM event WHERE eventid = %qi;",eventId] withResultsColumCount:2 producingResults:&eventParamList]) {
                 return nil;
             }
             
-            for ( NSArray* eventParamRow in eventParamList ) {
-                
-                NSString* param = [eventParamRow objectAtIndex:0];
-                NSString* value = [eventParamRow objectAtIndex:1];
-                
-                [e putParameter:param withValue:value  enforcingPolicy:self.policy];
-            }
+            QuantcastEvent* e = [QuantcastEvent dataBaseEvent:sessionId timestamp:timestamp withParameterList:eventParamList];
             
             [eventList addObject:e];
         }
         
         if (inDoDeleteDBEvents) {
-            
-            NSString* deleteEventsSQL = [NSString stringWithFormat:@"DELETE FROM events WHERE id IN ( SELECT id FROM %@ );", tempTableName];
-            NSString* deleteEventRecordsSQL = [NSString stringWithFormat:@"DELETE FROM event WHERE eventid IN ( SELECT id FROM %@ temp );", tempTableName];
-            
-            [self.db executeSQL:deleteEventsSQL];
-            [self.db executeSQL:deleteEventRecordsSQL];
-            
-            // reset autoincrement in table?
-            
-            if ( [self.db rowCountForTable:@"events"] == 0 ) {
-            
-                [self.db setAutoIncrementTo:0 forTable:@"events"];
-            }
+            [self deleteEvents:tempTableName];
         }
-
-        [self.db endDatabaseTransaction];
     }
+    
+    [_db endDatabaseTransaction];
     
     return eventList;
 }
 
 -(NSUInteger)eventCount {
-    
-    if (nil == self.db) {
-        return 0;
-    }
-    
-    return [self.db rowCountForTable:@"events"];
+    return [_db rowCountForTable:@"events"];
 }
 
 -(void)trimEventsDatabaseBy:(NSUInteger)inEventsToDelete {
-    if ( self.isDataDumpInprogress ) {
+    if ( _isDataDumpInprogress ) {
         return;
     }
-
-    self.isDataDumpInprogress = YES;
     
-    [self.opQueue addOperationWithBlock:^{
-        @synchronized(self) {
-            [self.db beginDatabaseTransaction];
-            
-            int64_t curEventCount = [self.db rowCountForTable:@"events"];
-            
-            NSUInteger deleteEventCount = inEventsToDelete;
-            
-            if ( curEventCount < inEventsToDelete ) {
-                deleteEventCount = curEventCount;
-            }
-            
-            if (self.enableLogging) {
-                NSLog(@"QC Measurement: Deleting %d events from the event database.", deleteEventCount);
-            }
-            // first we move up to MAX_EVENTS_PER_UPLOAD records into a working table
-            
-            NSString* tempTableName = [NSString stringWithFormat:@"events_%qi", (int64_t) floor([[NSDate date] timeIntervalSince1970]*1000) ];
-            
-            NSString* createTempTableSQL = [NSString stringWithFormat:@"CREATE TEMPORARY TABLE %@ ( id integer primary key, sessionId varchar not null, timestamp integer not null );", tempTableName];
-            
-            [self.db executeSQL:createTempTableSQL];
-            
-            
-            NSString* moveToTmpSQL = [NSString stringWithFormat:@"INSERT INTO %@ ( id, sessionId, timestamp ) SELECT id, sessionId, timestamp FROM events ORDER BY id LIMIT %d;", tempTableName, deleteEventCount ];
-            
-            if ( ![self.db executeSQL:moveToTmpSQL] ) {
-                if (self.enableLogging) {
-                    NSLog(@"QC Measurement: Could not move events to dump to temporary table named %@", tempTableName );
-                }
-                
-                return;
-            }
-            
-            NSString* deleteEventsSQL = [NSString stringWithFormat:@"DELETE FROM events WHERE id IN ( SELECT id FROM %@ );", tempTableName];
-            NSString* deleteEventRecordsSQL = [NSString stringWithFormat:@"DELETE FROM event WHERE eventid IN ( SELECT id FROM %@ temp );", tempTableName];
-            
-            [self.db executeSQL:deleteEventsSQL];
-            [self.db executeSQL:deleteEventRecordsSQL];
+    _isDataDumpInprogress = YES;
+    
+    [_db beginDatabaseTransaction];
+    
+    int64_t curEventCount = [self eventCount];
+    
+    NSUInteger deleteEventCount = MIN(inEventsToDelete, curEventCount);
+    
+    QUANTCAST_LOG(@"Deleting %lu events from the event database.", (unsigned long)deleteEventCount);
 
-            if ( [self.db rowCountForTable:@"events"] == 0 ) {
-                
-                [self.db setAutoIncrementTo:0 forTable:@"events"];
-            }
-            
-            [self.db endDatabaseTransaction];
-            
-            self.isDataDumpInprogress = NO;
-        }
-    } ];
+    // first we move up to event records into a working table
+    NSString* tempTableName = [self makeTempTableWithEvents:deleteEventCount];
+
+    if( nil != tempTableName){
+        [self deleteEvents:tempTableName];
+    }
+
+    [_db endDatabaseTransaction];
+    
+    _isDataDumpInprogress = NO;
+
+}
+
+-(NSString*)makeTempTableWithEvents:(NSUInteger)eventcount{
+    NSString* tempTableName = [NSString stringWithFormat:@"events_%qi", (int64_t) floor([[NSDate date] timeIntervalSince1970]*1000) ];
+    
+    NSString* createTempTableSQL = [NSString stringWithFormat:@"CREATE TEMPORARY TABLE %@ ( id integer primary key, sessionId varchar not null, timestamp integer not null );", tempTableName];
+    
+    [_db executeSQL:createTempTableSQL];
+    
+    
+    NSString* moveToTmpSQL = [NSString stringWithFormat:@"INSERT INTO %@ ( id, sessionId, timestamp ) SELECT id, sessionId, timestamp FROM events ORDER BY id LIMIT %lu;", tempTableName, (unsigned long)eventcount ];
+    
+    if ( ![_db executeSQL:moveToTmpSQL] ) {
+        QUANTCAST_LOG(@"Could not move events to dump to temporary table named %@", tempTableName );
+        return nil;
+    }
+    return tempTableName;
+}
+
+-(void)deleteEvents:(NSString*)tempTableName{
+    NSString* deleteEventsSQL = [NSString stringWithFormat:@"DELETE FROM events WHERE id IN ( SELECT id FROM %@ );", tempTableName];
+    NSString* deleteEventRecordsSQL = [NSString stringWithFormat:@"DELETE FROM event WHERE eventid IN ( SELECT id FROM %@ temp );", tempTableName];
+    
+    [_db executeSQL:deleteEventsSQL];
+    [_db executeSQL:deleteEventRecordsSQL];
+    
+    // reset autoincrement in table?
+    
+    if ( [self eventCount] == 0 ) {
+        
+        [_db setAutoIncrementTo:0 forTable:@"events"];
+    }
 }
 
 #pragma mark - Data File Management
 
--(NSString*)dumpDataManagerToFileWithUploadID:(NSString*)inUploadID {
+-(NSString*)dumpDataManagerToFileWithUploadID:(NSString*)inUploadID withPolicy:(QuantcastPolicy*)inPolicy {
     
     // first check to see if policy is ready
-    if (!self.policy.hasUpdatedPolicyBeenDownloaded) {
+    if (!inPolicy.hasPolicyBeenLoaded) {
         return nil;
     }
     
@@ -528,45 +360,33 @@
     NSFileManager* fileManager = [NSFileManager defaultManager];
     
     if ([fileManager fileExistsAtPath:creationFilepath]) {
-        if (self.enableLogging) {
-            NSLog(@"QC Measurement: Upload file '%@' already exists at path '%@'. Deleting ...", filename, creationFilepath );
-        }
-        
+       QUANTCAST_LOG(@"Upload file '%@' already exists at path '%@'. Deleting ...", filename, creationFilepath );
         [fileManager removeItemAtPath:creationFilepath error:nil];
     }
     if ([fileManager fileExistsAtPath:finalFilepath]) {
-        if (self.enableLogging) {
-            NSLog(@"QC Measurement: Upload file '%@' already exists at path '%@'. Deleting ...", filename, finalFilepath );
-        }
-        
+       QUANTCAST_LOG(@"Upload file '%@' already exists at path '%@'. Deleting ...", filename, finalFilepath );
         [fileManager removeItemAtPath:finalFilepath error:nil];
     }
     
-    // generate JSON string
+    // generate JSON data
+    NSData *fileJSONData = [self genJSONDataWithDeletingDatabase:YES uploadID:inUploadID withPolicy:inPolicy];
     
-    NSString* eventJSONStr = [self genJSONStringWithDeletingDatabase:YES];
-    
-    NSString* fileJSONStr = [NSString stringWithFormat:@"{\"uplid\":\"%@\",\"qcv\":\"%@\",\"events\":%@}",inUploadID,QCMEASUREMENT_API_IDENTIFIER,eventJSONStr];
-    
-    NSData* fileJSONData = [fileJSONStr dataUsingEncoding:NSUTF8StringEncoding];
+    if( nil == fileJSONData){
+        QUANTCAST_LOG(@"Event data is empty. Abort uploading." );
+        return nil;
+    }
     
     if ( ![fileManager createFileAtPath:creationFilepath contents:fileJSONData attributes:nil] ) {
-        if (self.enableLogging) {
-            NSLog(@"QC Measurement: Could not create JSON file at path '%@' with contents = %@", creationFilepath, fileJSONStr );
-        }
-        
+        NSString* fileJSONStr = [[[NSString alloc] initWithData:fileJSONData encoding:NSUTF8StringEncoding] autorelease];
+       QUANTCAST_LOG(@"Could not create JSON file at path '%@' with contents = %@", creationFilepath, fileJSONStr );
         return nil;
     }
     
     // file has been created. Now move it to it's ready loacation.
     
-    NSError* error;
-    
+    NSError* error = nil;
     if ( ![fileManager moveItemAtPath:creationFilepath toPath:finalFilepath error:&error] ) {
-        if (self.enableLogging) {
-            NSLog(@"QC Measurement: Could note move file '%@' to location '%@'. Error = %@", creationFilepath, finalFilepath, [error localizedDescription] );
-        }
-        
+       QUANTCAST_LOG(@"Could note move file '%@' to location '%@'. Error = %@", creationFilepath, finalFilepath, [error localizedDescription] );
         return nil;
     }
     
@@ -575,33 +395,51 @@
 
 
 #pragma mark - JSON conversion
-
--(NSString*)genJSONStringWithDeletingDatabase:(BOOL)inDoDeleteDB {
-    if (nil == self.db) {
-        if (self.enableLogging) {
-            NSLog(@"QC Measurement: could not dump events to JSON because there is no database connection");
-        }
-        return @"[]";
+-(NSData*)genJSONDataWithDeletingDatabase:(BOOL)inDoDeleteDB uploadID:(NSString*)inUploadID withPolicy:(QuantcastPolicy*)inPolicy{
+    if (nil == _db) {
+        QUANTCAST_LOG(@"Could not dump events to JSON because there is no database connection");
+        return nil;
     }
-    NSString* jsonStr= @"[";
     
+    NSMutableDictionary* jsonDict = [NSMutableDictionary dictionaryWithCapacity:5];
+    [jsonDict setObject:inUploadID forKey:@"uplid"];
+    [jsonDict setObject:QCMEASUREMENT_API_IDENTIFIER forKey:@"qcv"];
+    
+    NSData *jsonData = nil;
     NSArray* eventList = [self recordedEventsWithDeleteDBEvents:inDoDeleteDB];
-    
-    NSUInteger itemCount = 1;
-    
-    for ( QuantcastEvent* e in eventList ) {
-        
-        jsonStr = [jsonStr stringByAppendingString:[e JSONStringEnforcingPolicy:self.policy]];
-        
-        if ( itemCount < [eventList count] ){
-            jsonStr = [jsonStr stringByAppendingString:@","];
+    if(eventList.count > 0){
+        NSMutableArray* jsonArray = [NSMutableArray arrayWithCapacity:eventList.count];
+        for ( QuantcastEvent* e in eventList ) {
+            [jsonArray addObject:[e JSONDictEnforcingPolicy:inPolicy]];
         }
-        itemCount++;
+        [jsonDict setObject:jsonArray forKey:@"events"];
+        
+        NSError *writeError = nil;
+        // try to use NSJSONSerialization first. check to see if class is available (iOS 5 or later)
+        Class jsonClass = NSClassFromString(@"NSJSONSerialization");
+        
+        if (nil != jsonClass) {
+            jsonData = [NSJSONSerialization dataWithJSONObject:jsonDict options:0 error:&writeError];
+        }
+    #if QCMEASUREMENT_ENABLE_JSONKIT
+        else if (nil != NSClassFromString(@"JSONDecoder")) {
+            // try with JSONKit
+            jsonData = [jsonDict JSONDataWithOptions:JKSerializeOptionEscapeForwardSlashes error:&writeError];
+        }
+    #endif
+        else {
+            QUANTCAST_ERROR(@"There is no available JSON encoder to user. Please enable JSONKit in your project!");
+        }
+        
+        if(nil != writeError){
+           QUANTCAST_ERROR(@"Could not write JSON data. Error: %@",writeError);
+        }
     }
-    
-    jsonStr = [jsonStr stringByAppendingString:@"]"];
-    
-    return jsonStr;
+    return jsonData;
+}
+
+-(QuantcastUploadManager*)uploadManager{
+    return _uploadManager;
 }
 
 #pragma mark - Opt-Out Handleing
@@ -615,15 +453,12 @@
     
     if ( originalValue != inIsOptOut ) {
         if ( inIsOptOut ) {
-            // cancel all pending operations            
-            [self.opQueue cancelAllOperations];
-            
             // stop all uploading
             [_uploadManager release];
             _uploadManager = nil;
 
             // make sure database connection is closed
-            [self.db closeDatabaseConnection];
+            [_db closeDatabaseConnection];
             [_db release];
             _db = nil;
             

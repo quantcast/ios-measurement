@@ -1,21 +1,15 @@
 /*
- * Copyright 2012 Quantcast Corp.
+ * © Copyright 2012-2014 Quantcast Corp.
  *
  * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
  * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
  * (the “License”). You may not use this file unless (1) you sign up for an account at
  * https://www.quantcast.com and click your agreement to the License and (2) are in
  * compliance with the License. See the License for the specific language governing
- * permissions and limitations under the License.
- *
+ * permissions and limitations under the License. Unauthorized use of this file constitutes
+ * copyright infringement and violation of law.
  */
 
-#ifndef __has_feature
-#define __has_feature(x) 0
-#endif
-#ifndef __has_extension
-#define __has_extension __has_feature // Compatibility with pre-3.0 compilers.
-#endif
 
 #if __has_feature(objc_arc) && __clang_major__ >= 3
 #error "Quantcast Measurement is not designed to be used with ARC. Please add '-fno-objc-arc' to this file's compiler flags"
@@ -35,6 +29,7 @@
 #import "JSONKit.h"
 #endif
 
+#define SYSTEM_VERSION_LESS_THAN(v)              ([[[UIDevice currentDevice] systemVersion] compare:v options:NSNumericSearch] == NSOrderedAscending)
 #define QCMEASUREMENT_DO_NOT_SALT_STRING    @"MSG"
 
 @interface QuantcastMeasurement ()
@@ -43,8 +38,23 @@
 -(CTCarrier*)getCarrier;
 @end
 
-@interface QuantcastPolicy ()
-
+@interface QuantcastPolicy ()<NSURLConnectionDataDelegate> {
+    NSSet* _blacklistedParams;
+    NSString* _didSalt;
+    BOOL _isMeasurementBlackedout;
+    BOOL _allowGeoMeasurement;
+    
+    BOOL _policyHasBeenLoaded;
+    BOOL _waitingForUpdate;
+    
+    double _desiredGeoLocationAccuracy;
+    double _geoMeasurementUpdateDistance;
+    
+    NSURL* _policyURL;
+    
+    NSTimeInterval _sessionTimeout;
+}
+-(id)initWithPolicyURL:(NSURL*)inPolicyURL reachability:(id<QuantcastNetworkReachability>)inNetworkReachabilityOrNil;
 -(void)setPolicywithJSONData:(NSData*)inJSONData;
 -(void)networkReachabilityChanged:(NSNotification*)inNotification;
 -(void)startPolicyDownloadWithURL:(NSURL*)inPolicyURL;
@@ -57,19 +67,15 @@
 @synthesize deviceIDHashSalt=_didSalt;
 @synthesize isMeasurementBlackedout=_isMeasurementBlackedout;
 @synthesize hasPolicyBeenLoaded=_policyHasBeenLoaded;
-@synthesize hasUpdatedPolicyBeenDownloaded=_policyHasBeenDownloaded;
 @synthesize sessionPauseTimeoutSeconds=_sessionTimeout;
 
--(id)initWithPolicyURL:(NSURL*)inPolicyURL reachability:(id<QuantcastNetworkReachability>)inNetworkReachabilityOrNil enableLogging:(BOOL)inEnableLogging {
+-(id)initWithPolicyURL:(NSURL*)inPolicyURL reachability:(id<QuantcastNetworkReachability>)inNetworkReachabilityOrNil {
     self = [super init];
     
     if (self) {
-        enableLogging = inEnableLogging;
-        
         _sessionTimeout = QCMEASUREMENT_DEFAULT_MAX_SESSION_PAUSE_SECOND;
         
         _policyHasBeenLoaded = NO;
-        _policyHasBeenDownloaded = NO;
         _waitingForUpdate = NO;
         
         _allowGeoMeasurement = NO;
@@ -80,16 +86,12 @@
         NSString* cacheDir = [QuantcastUtils quantcastCacheDirectoryPath];
         
         NSString* policyFilePath = [cacheDir stringByAppendingPathComponent:QCMEASUREMENT_POLICY_FILENAME];
-        
-        NSFileManager* fileManager = [NSFileManager defaultManager];
-        
-        NSData* policyData = nil;
-        
-        if ( [fileManager fileExistsAtPath:policyFilePath] ) {
+
+        if ( [[NSFileManager defaultManager] fileExistsAtPath:policyFilePath] ) {
             
-            policyData = [NSData dataWithContentsOfFile:policyFilePath];
+            NSData* policyData = [NSData dataWithContentsOfFile:policyFilePath];
             
-            if ( (nil != policyData) && ([policyData length] != 0) ){
+            if ( policyData.length != 0 ){
                 [self setPolicywithJSONData:policyData];
             }
         }
@@ -108,11 +110,6 @@
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     
     [_blacklistedParams release];
-    if ( nil!= _downloadConnection) {
-        [_downloadConnection cancel];
-        [_downloadConnection release];
-    }
-    [_downloadData release];
     [_policyURL release];
     [_didSalt release];
     
@@ -123,7 +120,7 @@
     if ( nil != inNetworkReachabilityOrNil && nil != _policyURL && !_waitingForUpdate) {
         
         _waitingForUpdate = YES;
-        
+        _policyHasBeenLoaded = NO;
         
         // if the network is available, check to see if there is a new
         
@@ -139,209 +136,139 @@
 }
 
 -(void)setPolicywithJSONData:(NSData*)inJSONData {
+    if( inJSONData.length == 0) return;
+    
+    NSDictionary* policyDict = [self parseJsonData:inJSONData];
+    
+    if (nil != policyDict) {
+        
+        [_blacklistedParams autorelease];
+        _blacklistedParams = [QuantcastPolicy blackListFromJSONArray:[policyDict objectForKey:@"blacklist"] defaultValue:nil];
+        [_blacklistedParams retain];
+        
+        [_didSalt autorelease];
+        _didSalt = [QuantcastUtils stringFromObject:[policyDict objectForKey:@"salt"] defaultValue:nil];
+        if ( [_didSalt isEqualToString:QCMEASUREMENT_DO_NOT_SALT_STRING] ) {
+            _didSalt = nil;
+        }
+        [_didSalt retain];
+        
+        _isMeasurementBlackedout = [QuantcastPolicy isBlackedOutFromJSONObject:[policyDict objectForKey:@"blackout"] defaultValue:NO];
+        
+        _sessionTimeout = [QuantcastPolicy doubleFromJSONObject:[policyDict objectForKey:@"sessionTimeOutSeconds"] defaultValue:QCMEASUREMENT_DEFAULT_MAX_SESSION_PAUSE_SECOND];
+        
+        _allowGeoMeasurement = [QuantcastPolicy boolForJSONObject:[policyDict objectForKey:@"allowGeoMeasurement"] defaultValue:YES];
+        _desiredGeoLocationAccuracy = [QuantcastPolicy doubleFromJSONObject:[policyDict objectForKey:@"desiredGeoLocationAccuracy"] defaultValue:10.0];
+        _geoMeasurementUpdateDistance = [QuantcastPolicy doubleFromJSONObject:[policyDict objectForKey:@"geoMeasurementUpdateDistance"] defaultValue:50.0];
+        
+        _policyHasBeenLoaded = YES;
+        
+        [self sendPolicyLoadNotification];
+        
+    }
+}
+
+-(NSDictionary*)parseJsonData:(NSData*)inJSONData{
+    NSDictionary* policyDict = nil;
     
     if ( nil == inJSONData ) {
-        NSLog(@"QC Measurement: ERROR - Tried to set policy with a nil JSON data object.");
-        @synchronized(self){
-            _policyHasBeenLoaded = NO;
-            _policyHasBeenDownloaded = NO;
-        }
-        return;
+        [self handleError:@"Tried to set policy with a nil JSON data object."];
     }
-    
-    NSDictionary* policyDict = nil;
-    NSError* jsonError = nil;
-    
-    // try to use NSJSONSerialization first. check to see if class is available (iOS 5 or later)
-    Class jsonClass = NSClassFromString(@"NSJSONSerialization");
-    
-    if ( nil != jsonClass ) {
-        policyDict = [jsonClass JSONObjectWithData:inJSONData
-                                           options:NSJSONReadingMutableLeaves
-                                             error:&jsonError];
-    }
-#if QCMEASUREMENT_ENABLE_JSONKIT 
-    else if(nil != NSClassFromString(@"JSONDecoder")) {
-        // try with JSONKit
-       policyDict = [[JSONDecoder decoder] objectWithData:inJSONData error:&jsonError];
-    }
-#endif
     else {
-        NSLog( @"QC Measurement: ERROR - There is no available JSON decoder to user. Please enable JSONKit in your project!" );
-        @synchronized(self){
-            _policyHasBeenLoaded = NO;
-            _policyHasBeenDownloaded = NO;
-        }
-        return;
-    }
-
-    
-    if ( nil != jsonError ) {
-        NSString* jsonStr = [[[NSString alloc] initWithData:inJSONData
-                                                   encoding:NSUTF8StringEncoding] autorelease];
-
-        NSLog(@"QC Measurement: Unable to parse policy JSON data. error = %@, json = %@", jsonError, jsonStr);
-        @synchronized(self){
-            _policyHasBeenLoaded = NO;
-            _policyHasBeenDownloaded = NO;
-        }
-        return;
-    }
-    
-    @synchronized(self) {
-    
-        [_blacklistedParams release];
-        _blacklistedParams = nil;
         
-        if (nil != policyDict) {
-            NSArray* blacklistedParams = [policyDict objectForKey:@"blacklist"];
-            
-            if ( nil != blacklistedParams && [blacklistedParams count] > 0 ) {
-                _blacklistedParams = [[NSSet setWithArray:blacklistedParams] retain];
-            }
-            
-            id saltObj = [policyDict objectForKey:@"salt"];
-            
-            if ( nil != saltObj && [saltObj isKindOfClass:[NSString class]] ) {
-                NSString* saltStr = (NSString*)saltObj;
-                
-                _didSalt = [saltStr retain];
-             }
-            else if ( nil != saltObj && [saltObj isKindOfClass:[NSNumber class]] ) {
-                NSNumber* saltNum = (NSNumber*)saltObj;
-                
-                _didSalt = [[saltNum stringValue] retain];
-            }
-            else {
-                _didSalt = nil;
-            }
-            
-            if ( _didSalt != nil && [QCMEASUREMENT_DO_NOT_SALT_STRING compare:_didSalt] == NSOrderedSame) {
-                [_didSalt release];
-                _didSalt = nil;
-            }
-            
-            
-            id blackoutTimeObj = [policyDict objectForKey:@"blackout"];
-            
-            if ( nil != blackoutTimeObj && [blackoutTimeObj isKindOfClass:[NSString class]]) {
-                NSString* blackoutTimeStr = (NSString*)blackoutTimeObj;
-                int64_t blackoutValue; // this value will be in terms of milliseconds since Jan 1, 1970
-                
-                if ( nil != blackoutTimeStr && [[NSScanner scannerWithString:blackoutTimeStr] scanLongLong:&blackoutValue]) {
-                    NSDate* blackoutTime = [NSDate dateWithTimeIntervalSince1970:( (NSTimeInterval)blackoutValue/1000.0 )];
-                    NSDate* nowTime = [NSDate date];
-                    
-                    // check to ensure that nowTime is greater than blackoutTime 
-                    if ( [nowTime compare:blackoutTime] == NSOrderedDescending ) {
-                        _isMeasurementBlackedout = NO;
-                    }
-                    else {
-                        _isMeasurementBlackedout = YES;
-                    }
-                    
-                }
-                else {
-                    _isMeasurementBlackedout = NO;
-                }
-            }
-            else if ( nil != blackoutTimeObj && [blackoutTimeObj isKindOfClass:[NSNumber class]] ) {
-                int64_t blackoutValue = [(NSNumber*)blackoutTimeObj longLongValue];
-                
-                NSDate* blackoutTime = [NSDate dateWithTimeIntervalSince1970:( (NSTimeInterval)blackoutValue/1000.0 )];
-                NSDate* nowTime = [NSDate date];
-                
-                // check to ensure that nowTime is greater than blackoutTime 
-                if ( [nowTime compare:blackoutTime] == NSOrderedDescending ) {
-                    _isMeasurementBlackedout = NO;
-                }
-                else {
-                    _isMeasurementBlackedout = YES;
-                }
-            }
-            else {
-                _isMeasurementBlackedout = NO;
-            }
-            
-            id sessionTimeOutObj = [policyDict objectForKey:@"sessionTimeOutSeconds"];
-            _sessionTimeout = QCMEASUREMENT_DEFAULT_MAX_SESSION_PAUSE_SECOND;
-            
-            if ( nil != sessionTimeOutObj && [sessionTimeOutObj isKindOfClass:[NSString class]]) {
-                NSString* timeoutStr = (NSString*)sessionTimeOutObj;
-                int64_t timeoutValue; // this value will be in terms of milliseconds since Jan 1, 1970
-                
-                if ( nil != timeoutStr && [[NSScanner scannerWithString:timeoutStr] scanLongLong:&timeoutValue]) {
-                    
-                    _sessionTimeout = timeoutValue;
-                }
-            }
-            else if ( nil != sessionTimeOutObj && [sessionTimeOutObj isKindOfClass:[NSNumber class]] ) {
-                _sessionTimeout = [(NSNumber*)sessionTimeOutObj doubleValue];
-            }
-            
-            _allowGeoMeasurement = [QuantcastPolicy booleanValueForJSONObject:[policyDict objectForKey:@"allowGeoMeasurement"] defaultValue:YES];
-            _desiredGeoLocationAccuracy = [QuantcastPolicy doubleValueForJSONObject:[policyDict objectForKey:@"desiredGeoLocationAccuracy"] defaultValue:10.0];
-            _geoMeasurementUpdateDistance = [QuantcastPolicy doubleValueForJSONObject:[policyDict objectForKey:@"geoMeasurementUpdateDistance"] defaultValue:50.0];
-            
-            _policyHasBeenLoaded = YES;
-            
-            [self sendPolicyLoadNotification];
+        NSError* jsonError = nil;
+        
+        // try to use NSJSONSerialization first. check to see if class is available (iOS 5 or later)
+        Class jsonClass = NSClassFromString(@"NSJSONSerialization");
+        
+        if ( nil != jsonClass ) {
+            policyDict = [jsonClass JSONObjectWithData:inJSONData
+                                               options:NSJSONReadingMutableLeaves
+                                                 error:&jsonError];
+        }
+#if QCMEASUREMENT_ENABLE_JSONKIT
+        else if(nil != NSClassFromString(@"JSONDecoder")) {
+            // try with JSONKit
+            policyDict = [[JSONDecoder decoder] objectWithData:inJSONData error:&jsonError];
+        }
+#endif
+        else {
+            [self handleError:@"There is no available JSON decoder to user. Please enable JSONKit in your project!"];
+        }
+        
+        if ( nil != jsonError ) {
+            policyDict = nil;
+            NSString* jsonStr = [[[NSString alloc] initWithData:inJSONData
+                                                      encoding:NSUTF8StringEncoding] autorelease] ;
+            [self handleError:[NSString stringWithFormat:@"Unable to parse policy JSON data. error = %@, json = %@", jsonError, jsonStr]];
         }
     }
+    return policyDict;
+}
+
+-(void)handleError:(NSString*) message{
+   QUANTCAST_ERROR(@"%@", message);
+    _policyHasBeenLoaded = NO;
+    _waitingForUpdate = NO;
+}
+
++(NSSet*)blackListFromJSONArray:(NSArray*)inJSONArray defaultValue:(NSSet*)inDefaultValue{
+    NSSet* retSet = inDefaultValue;
+    if ( [inJSONArray count] > 0 ) {
+        retSet = [NSSet setWithArray:inJSONArray];
+    }
+    return retSet;
+}
+
++(BOOL)isBlackedOutFromJSONObject:(id)inJSONObject defaultValue:(BOOL)inDefaultValue{
+    BOOL retBool = inDefaultValue;
+    if ( [inJSONObject isKindOfClass:[NSString class]] || [inJSONObject isKindOfClass:[NSNumber class]]) {
+        int64_t blackoutValue = [inJSONObject longLongValue]; // this value will be in terms of milliseconds since Jan 1, 1970
+        
+        if ( blackoutValue != 0 ) {
+            NSTimeInterval nowTime = [[NSDate date] timeIntervalSince1970];
+            NSTimeInterval blackoutTime = blackoutValue/1000.0;
+            
+            // check to ensure that nowTime is less than blackoutTime
+            if ( nowTime < blackoutTime ) {
+                retBool = YES;
+            }
+        }
+    }
+    return retBool;
+}
+
++(double)doubleFromJSONObject:(id)inJSONObject defaultValue:(double)inDefaultValue{
+    double retDouble = inDefaultValue;
+    if([inJSONObject isKindOfClass:[NSString class]] || [inJSONObject isKindOfClass:[NSNumber class]]){
+        retDouble = [inJSONObject doubleValue];
+        if(retDouble == 0){
+            retDouble = inDefaultValue;
+        }
+    }
+    return retDouble;
+}
+
++(BOOL)boolForJSONObject:(id)inJSONObject defaultValue:(BOOL)inDefaultValue {
+    BOOL retBool = inDefaultValue;
+    if([inJSONObject isKindOfClass:[NSString class]] || [inJSONObject isKindOfClass:[NSNumber class]]){
+        retBool = [inJSONObject boolValue];
+    }
+    return retBool;
 }
 
 -(void)sendPolicyLoadNotification {
     [[NSNotificationCenter defaultCenter] postNotificationName:QUANTCAST_NOTIFICATION_POLICYLOAD object:self];
 }
 
-+(BOOL)booleanValueForJSONObject:(id)inJSONObject defaultValue:(BOOL)inDefaultValue {
-    
-    if ( nil != inJSONObject ) {
-        if ( [inJSONObject isKindOfClass:[NSString class]] ) {
-            NSSet* trueValues = [NSSet setWithArray:@[ @"YES", @"TRUE", @"yes", @"true", @"1"]];
-                                 
-            return [trueValues containsObject:inJSONObject];
-        }
-        else if ( [inJSONObject isKindOfClass:[NSNumber class]] ) {
-            NSNumber* value = (NSNumber*)inJSONObject;
-            
-            return [value boolValue];
-        }
-    }
-
-    return inDefaultValue;
-}
-
-+(double)doubleValueForJSONObject:(id)inJSONObject defaultValue:(double)inDefaultValue {
-    if ( nil != inJSONObject ) {
-        if ( [inJSONObject isKindOfClass:[NSString class]] ) {
-            double value = inDefaultValue;
-            
-            if ( [[NSScanner scannerWithString:(NSString*)inJSONObject] scanDouble:&value] ) {
-                return value;
-            }
-        }
-        else if ( [inJSONObject isKindOfClass:[NSNumber class]] ) {
-            NSNumber* value = (NSNumber*)inJSONObject;
-            
-            return [value doubleValue];
-        }
-    }
-    
-    return inDefaultValue;
-}
-
 #pragma mark - Policy Values
 
 -(BOOL)isBlacklistedParameter:(NSString*)inParamName {
-    
-    BOOL isBlacklisted = NO;
-    
-    @synchronized(self) {
-        isBlacklisted = [_blacklistedParams containsObject:inParamName];
-    }
-    
-    return isBlacklisted;
+    return [_blacklistedParams containsObject:inParamName];
+}
+
+-(void)setAllowGeoMeasurement:(BOOL)inAllowGeoMeasurement {
+    _allowGeoMeasurement = inAllowGeoMeasurement;
 }
 
 -(BOOL)allowGeoMeasurement {
@@ -372,161 +299,62 @@
 -(void)startPolicyDownloadWithURL:(NSURL*)inPolicyURL {
     
     if ( nil != inPolicyURL ) {
-                
-        @synchronized(self) {
-            if ( nil == _downloadConnection ) {
+        
+       QUANTCAST_LOG(@"Starting policy download with URL = %@", inPolicyURL);
+        NSMutableURLRequest* request = [NSMutableURLRequest requestWithURL:inPolicyURL
+                                                               cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
+                                                           timeoutInterval:QCMEASUREMENT_CONN_TIMEOUT_SECONDS];
 
-                if (self.enableLogging) {
-                    NSLog(@"QC Measurement: Starting policy download with URL = %@", inPolicyURL);
-                }
-
-                NSMutableURLRequest* request = [NSMutableURLRequest requestWithURL:inPolicyURL
-                                                                       cachePolicy:NSURLRequestReloadIgnoringLocalCacheData 
-                                                                   timeoutInterval:QCMEASUREMENT_CONN_TIMEOUT_SECONDS];
-                
-                
-                _downloadData = [[NSMutableData dataWithCapacity:512] retain];
-                _downloadConnection = [[NSURLConnection alloc] initWithRequest:request delegate:self startImmediately:YES];
-            }
+        NSHTTPURLResponse* policyResponse = nil;
+        NSError* policyError = nil;
+        NSData* policyData = [NSURLConnection sendSynchronousRequest:request returningResponse:&policyResponse error:&policyError];
+        if( nil != policyError){
+            [self connectionDidFail:policyError];
+            
         }
-        
+        if(policyResponse.statusCode == 200){
+            [self connectionSuccess:policyData];
+        }else{
+            [self connectionDidFail:nil];
+        }
     }
 }
 
-- (void) connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response
-{
-    if ( nil == _downloadData ) {
-        NSLog(@"QC Measurement: Error downloading policy JSON from connection %@, download data object has gone nil", connection );
-        
-        [connection cancel];
-        
-        return;
-    }
-        
-    @synchronized(self) {
-        [_downloadData setLength:0];
-    }
-}
-
-- (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data
-{
-    if ( nil == _downloadData ) {
-        NSLog(@"QC Measurement: Error downloading policy JSON from connection %@, download data object has gone nil", connection );
-        
-        [connection cancel];
-        
-        return;
-    }
-
-    @synchronized(self) {
-        [_downloadData appendData:data];
-    }
-}
-
-- (void) connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
-{
-    
+-(void)connectionDidFail:(NSError*)error{
     [[QuantcastMeasurement sharedInstance] logSDKError:QC_SDKERRORTYPE_POLICYDOWNLOADFAILURE
                                              withError:error
                                         errorParameter:_policyURL.description];
-
-    if (self.enableLogging) {
-        NSLog(@"QC Measurement: Error downloading policy JSON from connection %@, error = %@", connection, error );
-    }
-
-    @synchronized(self) {
-        [_downloadConnection release];
-        _downloadConnection = nil;
-        
-        [_downloadData release];
-        _downloadData = nil;
-
-        _waitingForUpdate = NO;
-    }
-
+    
+   QUANTCAST_LOG(@"Error downloading policy JSON from url %@, error = %@",  _policyURL, error );
+    _waitingForUpdate = NO;
 }
 
-- (void) connectionDidFinishLoading:(NSURLConnection *)connection
+-(void)connectionSuccess:(NSData*)policyData{
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+    [self setPolicywithJSONData:policyData];
+    _waitingForUpdate = NO;
+    _policyHasBeenLoaded = YES;
+    [self savePolicyToFile:policyData];
+}
+
+-(void) savePolicyToFile:(NSData *)policyData
 {
     
-    NSData* policyData = nil;
-    
-    @synchronized(self) {
-        
-        [[NSNotificationCenter defaultCenter] removeObserver:self];
-
-        policyData = [_downloadData retain];
-        [_downloadData release];
-        _downloadData = nil;
-        
-        [_downloadConnection release];
-        _downloadConnection = nil;
-
-        
-        [self setPolicywithJSONData:policyData];
-        // check to see if the policy succesfully loaded
-        
-        if ( self.hasPolicyBeenLoaded ) {
-            _policyHasBeenDownloaded = YES;
-            _waitingForUpdate = NO;
-        }
-        else {
-            // download failed for somereason. don't bother trying to download again this session, but do log an error.
-            NSLog(@"QC Measurement: ERROR - Successfully downloaded policy data but failed to load into into policy object.");
-
-            _policyHasBeenDownloaded = NO;
-            _waitingForUpdate = NO;
-        }
-        
+    if (QuantcastUtils.logging) {
+        NSString* jsonStr = [[NSString alloc] initWithData:policyData encoding:NSUTF8StringEncoding];
+       QUANTCAST_LOG(@"Successfully downloaded policy with json = %@", jsonStr);
+        [jsonStr release];
     }
     
-    // save the policy data to a file (outside of the mutex)
-    if (nil != policyData) {
-        if ( self.hasUpdatedPolicyBeenDownloaded ) {
-           
-            if (self.enableLogging) {
-                NSString* jsonStr = [[[NSString alloc] initWithData:policyData
-                                                           encoding:NSUTF8StringEncoding] autorelease];
-                
-                NSLog(@"QC Measurement: Successfully downloaded policy with json = %@", jsonStr);
-            }
-
-            // first, determine if there is a saved policy on disk, if not, create it with default polciy
-            NSString* cacheDir = [QuantcastUtils quantcastCacheDirectoryPath];
-            
-            NSString* policyFilePath = [cacheDir stringByAppendingPathComponent:QCMEASUREMENT_POLICY_FILENAME];
-            
-            NSFileManager* fileManager = [NSFileManager defaultManager];
-            
-            BOOL fileWriteSuccess = [fileManager createFileAtPath:policyFilePath contents:_downloadData attributes:nil];
-            
-            if ( !fileWriteSuccess && self.enableLogging ) {
-                NSLog(@"QC Measurement: ERROR - Could not create downloaded policy JSON at path = %@",policyFilePath);
-            }
-            
-        }
-        else {
-            NSString* jsonStr = [[[NSString alloc] initWithData:policyData
-                                                       encoding:NSUTF8StringEncoding] autorelease];
-            
-            NSLog(@"QC Measurement: ERROR - Failed to load downloaded policy with json = %@", jsonStr);
-        }
-      
-        [policyData release];
-    }
-
-}
-
-- (BOOL)connection:(NSURLConnection *)connection canAuthenticateAgainstProtectionSpace:(NSURLProtectionSpace *)protectionSpace {
-    return [protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust];
-}
-
-- (void)connection:(NSURLConnection *)connection didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge {
+    // first, determine if there is a saved policy on disk, if not, create it with default polciy
+    NSString* cacheDir = [QuantcastUtils quantcastCacheDirectoryPath];
+    NSString* policyFilePath = [cacheDir stringByAppendingPathComponent:QCMEASUREMENT_POLICY_FILENAME];
+    BOOL fileWriteSuccess = [[NSFileManager defaultManager] createFileAtPath:policyFilePath contents:policyData attributes:nil];
     
-    [QuantcastUtils handleConnection:connection didReceiveAuthenticationChallenge:challenge withTrustedHost:[_policyURL host] loggingEnabled:self.enableLogging];
-
+    if ( !fileWriteSuccess ) {
+       QUANTCAST_ERROR(@"Could not create downloaded policy JSON at path = %@",policyFilePath);
+    }
 }
-
 
 #pragma mark - Policy Factory
 #ifndef QCMEASUREMENT_POLICY_URL_FORMAT_APIKEY
@@ -536,16 +364,13 @@
 #define QCMEASUREMENT_POLICY_URL_FORMAT_PKID        @"http://m.quantcount.com/policy.json?p=%@&n=%@&v=%@&t=%@&c=%@"
 #endif
 #define QCMEASUREMENT_POLICY_PARAMETER_CHILD        @"&k=YES"
-
-+(QuantcastPolicy*)policyWithAPIKey:(NSString*)inQuantcastAPIKey networkPCode:(NSString*)inNetworkPCode networkReachability:(id<QuantcastNetworkReachability>)inReachability carrier:(CTCarrier*)carrier appIsDirectAtChildren:(BOOL)inAppIsDirectedAtChildren enableLogging:(BOOL)inEnableLogging {
++(QuantcastPolicy*)policyWithAPIKey:(NSString*)inQuantcastAPIKey networkPCode:(NSString*)inNetworkPCode networkReachability:(id<QuantcastNetworkReachability>)inReachability countryCode:(NSString*)countryCode appIsDirectAtChildren:(BOOL)inAppIsDirectedAtChildren {
     
-    NSURL* policyURL = [QuantcastPolicy generatePolicyRequestURLWithAPIKey:inQuantcastAPIKey networkPCode:inNetworkPCode carrier:carrier appIsDirectAtChildren:inAppIsDirectedAtChildren enableLogging:inEnableLogging];
+    NSURL* policyURL = [QuantcastPolicy generatePolicyRequestURLWithAPIKey:inQuantcastAPIKey networkPCode:inNetworkPCode countryCode:countryCode appIsDirectAtChildren:inAppIsDirectedAtChildren ];
     
-    if (inEnableLogging) {
-        NSLog(@"QC Measurement: Creating policy object with policy URL = %@", policyURL);
-    }
-        
-    return [[[QuantcastPolicy alloc] initWithPolicyURL:policyURL reachability:inReachability enableLogging:inEnableLogging] autorelease];
+   QUANTCAST_LOG(@"Creating policy object with policy URL = %@", policyURL);
+    
+    return [[[QuantcastPolicy alloc] initWithPolicyURL:policyURL reachability:inReachability] autorelease];
 }
 
 /*!
@@ -557,19 +382,9 @@
  @param inAppIsDirectedAtChildren Whether the app has declared itself as directed at children under 13 or not. This is typically only used (that is, not NO) for network/platform integrations. Directly quantified apps (apps with an API Key) should declare their "directed at children under 13" status at the Quantcast.com website.
  @param inEnableLogging whether logging is enabled
  */
-+(NSURL*)generatePolicyRequestURLWithAPIKey:(NSString*)inQuantcastAPIKey networkPCode:(NSString*)inNetworkPCode carrier:(CTCarrier*)inCarrier appIsDirectAtChildren:(BOOL)inAppIsDirectedAtChildren enableLogging:(BOOL)inEnableLogging {
-    NSString* mcc = nil;
++(NSURL*)generatePolicyRequestURLWithAPIKey:(NSString*)inQuantcastAPIKey networkPCode:(NSString*)inNetworkPCode countryCode:(NSString*)inCountryCode appIsDirectAtChildren:(BOOL)inAppIsDirectedAtChildren {
     
-    if ( nil != inCarrier ) {
-        
-        
-        // Get mobile country code
-        NSString* countryCode = [inCarrier isoCountryCode];
-        
-        if ( nil != countryCode ) {
-            mcc = countryCode;
-        }
-    }
+    NSString* mcc = [inCountryCode uppercaseString];
     
     // if the cellular country is not available, use locale country as a proxy
     if ( nil == mcc ) {
@@ -586,18 +401,15 @@
         }
     }
     
-    NSString* osString = @"IOS";
-    
-    NSString* osVersion = [[UIDevice currentDevice] systemVersion];
-    
-    if ([osVersion compare:@"4.0" options:NSNumericSearch] == NSOrderedAscending) {
-        NSLog(@"QC Measurement: Unable to support iOS version %@",osVersion);
+    NSString* osString;
+    if (SYSTEM_VERSION_LESS_THAN(@"4.0")) {
+       QUANTCAST_ERROR(@"Unable to support iOS version below 4.0");
         return nil;
     }
-    else if ([osVersion compare:@"5.0" options:NSNumericSearch] == NSOrderedAscending) {
+    else if (SYSTEM_VERSION_LESS_THAN(@"5.0")) {
         osString = @"IOS4";
     }
-    else if ([osVersion compare:@"6.0" options:NSNumericSearch] == NSOrderedAscending) {
+    else if (SYSTEM_VERSION_LESS_THAN(@"6.0")) {
         osString = @"IOS5";
     }
     else {
@@ -607,12 +419,12 @@
     NSString* policyURLStr = nil;
     
     if ( nil != inQuantcastAPIKey ) {
-        policyURLStr = [NSString stringWithFormat:QCMEASUREMENT_POLICY_URL_FORMAT_APIKEY,inQuantcastAPIKey,QCMEASUREMENT_API_VERSION,osString,[mcc uppercaseString]];
+        policyURLStr = [NSString stringWithFormat:QCMEASUREMENT_POLICY_URL_FORMAT_APIKEY,inQuantcastAPIKey,QCMEASUREMENT_API_VERSION,osString,mcc];
     }
     else {
         NSString* appBundleID = [[NSBundle mainBundle] bundleIdentifier];
         
-        policyURLStr = [NSString stringWithFormat:QCMEASUREMENT_POLICY_URL_FORMAT_PKID,[QuantcastUtils urlEncodeString:appBundleID],inNetworkPCode,QCMEASUREMENT_API_VERSION,osString,[mcc uppercaseString]];
+        policyURLStr = [NSString stringWithFormat:QCMEASUREMENT_POLICY_URL_FORMAT_PKID,[QuantcastUtils urlEncodeString:appBundleID],inNetworkPCode,QCMEASUREMENT_API_VERSION,osString,mcc];
     }
     
     if ( inAppIsDirectedAtChildren ) {
@@ -621,11 +433,7 @@
     }
     
     NSURL* policyURL =  [QuantcastUtils updateSchemeForURL:[NSURL URLWithString:policyURLStr]];
-
+    
     return policyURL;
 }
-
-#pragma mark - Debugging Support
-@synthesize enableLogging;
-
 @end

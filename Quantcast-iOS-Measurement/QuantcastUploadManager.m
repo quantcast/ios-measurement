@@ -1,21 +1,14 @@
 /*
- * Copyright 2012 Quantcast Corp.
+ * © Copyright 2012-2014 Quantcast Corp.
  *
  * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
  * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
  * (the “License”). You may not use this file unless (1) you sign up for an account at
  * https://www.quantcast.com and click your agreement to the License and (2) are in
  * compliance with the License. See the License for the specific language governing
- * permissions and limitations under the License.
- *
+ * permissions and limitations under the License. Unauthorized use of this file constitutes
+ * copyright infringement and violation of law.
  */
-
-#ifndef __has_feature
-#define __has_feature(x) 0
-#endif
-#ifndef __has_extension
-#define __has_extension __has_feature // Compatibility with pre-3.0 compilers.
-#endif
 
 #if __has_feature(objc_arc) && __clang_major__ >= 3
 #error "Quantcast Measurement is not designed to be used with ARC. Please add '-fno-objc-arc' to this file's compiler flags"
@@ -27,9 +20,18 @@
 #import "QuantcastParameters.h"
 #import "QuantcastNetworkReachability.h"
 #import "QuantcastEvent.h"
-#import "QuantcastUploadJSONOperation.h"
+#import "QuantcastMeasurement.h"
 
-@interface QuantcastUploadManager ()
+@interface QuantcastMeasurement ()
+// declare "private" method here
+-(void)logUploadLatency:(NSUInteger)inLatencyMilliseconds forUploadId:(NSString*)inUploadID;
+-(void)logSDKError:(NSString*)inSDKErrorType withError:(NSError*)inErrorOrNil errorParameter:(NSString*)inErrorParametOrNil;
+
+@end
+
+@interface QuantcastUploadManager (){
+    dispatch_queue_t _uploadQueue;
+}
 @property (readonly,nonatomic) BOOL ableToUpload;
 
 -(void)networkReachabilityChanged:(NSNotification*)inNotification;
@@ -39,14 +41,13 @@
 @end
 
 @implementation QuantcastUploadManager
-@synthesize ableToUpload=_ableToUpload;
 
 -(id)initWithReachability:(id<QuantcastNetworkReachability>)inNetworkReachabilityOrNil;
 {
     self = [super init];
     
     if (self) {
-        
+        _uploadQueue = dispatch_queue_create("com.quntcast.measurement.upload", DISPATCH_QUEUE_SERIAL);
         // if there is no Reachability object, assume we are debugging and enable uploading
         _ableToUpload = YES;
         
@@ -59,10 +60,7 @@
                 _ableToUpload = NO;
             }
         }
-        // seed random
         
-        srandom(time(0));
-                        
         // check uploading directory for any unfinished uploads, and move them to ready to upload directory
         NSError* dirError = nil;
         NSFileManager* fileManager = [NSFileManager defaultManager];
@@ -80,11 +78,11 @@
                     NSString* newFilePath = [readyToUploadDirPath stringByAppendingPathComponent:filename];
                     
                     
-                    NSError* error;
+                    NSError* error = nil;
                     
                     if ( ![fileManager moveItemAtPath:currentFilePath toPath:newFilePath error:&error] ) {
                         // error, will robinson
-                        NSLog(@"QC Measurement: Could not relocate file '%@' to '%@'. Error = %@", currentFilePath, newFilePath, error );
+                       QUANTCAST_LOG(@"Could not relocate file '%@' to '%@'. Error = %@", currentFilePath, newFilePath, error );
                         
                     }
 
@@ -100,8 +98,9 @@
 }
 
 -(void)dealloc {
+    
     [[NSNotificationCenter defaultCenter] removeObserver:self];
-
+    dispatch_release(_uploadQueue);
     
     [super dealloc];
 }
@@ -121,24 +120,14 @@
 
 #pragma mark - Upload Management
 
-+(NSString*)generateUploadID {
-    
-    CFUUIDRef uuid = CFUUIDCreate(kCFAllocatorDefault);
-    CFStringRef uuidStr = CFUUIDCreateString(kCFAllocatorDefault, uuid);
-    
-    NSString* uploadID = [NSString stringWithString:(NSString *)uuidStr ];
-    
-    CFRelease(uuidStr);
-    CFRelease(uuid);
-
-    return uploadID;
-}
-
 -(void)initiateUploadForReadyJSONFilesWithDataManager:(QuantcastDataManager*)inDataManager {
     
-    @synchronized(self) {
+    if (_ableToUpload ) {
         
-        if (self.ableToUpload ) {
+        dispatch_async(_uploadQueue, ^{
+            __block NSInteger backgroundTaskID = [[UIApplication sharedApplication] beginBackgroundTaskWithExpirationHandler:^{
+                [[UIApplication sharedApplication] endBackgroundTask: backgroundTaskID];
+            }];
             //
             // first, get the list of json files in the ready directory, then initiate a transfer for each
             //
@@ -150,23 +139,17 @@
             NSArray* dirContents = [fileManager contentsOfDirectoryAtPath:readyDirPath error:&dirError];
             
             if ( nil == dirError && [dirContents count] > 0 ) {
-                
                 for (NSString* filename in dirContents) {
                     if ( [filename hasSuffix:@"json"] ) {
-                        
                         NSString* filePath = [readyDirPath stringByAppendingPathComponent:filename];
-                        
                         // get teh upload ID from the file
-
                         [self uploadJSONFile:filePath dataManager:inDataManager];
-                        
                     }
-                    
                 }
             }
-        }
+            [[UIApplication sharedApplication] endBackgroundTask: backgroundTaskID];
+        });
     }
-
 }
 
 -(void)uploadJSONFile:(NSString*)inJSONFilePath dataManager:(QuantcastDataManager*)inDataManager {    
@@ -180,25 +163,57 @@
     
     if ( nil == uploadID ) {
         // some kind of error. don't upload
-        if (self.enableLogging) {
-            NSLog(@"QC Measurement: Could not upload JSON file '%@' because upload ID was not found in contents", inJSONFilePath );
-        }
-        
+       QUANTCAST_LOG(@"Could not upload JSON file '%@' because upload ID was not found in contents", inJSONFilePath );
         return;
     }
     
     // send it!
+        
+    NSTimeInterval startTime = NSDate.timeIntervalSinceReferenceDate;
+    NSHTTPURLResponse* uploadResponse;
+    NSError* uploadError = nil;
+    [NSURLConnection sendSynchronousRequest:urlRequest returningResponse:&uploadResponse error:&uploadError];
     
-    QuantcastUploadJSONOperation* op = [[[QuantcastUploadJSONOperation alloc] initUploadForJSONFile:uploadingFilePath 
-                                                                                       withUploadID:uploadID 
-                                                                                     withURLRequest:urlRequest 
-                                                                                        dataManager:inDataManager] autorelease];
-    op.enableLogging = self.enableLogging;
+    if( nil != uploadError){
+        [[QuantcastMeasurement sharedInstance] logSDKError:QC_SDKERRORTYPE_UPLOADFAILURE
+                                                 withError:uploadError
+                                            errorParameter:uploadID];
+    }
     
-    [inDataManager.opQueue addOperation:op];
-    
+    if(uploadResponse.statusCode == 200){
+        QUANTCAST_LOG(@"Success at uploading json file '%@' to %@", uploadingFilePath, [urlRequest URL] );
+        NSError* fileError = nil;
+        
+        [[NSFileManager defaultManager] removeItemAtPath:uploadingFilePath error:&fileError];
+        
+        if (fileError != nil) {
+            QUANTCAST_LOG(@"Error while deleting upload JSON file '%@', error = %@", uploadingFilePath, fileError );
+        }
+        
+        // record latency
+        NSTimeInterval delta = NSDate.timeIntervalSinceReferenceDate - startTime;
+        NSUInteger latency = delta*1000;
+        [[QuantcastMeasurement sharedInstance] logUploadLatency:latency forUploadId:uploadID];
+    }else{
+        [self uploadFailedForJsonFile:uploadingFilePath];
+    }
+
 }
 
+-(void)uploadFailedForJsonFile:(NSString*)inJsonPath {
+    
+    NSString* newFilePath = [[QuantcastUtils quantcastDataReadyToUploadDirectoryPath] stringByAppendingPathComponent:[inJsonPath lastPathComponent]];
+    
+    NSError* error = nil;
+    
+    if ( ![[NSFileManager defaultManager] moveItemAtPath:inJsonPath toPath:newFilePath error:&error] ) {
+       QUANTCAST_LOG(@"Could not relocate file '%@' to '%@'. Error = %@", inJsonPath, newFilePath, error );
+    }else{
+       QUANTCAST_LOG(@"Upload of file '%@' failed. Moved to '%@'", inJsonPath, newFilePath);
+    }
+    
+    
+}
 
 -(NSURLRequest*)urlRequestForJSONFile:(NSString*)inJSONFilePath 
                     reportingUploadID:(NSString**)outUploadID 
@@ -213,13 +228,10 @@
     
     NSData* uncompressedBodyData = [NSData dataWithContentsOfFile:inJSONFilePath];
 
-    NSData* bodyData = [QuantcastUtils  gzipData:uncompressedBodyData error:&compressError];
+    NSData* bodyData = [QuantcastUtils gzipData:uncompressedBodyData error:&compressError];
     
     if ( nil != compressError ) {
-        if (self.enableLogging) {
-            NSLog(@"QC Measurement: Error while trying to compress upload data = %@", compressError);
-        }
-        
+       QUANTCAST_LOG(@"Error while trying to compress upload data = %@", compressError);
         return nil;
     }
     
@@ -234,7 +246,7 @@
     [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];	
     [request setValue:@"gzip" forHTTPHeaderField:@"Content-Encoding"];	
     [request setHTTPBody:bodyData];
-    [request setValue:[NSString stringWithFormat:@"%d", [bodyData length]] forHTTPHeaderField:@"Content-Length"];
+    [request setValue:[NSString stringWithFormat:@"%lu", (unsigned long)[bodyData length]] forHTTPHeaderField:@"Content-Length"];
     
     //
     // move the file to the uploading diretory to signify that a url request has been generated and no new ones should be created.
@@ -245,41 +257,29 @@
     (*outNewFilePath) = [[QuantcastUtils quantcastUploadInProgressDirectoryPath] stringByAppendingPathComponent:filename];
     
     if ([[NSFileManager defaultManager] fileExistsAtPath:(*outNewFilePath)]) {
-        if (self.enableLogging) {
-            NSLog(@"QC Measurement: Upload file '%@' already exists at path '%@'. Deleting ...", filename, (*outNewFilePath) );
-        }
-        
+       QUANTCAST_LOG(@"Upload file '%@' already exists at path '%@'. Deleting ...", filename, (*outNewFilePath) );
         [[NSFileManager defaultManager] removeItemAtPath:(*outNewFilePath) error:nil];
     }
 
-    NSError* error;
+    NSError* error = nil;
 
     if ( ![[NSFileManager defaultManager] moveItemAtPath:inJSONFilePath toPath:(*outNewFilePath) error:&error] ) {
-        if (self.enableLogging) {
-            NSLog(@"QC Measurement: Could note move file '%@' to location '%@'. Error = %@", inJSONFilePath, (*outNewFilePath), [error localizedDescription] );
-        }
-        
+       QUANTCAST_LOG(@"Could note move file '%@' to location '%@'. Error = %@", inJSONFilePath, (*outNewFilePath), [error localizedDescription] );
         return nil;
     }
     
     // now extract upload id from JSON
-    
-    NSString* jsonStr = [[[NSString alloc] initWithData:uncompressedBodyData encoding:NSUTF8StringEncoding] autorelease]; 
+    NSString* jsonStr = [[[NSString alloc] initWithData:uncompressedBodyData encoding:NSUTF8StringEncoding] autorelease];
     
     NSRange keyRange = [jsonStr rangeOfString:@"\"uplid\":\""];
     
-    jsonStr = [jsonStr substringFromIndex:keyRange.location+keyRange.length];
-    
-    NSRange terminatorRang = [jsonStr rangeOfString:@"\",\"qcv\":"];
-    
-    (*outUploadID) = [jsonStr substringToIndex:terminatorRang.location];
+    jsonStr = [jsonStr substringWithRange:NSMakeRange(NSMaxRange(keyRange), 36)];
+    (*outUploadID) = jsonStr;
     
     return request;
 }
 
 #pragma mark - Debugging
-
-@synthesize enableLogging;
 
 - (NSString *)description {
     return [NSString stringWithFormat:@"<QuantcastUploadManager %p>", self ];

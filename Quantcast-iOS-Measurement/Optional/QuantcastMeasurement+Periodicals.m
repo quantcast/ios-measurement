@@ -1,13 +1,13 @@
 /*
- * Copyright 2012 Quantcast Corp.
+ * © Copyright 2012-2014 Quantcast Corp.
  *
  * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
  * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
  * (the “License”). You may not use this file unless (1) you sign up for an account at
  * https://www.quantcast.com and click your agreement to the License and (2) are in
  * compliance with the License. See the License for the specific language governing
- * permissions and limitations under the License.
- *
+ * permissions and limitations under the License. Unauthorized use of this file constitutes
+ * copyright infringement and violation of law.
  */
 
 #import "QuantcastMeasurement+Periodicals.h"
@@ -15,6 +15,7 @@
 #import "QuantcastDataManager.h"
 #import "QuantcastParameters.h"
 #import "QuantcastUtils.h"
+#import "QuantcastEventLogger.h"
 
 #define QCMEASUREMENT_EVENT_PERIODICALOPENISSUE     @"periodical-issue-open"
 #define QCMEASUREMENT_EVENT_PERIODICALCLOSEISSUE    @"periodical-issue-close"
@@ -31,13 +32,8 @@
 
 
 
-@interface QuantcastMeasurement ()
+@interface QuantcastMeasurement ()<QuantcastEventLogger>
 @property (readonly,nonatomic) BOOL isMeasurementActive;
-@property (retain,nonatomic) QuantcastDataManager* dataManager;
-@property (retain,nonatomic) NSString* currentSessionID;
-
--(void)recordEvent:(QuantcastEvent*)inEvent;
-
 @end
 
 @implementation QuantcastMeasurement (Periodicals)
@@ -49,42 +45,39 @@
 -(void)logAssetDownloadCompletedWithPeriodicalNamed:(NSString*)inPeriodicalName issueNamed:(NSString*)inIssueName issuePublicationDate:(NSDate*)inPublicationDate withAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil {
     
     if ( nil == inPeriodicalName ) {
-        NSLog(@"QC Measurement: ERROR - The inPeriodicalName parameter cannot be nil");
+       QUANTCAST_ERROR(@"The inPeriodicalName parameter cannot be nil");
         return;
     }
     
     if ( nil == inIssueName ) {
-        NSLog(@"QC Measurement: ERROR - The inIssueName parameter cannot be nil");
+       QUANTCAST_ERROR(@"The inIssueName parameter cannot be nil");
         return;
     }
     
     if ( nil == inPublicationDate ) {
-        NSLog(@"QC Measurement: ERROR - The inPublicationDate parameter cannot be nil");
-        return;        
+       QUANTCAST_ERROR(@"The inPublicationDate parameter cannot be nil");
+        return;
     }
 
     
     if ( !self.isOptedOut ) {
-        if (self.isMeasurementActive) {
-            QuantcastEvent* e = [QuantcastEvent eventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy];
-            
-            NSString* issueTimeStamp = nil;
-            
-            if ( nil != inPublicationDate) {
-                issueTimeStamp = [NSString stringWithFormat:@"%qi",(int64_t)[inPublicationDate timeIntervalSince1970]];
+        [self launchOnQuantcastThread:^(NSDate *timestamp) {
+            if (self.isMeasurementActive) {
+                
+                NSString* issueTimeStamp = issueTimeStamp = [NSString stringWithFormat:@"%qi",(int64_t)[inPublicationDate timeIntervalSince1970]];
+                NSDictionary* params = @{QCPARAMETER_EVENT: QCMEASUREMENT_EVENT_PERIODICALDOWNLOAD,
+                                         QCPARAMETER_PERIODICAL_PERIODICALNAME: inPeriodicalName,
+                                         QCPARAMETER_PERIODICAL_ISSUENAME: inIssueName,
+                                         QCPARAMETER_PERIODICAL_ISSUEDATE: issueTimeStamp};
+                QuantcastEvent* e = [QuantcastEvent customEventWithSession:self.currentSessionID eventTimestamp:timestamp applicationInstallID:self.appInstallIdentifier parameterMap:params eventAppLabels:inAppLabelsOrNil eventNetworkLabels:inNetworkLabelsOrNil];
+                
+                [self recordEvent:e];
+                
             }
-            [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_PERIODICALDOWNLOAD enforcingPolicy:self.dataManager.policy];
-            [e putParameter:QCPARAMETER_PERIODICAL_PERIODICALNAME withValue:[QuantcastUtils JSONEncodeString:inPeriodicalName] enforcingPolicy:self.dataManager.policy];
-            [e putParameter:QCPARAMETER_PERIODICAL_ISSUENAME withValue:[QuantcastUtils JSONEncodeString:inIssueName] enforcingPolicy:self.dataManager.policy];
-            [e putParameter:QCPARAMETER_PERIODICAL_ISSUEDATE withValue:issueTimeStamp enforcingPolicy:self.dataManager.policy];
-            
-            [e putAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil enforcingPolicy:self.dataManager.policy];
-            
-            [self recordEvent:e];
-        }
-        else {
-            NSLog(@"QC Measurement: logCompletedDownloadingIssueName: was called without first calling beginMeasurementSession:");
-        }
+            else {
+               QUANTCAST_ERROR(@"logCompletedDownloadingIssueName: was called without first calling beginMeasurementSession:");
+            }
+        }];
     }
 }
 
@@ -94,41 +87,38 @@
 -(void)logOpenIssueWithPeriodicalNamed:(NSString*)inPeriodicalName issueNamed:(NSString*)inIssueName issuePublicationDate:(NSDate*)inPublicationDate withAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil {
 
     if ( nil == inPeriodicalName ) {
-        NSLog(@"QC Measurement: ERROR - The inPeriodicalName parameter cannot be nil");
+       QUANTCAST_ERROR(@"The inPeriodicalName parameter cannot be nil");
         return;
     }
     
     if ( nil == inIssueName ) {
-        NSLog(@"QC Measurement: ERROR - The inIssueName parameter cannot be nil");
+       QUANTCAST_ERROR(@"The inIssueName parameter cannot be nil");
         return;
     }
     
     if ( nil == inPublicationDate ) {
-        NSLog(@"QC Measurement: ERROR - The inPublicationDate parameter cannot be nil");
+       QUANTCAST_ERROR(@"The inPublicationDate parameter cannot be nil");
         return;
     }
 
     if ( !self.isOptedOut ) {
-        if (self.isMeasurementActive) {
-            QuantcastEvent* e = [QuantcastEvent eventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy];
-            
-            NSString* issueTimeStamp = nil;
-            
-            if ( nil != inPublicationDate) {
-                issueTimeStamp = [NSString stringWithFormat:@"%qi",(int64_t)[inPublicationDate timeIntervalSince1970]];
+        [self launchOnQuantcastThread:^(NSDate *timestamp) {
+            if (self.isMeasurementActive) {
+                
+                NSString* issueTimeStamp = issueTimeStamp = [NSString stringWithFormat:@"%qi",(int64_t)[inPublicationDate timeIntervalSince1970]];
+                NSDictionary* params = @{QCPARAMETER_EVENT: QCMEASUREMENT_EVENT_PERIODICALOPENISSUE,
+                                         QCPARAMETER_PERIODICAL_PERIODICALNAME: inPeriodicalName,
+                                         QCPARAMETER_PERIODICAL_ISSUENAME: inIssueName,
+                                         QCPARAMETER_PERIODICAL_ISSUEDATE: issueTimeStamp};
+                QuantcastEvent* e = [QuantcastEvent customEventWithSession:self.currentSessionID eventTimestamp:timestamp applicationInstallID:self.appInstallIdentifier parameterMap:params eventAppLabels:inAppLabelsOrNil eventNetworkLabels:inNetworkLabelsOrNil];
+                
+                [self recordEvent:e];
+                
             }
-            [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_PERIODICALOPENISSUE enforcingPolicy:self.dataManager.policy];
-            [e putParameter:QCPARAMETER_PERIODICAL_PERIODICALNAME withValue:[QuantcastUtils JSONEncodeString:inPeriodicalName] enforcingPolicy:self.dataManager.policy];
-            [e putParameter:QCPARAMETER_PERIODICAL_ISSUENAME withValue:[QuantcastUtils JSONEncodeString:inIssueName] enforcingPolicy:self.dataManager.policy];
-            [e putParameter:QCPARAMETER_PERIODICAL_ISSUEDATE withValue:issueTimeStamp enforcingPolicy:self.dataManager.policy];
-
-            [e putAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil enforcingPolicy:self.dataManager.policy];
-            
-            [self recordEvent:e];
-        }
-        else {
-            NSLog(@"QC Measurement: logPeriodicalOpenIssueNamed: was called without first calling beginMeasurementSession:");
-        }
+            else {
+               QUANTCAST_ERROR(@"logPeriodicalOpenIssueNamed: was called without first calling beginMeasurementSession:");
+            }
+        }];
     }
 }
 
@@ -138,41 +128,37 @@
 
 -(void)logCloseIssueWithPeriodicalNamed:(NSString*)inPeriodicalName issueNamed:(NSString*)inIssueName issuePublicationDate:(NSDate*)inPublicationDate withAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil {
     if ( nil == inPeriodicalName ) {
-        NSLog(@"QC Measurement: ERROR - The inPeriodicalName parameter cannot be nil");
+       QUANTCAST_ERROR(@"The inPeriodicalName parameter cannot be nil");
         return;
     }
     
     if ( nil == inIssueName ) {
-        NSLog(@"QC Measurement: ERROR - The inIssueName parameter cannot be nil");
+       QUANTCAST_ERROR(@"The inIssueName parameter cannot be nil");
         return;
     }
     
     if ( nil == inPublicationDate ) {
-        NSLog(@"QC Measurement: ERROR - The inPublicationDate parameter cannot be nil");
+       QUANTCAST_ERROR(@"The inPublicationDate parameter cannot be nil");
         return;
     }
-
+    
     if ( !self.isOptedOut ) {
-        if (self.isMeasurementActive) {
-            QuantcastEvent* e = [QuantcastEvent eventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy];
-            
-            NSString* issueTimeStamp = nil;
-            
-            if ( nil != inPublicationDate) {
-                issueTimeStamp = [NSString stringWithFormat:@"%qi",(int64_t)[inPublicationDate timeIntervalSince1970]];
+        [self launchOnQuantcastThread:^(NSDate *timestamp) {
+            if (self.isMeasurementActive) {
+                NSString* issueTimeStamp = issueTimeStamp = [NSString stringWithFormat:@"%qi",(int64_t)[inPublicationDate timeIntervalSince1970]];
+                NSDictionary* params = @{QCPARAMETER_EVENT: QCMEASUREMENT_EVENT_PERIODICALCLOSEISSUE,
+                                         QCPARAMETER_PERIODICAL_PERIODICALNAME: inPeriodicalName,
+                                         QCPARAMETER_PERIODICAL_ISSUENAME: inIssueName,
+                                         QCPARAMETER_PERIODICAL_ISSUEDATE: issueTimeStamp};
+                QuantcastEvent* e = [QuantcastEvent customEventWithSession:self.currentSessionID eventTimestamp:timestamp applicationInstallID:self.appInstallIdentifier parameterMap:params eventAppLabels:inAppLabelsOrNil eventNetworkLabels:inNetworkLabelsOrNil];
+                
+                [self recordEvent:e];
             }
-            [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_PERIODICALCLOSEISSUE enforcingPolicy:self.dataManager.policy];
-            [e putParameter:QCPARAMETER_PERIODICAL_PERIODICALNAME withValue:[QuantcastUtils JSONEncodeString:inPeriodicalName] enforcingPolicy:self.dataManager.policy];
-            [e putParameter:QCPARAMETER_PERIODICAL_ISSUENAME withValue:[QuantcastUtils JSONEncodeString:inIssueName] enforcingPolicy:self.dataManager.policy];
-            [e putParameter:QCPARAMETER_PERIODICAL_ISSUEDATE withValue:issueTimeStamp enforcingPolicy:self.dataManager.policy];
-            
-            [e putAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil enforcingPolicy:self.dataManager.policy];
-            
-            [self recordEvent:e];
-        }
-        else {
-            NSLog(@"QC Measurement: logPeriodicalCloseIssueNamed: was called without first calling beginMeasurementSession:");
-        }
+            else {
+               QUANTCAST_ERROR(@"logPeriodicalCloseIssueNamed: was called without first calling beginMeasurementSession:");
+            }
+        }];
+        
     }
 }
 
@@ -182,42 +168,38 @@
 
 -(void)logPeriodicalPageView:(NSUInteger)inPageNumber withPeriodicalNamed:(NSString*)inPeriodicalName issueNamed:(NSString*)inIssueName issuePublicationDate:(NSDate*)inPublicationDate withAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil {
     if ( nil == inPeriodicalName ) {
-        NSLog(@"QC Measurement: ERROR - The inPeriodicalName parameter cannot be nil");
+       QUANTCAST_ERROR(@"The inPeriodicalName parameter cannot be nil");
         return;
     }
     
     if ( nil == inIssueName ) {
-        NSLog(@"QC Measurement: ERROR - The inIssueName parameter cannot be nil");
+       QUANTCAST_ERROR(@"The inIssueName parameter cannot be nil");
         return;
     }
     
     if ( nil == inPublicationDate ) {
-        NSLog(@"QC Measurement: ERROR - The inPublicationDate parameter cannot be nil");
+       QUANTCAST_ERROR(@"The inPublicationDate parameter cannot be nil");
         return;
     }
-
+    
     if ( !self.isOptedOut ) {
-        if (self.isMeasurementActive) {
-            QuantcastEvent* e = [QuantcastEvent eventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy];
-            
-            NSString* issueTimeStamp = nil;
-            
-            if ( nil != inPublicationDate) {
-                issueTimeStamp = [NSString stringWithFormat:@"%qi",(int64_t)[inPublicationDate timeIntervalSince1970]];
+        [self launchOnQuantcastThread:^(NSDate *timestamp) {
+            if (self.isMeasurementActive) {
+                NSString* issueTimeStamp = issueTimeStamp = [NSString stringWithFormat:@"%qi",(int64_t)[inPublicationDate timeIntervalSince1970]];
+                NSDictionary* params = @{QCPARAMETER_EVENT: QCMEASUREMENT_EVENT_PERIODICALPAGEVIEW,
+                                         QCPARAMETER_PERIODICAL_PERIODICALNAME: inPeriodicalName,
+                                         QCPARAMETER_PERIODICAL_ISSUENAME: inIssueName,
+                                         QCPARAMETER_PERIODICAL_ISSUEDATE: issueTimeStamp,
+                                         QCPARAMETER_PERIODICAL_PAGE: [NSNumber numberWithUnsignedInteger:inPageNumber]};
+                QuantcastEvent* e = [QuantcastEvent customEventWithSession:self.currentSessionID eventTimestamp:timestamp applicationInstallID:self.appInstallIdentifier parameterMap:params eventAppLabels:inAppLabelsOrNil eventNetworkLabels:inNetworkLabelsOrNil];
+                
+                [self recordEvent:e];
+                
             }
-            [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_PERIODICALPAGEVIEW enforcingPolicy:self.dataManager.policy];
-            [e putParameter:QCPARAMETER_PERIODICAL_PERIODICALNAME withValue:[QuantcastUtils JSONEncodeString:inPeriodicalName] enforcingPolicy:self.dataManager.policy];
-            [e putParameter:QCPARAMETER_PERIODICAL_ISSUENAME withValue:[QuantcastUtils JSONEncodeString:inIssueName] enforcingPolicy:self.dataManager.policy];
-            [e putParameter:QCPARAMETER_PERIODICAL_ISSUEDATE withValue:issueTimeStamp enforcingPolicy:self.dataManager.policy];
-            [e putParameter:QCPARAMETER_PERIODICAL_PAGE withValue:[NSNumber numberWithUnsignedInteger:inPageNumber] enforcingPolicy:self.dataManager.policy];
-            
-            [e putAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil enforcingPolicy:self.dataManager.policy];
-            
-            [self recordEvent:e];
-        }
-        else {
-            NSLog(@"QC Measurement: logPeriodicalPageViewWithIssueNamed: was called without first calling beginMeasurementSession:");
-        }
+            else {
+               QUANTCAST_ERROR(@"logPeriodicalPageViewWithIssueNamed: was called without first calling beginMeasurementSession:");
+            }
+        }];
     }
 }
 
@@ -229,55 +211,46 @@
 -(void)logPeriodicalArticleView:(NSString*)inArticleName withPeriodicalNamed:(NSString*)inPeriodicalName issueNamed:(NSString*)inIssueName issuePublicationDate:(NSDate*)inPublicationDate articleAuthors:(NSArray*)inAuthorListOrNil withAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil {
     
     if ( nil == inPeriodicalName ) {
-        NSLog(@"QC Measurement: ERROR - The inPeriodicalName parameter cannot be nil");
+       QUANTCAST_ERROR(@"The inPeriodicalName parameter cannot be nil");
         return;
     }
     
     if ( nil == inIssueName ) {
-        NSLog(@"QC Measurement: ERROR - The inIssueName parameter cannot be nil");
+       QUANTCAST_ERROR(@"The inIssueName parameter cannot be nil");
         return;
     }
     
     if ( nil == inPublicationDate ) {
-        NSLog(@"QC Measurement: ERROR - The inPublicationDate parameter cannot be nil");
+       QUANTCAST_ERROR(@"The inPublicationDate parameter cannot be nil");
         return;
     }
     
     if ( nil == inArticleName ) {
-        NSLog(@"QC Measurement: ERROR - The inArticleName parameter cannot be nil");
+       QUANTCAST_ERROR(@"The inArticleName parameter cannot be nil");
         return;
     }
     
-
+    
     if ( !self.isOptedOut ) {
-        if (self.isMeasurementActive) {
-            QuantcastEvent* e = [QuantcastEvent eventWithSessionID:self.currentSessionID applicationInstallID:self.appInstallIdentifier enforcingPolicy:self.dataManager.policy];
-            
-            NSString* issueTimeStamp = nil;
-
-            if ( nil != inPublicationDate) {
-                issueTimeStamp = [NSString stringWithFormat:@"%qi",(int64_t)[inPublicationDate timeIntervalSince1970]];
+        [self launchOnQuantcastThread:^(NSDate *timestamp) {
+            if (self.isMeasurementActive) {
+                NSString* issueTimeStamp = issueTimeStamp = [NSString stringWithFormat:@"%qi",(int64_t)[inPublicationDate timeIntervalSince1970]];
+                
+                NSDictionary* params = [NSDictionary dictionaryWithObjectsAndKeys:QCMEASUREMENT_EVENT_PERIODICALARTICLEVIEW, QCPARAMETER_EVENT,
+                                        inPeriodicalName, QCPARAMETER_PERIODICAL_PERIODICALNAME,
+                                        inIssueName, QCPARAMETER_PERIODICAL_ISSUENAME,
+                                        issueTimeStamp, QCPARAMETER_PERIODICAL_ISSUEDATE,
+                                        inArticleName, QCPARAMETER_PERIODICAL_ARTICLE,
+                                        inAuthorListOrNil, QCPARAMETER_PERIODICAL_AUTHOR, nil];
+                
+                QuantcastEvent* e = [QuantcastEvent customEventWithSession:self.currentSessionID eventTimestamp:timestamp applicationInstallID:self.appInstallIdentifier parameterMap:params eventAppLabels:inAppLabelsOrNil eventNetworkLabels:inNetworkLabelsOrNil];
+                
+                [self recordEvent:e];
             }
-            
-            [e putParameter:QCPARAMETER_EVENT withValue:QCMEASUREMENT_EVENT_PERIODICALARTICLEVIEW enforcingPolicy:self.dataManager.policy];
-            [e putParameter:QCPARAMETER_PERIODICAL_PERIODICALNAME withValue:[QuantcastUtils JSONEncodeString:inPeriodicalName] enforcingPolicy:self.dataManager.policy];
-            [e putParameter:QCPARAMETER_PERIODICAL_ISSUENAME withValue:[QuantcastUtils JSONEncodeString:inIssueName] enforcingPolicy:self.dataManager.policy];
-            [e putParameter:QCPARAMETER_PERIODICAL_ISSUEDATE withValue:issueTimeStamp enforcingPolicy:self.dataManager.policy];
-            [e putParameter:QCPARAMETER_PERIODICAL_ARTICLE withValue:[QuantcastUtils JSONEncodeString:inArticleName] enforcingPolicy:self.dataManager.policy];
-            
-            if ( nil != inAuthorListOrNil && inAuthorListOrNil.count > 0 ) {
-                NSString* authorsString =  [QuantcastUtils encodeLabelsList:inAuthorListOrNil];
-
-                [e putParameter:QCPARAMETER_PERIODICAL_AUTHOR withValue:authorsString enforcingPolicy:self.dataManager.policy];
+            else {
+               QUANTCAST_ERROR(@"logPeriodicalPageViewWithIssueName: was called without first calling beginMeasurementSession:");
             }
-            
-            [e putAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil enforcingPolicy:self.dataManager.policy];
-            
-            [self recordEvent:e];
-        }
-        else {
-            NSLog(@"QC Measurement: logPeriodicalPageViewWithIssueName: was called without first calling beginMeasurementSession:");
-        }
+        }];
     }
 }
 

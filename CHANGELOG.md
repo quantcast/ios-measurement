@@ -1,6 +1,12 @@
 #Quantcast Measure for Apps#
 ###iOS SDK Changelog###
 
+##Version 1.2.14##
+January 31, 2014
+* Refactored for performance.
+* Persistant session timing.
+* Fixed loss of precision warnings on arm64. fixes #2
+
 ##Version 1.2.13##
 October 25, 2013
 * Added new cellular connection type added in iOS7
