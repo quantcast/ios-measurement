@@ -252,16 +252,12 @@ QuantcastMeasurement* gSharedInstance = nil;
                 udidStr = [uuid UUIDString];
                 
                 // now check for the iOS 6 bug
-                
                 if ( [udidStr compare:@"00000000-0000-0000-0000-000000000000"] == NSOrderedSame ) {
                     // this is a bad device identifier. treat as having no device identifier.
                     udidStr = nil;
                 }
             }
         }
-    }
-    else if ([[[UIDevice currentDevice] systemVersion] compare:@"6.0" options:NSNumericSearch] != NSOrderedAscending) {
-       QUANTCAST_ERROR(@"This app is running on iOS 6 or later and is not properly linked with the AdSupport.framework");
     }
 
     return udidStr;
