@@ -78,6 +78,7 @@
 #define QCPARAMETER_REASON            @"nsr"
 #define QCPARAMETER_INSTALL           @"inst"
 #define QCPARAMETER_INBACKGROUND      @"inback"
+#define QCPARAMETER_IDFA_LINKED       @"idfa-linked"
 
 // Latency event
 #define QCPARAMETER_LATENCY           @"latency"
@@ -105,8 +106,8 @@
 // Quantcast Measurement SDK
 //
 
-#define QCMEASUREMENT_API_VERSION               @"1_2_14"
-#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.2.14"
+#define QCMEASUREMENT_API_VERSION               @"1_2_15"
+#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.2.15"
 #define QCMEASUREMENT_CONN_TIMEOUT_SECONDS      60
 
 #ifndef QCMEASUREMENT_UPLOAD_URL

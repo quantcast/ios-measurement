@@ -191,6 +191,10 @@
     [e putParameter:QCPARAMETER_DID withValue:inDeviceID];
     [e putParameter:QCPARAMETER_UH withValue:inHashedUserIDOrNil];
     
+    Class adManagerClass = NSClassFromString(@"ASIdentifierManager");
+    NSString* adManagerLinked = [[NSNumber numberWithBool:(adManagerClass != nil)] stringValue];
+    [e putParameter:QCPARAMETER_IDFA_LINKED withValue:adManagerLinked];
+    
     NSString* appName = [[NSBundle mainBundle] objectForInfoDictionaryKey:(NSString *)kCFBundleNameKey];
     [e putParameter:QCPARAMETER_ANAME withValue:appName];
     

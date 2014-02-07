@@ -218,9 +218,9 @@ QuantcastMeasurement* gSharedInstance = nil;
     
     if ( nil != adManagerClass ) {
         
-        ASIdentifierManager* adPrefManager = [ASIdentifierManager sharedManager];
+        id adPrefManager = [adManagerClass sharedManager];
         
-        userAdvertisingPreference = adPrefManager.advertisingTrackingEnabled;
+        userAdvertisingPreference = [adPrefManager isAdvertisingTrackingEnabled];
     }
 
     return userAdvertisingPreference;
@@ -243,10 +243,10 @@ QuantcastMeasurement* gSharedInstance = nil;
     
     if ( nil != adManagerClass ) {
         
-        ASIdentifierManager* manager = [ASIdentifierManager sharedManager];
+        id manager = [adManagerClass sharedManager];
         
-        if ( manager.advertisingTrackingEnabled) {
-            NSUUID* uuid = manager.advertisingIdentifier;
+        if ( [manager isAdvertisingTrackingEnabled] ) {
+            NSUUID* uuid = [manager advertisingIdentifier];
             
             if ( nil != uuid ) {
                 udidStr = [uuid UUIDString];

@@ -100,7 +100,10 @@
 -(void)dealloc {
     
     [[NSNotificationCenter defaultCenter] removeObserver:self];
+#if (defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && (!defined(__IPHONE_6_0) || __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_6_0))
+    //dispatch_release was changed to ARC in iOS6.  Anytime before then we have to do it manually
     dispatch_release(_uploadQueue);
+#endif
     
     [super dealloc];
 }
