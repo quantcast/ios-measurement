@@ -9,10 +9,9 @@
  * permissions and limitations under the License. Unauthorized use of this file constitutes
  * copyright infringement and violation of law.
  */
-
-#if __has_feature(objc_arc) && __clang_major__ >= 3
-#error "Quantcast Measurement is not designed to be used with ARC. Please add '-fno-objc-arc' to this file's compiler flags"
-#endif // __has_feature(objc_arc)
+#if !__has_feature(objc_arc)
+#error "Quantcast Measurement is designed to be used with ARC. Please turn on ARC or add '-fobjc-arc' to this file's compiler flags"
+#endif // !__has_feature(objc_arc)
 
 #import <QuartzCore/QuartzCore.h>
 #import "QuantcastOptOutViewController.h"
@@ -30,7 +29,7 @@
     BOOL _originalOptOutStatus;
     UISwitch* _onOffSwitch;
 }
-@property (retain,nonatomic) QuantcastMeasurement* measurement;
+@property (strong,nonatomic) QuantcastMeasurement* measurement;
 @end
 
 @implementation QuantcastOptOutViewController
@@ -51,11 +50,10 @@
 -(void)dealloc {
     _delegate = nil;
     
-    [super dealloc];
 }
 
 -(void)loadView{
-    self.navigationItem.rightBarButtonItem = [[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(done:)] autorelease];
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(done:)];
     
     UIView* mainView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 460)];
     mainView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
@@ -73,7 +71,6 @@
     aboutText.font = [UIFont systemFontOfSize:14];
     aboutText.dataDetectorTypes = UIDataDetectorTypeLink;
     [mainView addSubview:aboutText];
-    [aboutText release];
     
     UIView* switchContainer = [[UIView alloc]initWithFrame:CGRectMake(10, 347, mainView.frame.size.width-20, 48)];
     switchContainer.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleRightMargin;
@@ -88,16 +85,13 @@
     allowText.font = [UIFont boldSystemFontOfSize:18];
     allowText.text = @"Allow Data Collection";
     [switchContainer addSubview:allowText];
-    [allowText release];
     
     _onOffSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(211, 10, 79, 27)];
     _onOffSwitch.on = ![QuantcastMeasurement sharedInstance].isOptedOut;
     [_onOffSwitch addTarget:self action:@selector(optOutStatusChanged:) forControlEvents:UIControlEventValueChanged];
     [switchContainer addSubview:_onOffSwitch];
-    [_onOffSwitch release];
     
     [mainView addSubview:switchContainer];
-    [switchContainer release];
     
     UIButton* review = [UIButton buttonWithType:UIButtonTypeRoundedRect];
     review.frame = CGRectMake(10, 403, mainView.frame.size.width-20, 37);
@@ -109,7 +103,6 @@
     
     
     self.view = mainView;
-    [mainView release];
     
 }
 
@@ -164,7 +157,7 @@
     
     if ( _originalOptOutStatus != !_onOffSwitch.on ) {
         
-        [[QuantcastMeasurement sharedInstance] setOptOutStatus:!_onOffSwitch.on];
+        [QuantcastMeasurement sharedInstance].isOptedOut = !_onOffSwitch.on;
 
         if ( nil != self.delegate && [self.delegate respondsToSelector:@selector(quantcastOptOutStatusDidChange:)] ) {
             [self.delegate quantcastOptOutStatusDidChange:[QuantcastMeasurement sharedInstance].isOptedOut];
@@ -182,19 +175,7 @@
 }
 
 -(void)reviewPrivacyPolicy:(id)inSender {
-    NSURL* qcPrivacyURL = [NSURL URLWithString:@"http://www.quantcast.com/privacy/"];
-    
-    //keep them in app
-    UIViewController* webController = [[[UIViewController alloc] init] autorelease];
-    webController.title = @"Privacy Policy";
-    UIWebView* web = [[UIWebView alloc] initWithFrame:[UIScreen mainScreen].bounds];
-    web.scalesPageToFit = YES;
-    [web loadRequest:[NSURLRequest requestWithURL:qcPrivacyURL]];
-    webController.view = web;
-    [web release];
-    
-    [self.navigationController pushViewController:webController animated:YES];
-    
+    [[QuantcastMeasurement sharedInstance] displayQuantcastPrivacyPolicy:self];
 }
 
 -(void)done:(id)inSender {

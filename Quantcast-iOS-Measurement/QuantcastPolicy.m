@@ -9,11 +9,9 @@
  * permissions and limitations under the License. Unauthorized use of this file constitutes
  * copyright infringement and violation of law.
  */
-
-
-#if __has_feature(objc_arc) && __clang_major__ >= 3
-#error "Quantcast Measurement is not designed to be used with ARC. Please add '-fno-objc-arc' to this file's compiler flags"
-#endif // __has_feature(objc_arc)
+#if !__has_feature(objc_arc)
+#error "Quantcast Measurement is designed to be used with ARC. Please turn on ARC or add '-fobjc-arc' to this file's compiler flags"
+#endif // !__has_feature(objc_arc)
 
 #ifndef QCMEASUREMENT_ENABLE_JSONKIT
 #define QCMEASUREMENT_ENABLE_JSONKIT 0
@@ -98,7 +96,7 @@
                                                               
         //
         // Now set up for a download of policy 
-        _policyURL = [inPolicyURL retain];
+        _policyURL = inPolicyURL;
             
         [self downloadLatestPolicyWithReachability:inNetworkReachabilityOrNil];
     }
@@ -109,11 +107,7 @@
 -(void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     
-    [_blacklistedParams release];
-    [_policyURL release];
-    [_didSalt release];
     
-    [super dealloc];
 }
 
 -(void)downloadLatestPolicyWithReachability:(id<QuantcastNetworkReachability>)inNetworkReachabilityOrNil {
@@ -142,16 +136,12 @@
     
     if (nil != policyDict) {
         
-        [_blacklistedParams autorelease];
         _blacklistedParams = [QuantcastPolicy blackListFromJSONArray:[policyDict objectForKey:@"blacklist"] defaultValue:nil];
-        [_blacklistedParams retain];
         
-        [_didSalt autorelease];
         _didSalt = [QuantcastUtils stringFromObject:[policyDict objectForKey:@"salt"] defaultValue:nil];
         if ( [_didSalt isEqualToString:QCMEASUREMENT_DO_NOT_SALT_STRING] ) {
             _didSalt = nil;
         }
-        [_didSalt retain];
         
         _isMeasurementBlackedout = [QuantcastPolicy isBlackedOutFromJSONObject:[policyDict objectForKey:@"blackout"] defaultValue:NO];
         
@@ -176,7 +166,7 @@
     }
     else {
         
-        NSError* jsonError = nil;
+        NSError* __autoreleasing jsonError = nil;
         
         // try to use NSJSONSerialization first. check to see if class is available (iOS 5 or later)
         Class jsonClass = NSClassFromString(@"NSJSONSerialization");
@@ -198,8 +188,8 @@
         
         if ( nil != jsonError ) {
             policyDict = nil;
-            NSString* jsonStr = [[[NSString alloc] initWithData:inJSONData
-                                                      encoding:NSUTF8StringEncoding] autorelease] ;
+            NSString* jsonStr = [[NSString alloc] initWithData:inJSONData
+                                                      encoding:NSUTF8StringEncoding] ;
             [self handleError:[NSString stringWithFormat:@"Unable to parse policy JSON data. error = %@, json = %@", jsonError, jsonStr]];
         }
     }
@@ -305,8 +295,8 @@
                                                                cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
                                                            timeoutInterval:QCMEASUREMENT_CONN_TIMEOUT_SECONDS];
 
-        NSHTTPURLResponse* policyResponse = nil;
-        NSError* policyError = nil;
+        NSHTTPURLResponse* __autoreleasing policyResponse = nil;
+        NSError* __autoreleasing policyError = nil;
         NSData* policyData = [NSURLConnection sendSynchronousRequest:request returningResponse:&policyResponse error:&policyError];
         if( nil != policyError){
             [self connectionDidFail:policyError];
@@ -343,7 +333,6 @@
     if (QuantcastUtils.logging) {
         NSString* jsonStr = [[NSString alloc] initWithData:policyData encoding:NSUTF8StringEncoding];
        QUANTCAST_LOG(@"Successfully downloaded policy with json = %@", jsonStr);
-        [jsonStr release];
     }
     
     // first, determine if there is a saved policy on disk, if not, create it with default polciy
@@ -370,7 +359,7 @@
     
    QUANTCAST_LOG(@"Creating policy object with policy URL = %@", policyURL);
     
-    return [[[QuantcastPolicy alloc] initWithPolicyURL:policyURL reachability:inReachability] autorelease];
+    return [[QuantcastPolicy alloc] initWithPolicyURL:policyURL reachability:inReachability];
 }
 
 /*!

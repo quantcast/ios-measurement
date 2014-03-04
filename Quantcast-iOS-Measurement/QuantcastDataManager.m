@@ -9,12 +9,9 @@
  * permissions and limitations under the License. Unauthorized use of this file constitutes
  * copyright infringement and violation of law.
  */
-
-
-#if __has_feature(objc_arc) && __clang_major__ >= 3
-#error "Quantcast Measurement is not designed to be used with ARC. Please add '-fno-objc-arc' to this file's compiler flags"
-#endif // __has_feature(objc_arc)
-
+#if !__has_feature(objc_arc)
+#error "Quantcast Measurement is designed to be used with ARC. Please turn on ARC or add '-fobjc-arc' to this file's compiler flags"
+#endif // !__has_feature(objc_arc)
 
 #import "QuantcastDataManager.h"
 #import "QuantcastUtils.h"
@@ -72,12 +69,6 @@
     return self;
 }
 
--(void)dealloc {
-    [_uploadManager release];
-    [_db release];
-    
-    [super dealloc];
-}
 
 -(void)enableDataUploadingWithReachability:(id<QuantcastNetworkReachability>)inNetworkReachability {
     
@@ -129,7 +120,7 @@
     BOOL isNewDB = ![[NSFileManager defaultManager] fileExistsAtPath:qcDatabasePath];
     
     
-    _db = [[QuantcastDatabase databaseWithFilePath:qcDatabasePath] retain];
+    _db = [QuantcastDatabase databaseWithFilePath:qcDatabasePath];
     
     if (isNewDB) {
         // it's a new database, set it up.
@@ -229,7 +220,7 @@
     
     [_db beginDatabaseTransaction];
     
-    NSArray* dbEventList = nil;
+    NSArray* __autoreleasing dbEventList = nil;
     
     // first we move up to self.uploadEventCount records into a working table
     
@@ -257,7 +248,7 @@
             int64_t eventTimeStamp = [eventTimeIntervalStr longLongValue];
             NSDate* timestamp = [NSDate dateWithTimeIntervalSince1970:eventTimeStamp];
             
-            NSArray* eventParamList = nil;
+            NSArray* __autoreleasing eventParamList = nil;
             if (![_db executeSQL:[NSString stringWithFormat:@"SELECT name, value FROM event WHERE eventid = %qi;",eventId] withResultsColumCount:2 producingResults:&eventParamList]) {
                 return nil;
             }
@@ -278,7 +269,7 @@
 }
 
 -(NSUInteger)eventCount {
-    return [_db rowCountForTable:@"events"];
+    return (NSUInteger)[_db rowCountForTable:@"events"];
 }
 
 -(void)trimEventsDatabaseBy:(NSUInteger)inEventsToDelete {
@@ -290,7 +281,7 @@
     
     [_db beginDatabaseTransaction];
     
-    int64_t curEventCount = [self eventCount];
+    NSUInteger curEventCount = [self eventCount];
     
     NSUInteger deleteEventCount = MIN(inEventsToDelete, curEventCount);
     
@@ -377,14 +368,14 @@
     }
     
     if ( ![fileManager createFileAtPath:creationFilepath contents:fileJSONData attributes:nil] ) {
-        NSString* fileJSONStr = [[[NSString alloc] initWithData:fileJSONData encoding:NSUTF8StringEncoding] autorelease];
+        NSString* fileJSONStr = [[NSString alloc] initWithData:fileJSONData encoding:NSUTF8StringEncoding];
        QUANTCAST_LOG(@"Could not create JSON file at path '%@' with contents = %@", creationFilepath, fileJSONStr );
         return nil;
     }
     
     // file has been created. Now move it to it's ready loacation.
     
-    NSError* error = nil;
+    NSError* __autoreleasing error = nil;
     if ( ![fileManager moveItemAtPath:creationFilepath toPath:finalFilepath error:&error] ) {
        QUANTCAST_LOG(@"Could note move file '%@' to location '%@'. Error = %@", creationFilepath, finalFilepath, [error localizedDescription] );
         return nil;
@@ -454,12 +445,10 @@
     if ( originalValue != inIsOptOut ) {
         if ( inIsOptOut ) {
             // stop all uploading
-            [_uploadManager release];
             _uploadManager = nil;
 
             // make sure database connection is closed
             [_db closeDatabaseConnection];
-            [_db release];
             _db = nil;
             
             // get rid of all Quantcast data on device

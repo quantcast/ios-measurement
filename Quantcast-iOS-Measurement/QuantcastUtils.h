@@ -40,7 +40,7 @@
 
 +(NSString*)quantcastHash:(NSString*)inStrToHash;
 
-+(NSData*)gzipData:(NSData*)inData error:(NSError**)outError;
++(NSData*)gzipData:(NSData*)inData error:(NSError*__autoreleasing*)outError;
 
 /*!
  @internal

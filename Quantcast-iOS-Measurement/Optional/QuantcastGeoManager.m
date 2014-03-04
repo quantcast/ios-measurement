@@ -10,16 +10,9 @@
  * copyright infringement and violation of law.
  */
 
-#ifndef __has_feature
-#define __has_feature(x) 0
-#endif
-#ifndef __has_extension
-#define __has_extension __has_feature // Compatibility with pre-3.0 compilers.
-#endif
-
-#if __has_feature(objc_arc) && __clang_major__ >= 3
-#error "Quantcast Measurement is not designed to be used with ARC. Please add '-fno-objc-arc' to this file's compiler flags"
-#endif // __has_feature(objc_arc)
+#if !__has_feature(objc_arc)
+#error "Quantcast Measurement is designed to be used with ARC. Please turn on ARC or add '-fobjc-arc' to this file's compiler flags"
+#endif // !__has_feature(objc_arc)
 
 #import "QuantcastParameters.h"
 
@@ -40,13 +33,13 @@
 @interface QuantcastGeoManager () {
     BOOL _geoLocationEnabled;
 }
-@property (assign,nonatomic) id<QuantcastEventLogger> eventLogger;
-@property (retain,nonatomic) CLLocationManager* locationManager;
-@property (retain,nonatomic) CLGeocoder* geocoder;
-@property (retain,nonatomic) NSOperationQueue* opQueue;
-@property (retain,nonatomic) NSTimer* locationMeasurementTimer;
+@property (unsafe_unretained,nonatomic) id<QuantcastEventLogger> eventLogger;
+@property (strong,nonatomic) CLLocationManager* locationManager;
+@property (strong,nonatomic) CLGeocoder* geocoder;
+@property (strong,nonatomic) NSOperationQueue* opQueue;
+@property (strong,nonatomic) NSTimer* locationMeasurementTimer;
 @property (assign,nonatomic) NSTimeInterval detailedGeoMeasureWaitInterval;
-@property (retain,nonatomic) CLLocation* lastLocationProcessed;
+@property (strong,nonatomic) CLLocation* lastLocationProcessed;
 @property (assign,nonatomic) NSUInteger detailedMeasurementUpdateCount;
 @property (assign,nonatomic) BOOL detailedGeoMeasureInProgress;
 
@@ -88,12 +81,7 @@
     _eventLogger = nil;
     
     [_opQueue cancelAllOperations];
-    [_opQueue release];
-    [_locationManager release];
-    [_geocoder release];
-    [_lastLocationProcessed release];
     
-    [super dealloc];
 }
 
 -(void)privacyPolicyUpdate:(NSNotification*)inNotification {
@@ -107,14 +95,14 @@
 -(void)startGeoMonitoring {
     if ( self.geoLocationEnabled ) {
         if (nil == self.locationManager) {
-            self.locationManager = [[[CLLocationManager alloc] init] autorelease];
+            self.locationManager = [[CLLocationManager alloc] init];
             self.locationManager.delegate = self;
             self.locationManager.desiredAccuracy = self.eventLogger.policy.desiredGeoLocationAccuracy;
             self.locationManager.distanceFilter = self.eventLogger.policy.geoMeasurementUpdateDistance;
         }
         
         if ( nil == self.opQueue ) {
-            self.opQueue = [[[NSOperationQueue alloc] init] autorelease];
+            self.opQueue = [[NSOperationQueue alloc] init];
             self.opQueue.maxConcurrentOperationCount = 1;
             [self.opQueue setName:@"com.quantcast.measure.operationsqueue.geomanager"];
         }
@@ -337,7 +325,7 @@
 
 -(void)generateGeoEventWithLocation:(CLLocation*)inLocation isAppInBackground:(BOOL)inIsAppInBackground {
     if (nil == self.geocoder ) {
-        self.geocoder = [[[CLGeocoder alloc] init] autorelease];
+        self.geocoder = [[CLGeocoder alloc] init];
     }
     
     [self.opQueue addOperationWithBlock:^{

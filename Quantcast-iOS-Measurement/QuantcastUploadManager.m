@@ -9,10 +9,9 @@
  * permissions and limitations under the License. Unauthorized use of this file constitutes
  * copyright infringement and violation of law.
  */
-
-#if __has_feature(objc_arc) && __clang_major__ >= 3
-#error "Quantcast Measurement is not designed to be used with ARC. Please add '-fno-objc-arc' to this file's compiler flags"
-#endif // __has_feature(objc_arc)
+#if !__has_feature(objc_arc)
+#error "Quantcast Measurement is designed to be used with ARC. Please turn on ARC or add '-fobjc-arc' to this file's compiler flags"
+#endif // !__has_feature(objc_arc)
 
 #import "QuantcastUploadManager.h"
 #import "QuantcastDataManager.h"
@@ -62,7 +61,7 @@
         }
         
         // check uploading directory for any unfinished uploads, and move them to ready to upload directory
-        NSError* dirError = nil;
+        NSError* __autoreleasing dirError = nil;
         NSFileManager* fileManager = [NSFileManager defaultManager];
         
         NSString* uploadingDir = [QuantcastUtils quantcastUploadInProgressDirectoryPath];
@@ -78,7 +77,7 @@
                     NSString* newFilePath = [readyToUploadDirPath stringByAppendingPathComponent:filename];
                     
                     
-                    NSError* error = nil;
+                    NSError* __autoreleasing error = nil;
                     
                     if ( ![fileManager moveItemAtPath:currentFilePath toPath:newFilePath error:&error] ) {
                         // error, will robinson
@@ -105,7 +104,6 @@
     dispatch_release(_uploadQueue);
 #endif
     
-    [super dealloc];
 }
 
 -(void)networkReachabilityChanged:(NSNotification*)inNotification {
@@ -138,7 +136,7 @@
             
             NSString* readyDirPath = [QuantcastUtils quantcastDataReadyToUploadDirectoryPath];
             
-            NSError* dirError = nil;
+            NSError* __autoreleasing dirError = nil;
             NSArray* dirContents = [fileManager contentsOfDirectoryAtPath:readyDirPath error:&dirError];
             
             if ( nil == dirError && [dirContents count] > 0 ) {
@@ -157,8 +155,8 @@
 
 -(void)uploadJSONFile:(NSString*)inJSONFilePath dataManager:(QuantcastDataManager*)inDataManager {    
     
-    NSString* uploadID = nil;
-    NSString* uploadingFilePath = nil;
+    NSString* __autoreleasing uploadID = nil;
+    NSString* __autoreleasing uploadingFilePath = nil;
     
     // get NSURLRequest
     
@@ -173,8 +171,8 @@
     // send it!
         
     NSTimeInterval startTime = NSDate.timeIntervalSinceReferenceDate;
-    NSHTTPURLResponse* uploadResponse;
-    NSError* uploadError = nil;
+    NSHTTPURLResponse* __autoreleasing uploadResponse = nil;
+    NSError* __autoreleasing uploadError = nil;
     [NSURLConnection sendSynchronousRequest:urlRequest returningResponse:&uploadResponse error:&uploadError];
     
     if( nil != uploadError){
@@ -185,7 +183,7 @@
     
     if(uploadResponse.statusCode == 200){
         QUANTCAST_LOG(@"Success at uploading json file '%@' to %@", uploadingFilePath, [urlRequest URL] );
-        NSError* fileError = nil;
+        NSError* __autoreleasing fileError = nil;
         
         [[NSFileManager defaultManager] removeItemAtPath:uploadingFilePath error:&fileError];
         
@@ -207,7 +205,7 @@
     
     NSString* newFilePath = [[QuantcastUtils quantcastDataReadyToUploadDirectoryPath] stringByAppendingPathComponent:[inJsonPath lastPathComponent]];
     
-    NSError* error = nil;
+    NSError* __autoreleasing error = nil;
     
     if ( ![[NSFileManager defaultManager] moveItemAtPath:inJsonPath toPath:newFilePath error:&error] ) {
        QUANTCAST_LOG(@"Could not relocate file '%@' to '%@'. Error = %@", inJsonPath, newFilePath, error );
@@ -219,15 +217,15 @@
 }
 
 -(NSURLRequest*)urlRequestForJSONFile:(NSString*)inJSONFilePath 
-                    reportingUploadID:(NSString**)outUploadID 
-                          newFilePath:(NSString**)outNewFilePath 
+                    reportingUploadID:(NSString*__autoreleasing*)outUploadID
+                          newFilePath:(NSString*__autoreleasing*)outNewFilePath 
 {
     
     // set upload ID to nil to start with. Only report it if request gene is successful
     
     (*outUploadID) = nil;
     
-    NSError* compressError = nil;
+    NSError* __autoreleasing compressError = nil;
     
     NSData* uncompressedBodyData = [NSData dataWithContentsOfFile:inJSONFilePath];
 
@@ -264,7 +262,7 @@
         [[NSFileManager defaultManager] removeItemAtPath:(*outNewFilePath) error:nil];
     }
 
-    NSError* error = nil;
+    NSError* __autoreleasing error = nil;
 
     if ( ![[NSFileManager defaultManager] moveItemAtPath:inJSONFilePath toPath:(*outNewFilePath) error:&error] ) {
        QUANTCAST_LOG(@"Could note move file '%@' to location '%@'. Error = %@", inJSONFilePath, (*outNewFilePath), [error localizedDescription] );
@@ -272,7 +270,7 @@
     }
     
     // now extract upload id from JSON
-    NSString* jsonStr = [[[NSString alloc] initWithData:uncompressedBodyData encoding:NSUTF8StringEncoding] autorelease];
+    NSString* jsonStr = [[NSString alloc] initWithData:uncompressedBodyData encoding:NSUTF8StringEncoding];
     
     NSRange keyRange = [jsonStr rangeOfString:@"\"uplid\":\""];
     

@@ -9,6 +9,10 @@
  * permissions and limitations under the License. Unauthorized use of this file constitutes
  * copyright infringement and violation of law.
  */
+#if !__has_feature(objc_arc)
+#error "Quantcast Measurement is designed to be used with ARC. Please turn on ARC or add '-fobjc-arc' to this file's compiler flags"
+#endif // !__has_feature(objc_arc)
+
 #import "QuantcastMeasurement+Networks.h"
 #import "QuantcastMeasurement+Internal.h"
 #import "QuantcastEvent.h"
@@ -92,9 +96,8 @@
     }
 }
 
--(void)setNetworkLabels:(id<NSObject>)networkLabels{
-    [_networkLabels autorelease];
-    _networkLabels = [networkLabels retain];
+-(void)setNetworkLabels:(id<NSObject>)inNetworkLabels{
+    _networkLabels = inNetworkLabels;
 }
 
 -(id<NSObject>)networkLabels{

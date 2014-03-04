@@ -47,7 +47,7 @@
  @param outResultsArray a pointer to a NSArray* variable into which the results array will be placed. The NSArray* pointed to should be nil when passed in. It will be nil when th function returns if the query was not successfully executed. If the query was successful but had no results, the NSArray* will be set to an empty array.
  @result a boolean indicating whether the query suceeded or not.
  */
--(BOOL)executeSQL:(NSString*)inSQL withResultsColumCount:(NSUInteger)inResultsColumnCount producingResults:(NSArray**)outResultsArray;
+-(BOOL)executeSQL:(NSString*)inSQL withResultsColumCount:(NSUInteger)inResultsColumnCount producingResults:(NSArray*__autoreleasing*)outResultsArray;
 
 -(int64_t)getLastInsertRowId;
 

@@ -22,7 +22,7 @@
  */
 @interface QuantcastOptOutViewController : UIViewController
 
-@property (assign,nonatomic) id<QuantcastOptOutDelegate> delegate;
+@property (unsafe_unretained,nonatomic) id<QuantcastOptOutDelegate> delegate;
 
 -(id)initWithDelegate:(id<QuantcastOptOutDelegate>)inDelegate;
 

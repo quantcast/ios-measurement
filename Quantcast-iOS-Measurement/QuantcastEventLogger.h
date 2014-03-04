@@ -19,7 +19,7 @@
 @protocol QuantcastEventLogger <NSObject>
 @required
 @property (readonly,nonatomic) BOOL isOptedOut;
-@property (retain,nonatomic) NSString* currentSessionID;
+@property (strong,nonatomic) NSString* currentSessionID;
 @property (readonly) NSString* appInstallIdentifier;
 @property (readonly) QuantcastPolicy* policy;
 

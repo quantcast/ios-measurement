@@ -9,11 +9,9 @@
  * permissions and limitations under the License. Unauthorized use of this file constitutes
  * copyright infringement and violation of law.
  */
-
-
-#if __has_feature(objc_arc) && __clang_major__ >= 3
-#error "Quantcast Measurement is not designed to be used with ARC. Please add '-fno-objc-arc' to this file's compiler flags"
-#endif // __has_feature(objc_arc)
+#if !__has_feature(objc_arc)
+#error "Quantcast Measurement is designed to be used with ARC. Please turn on ARC or add '-fobjc-arc' to this file's compiler flags"
+#endif // !__has_feature(objc_arc)
 
 #import <CoreTelephony/CTTelephonyNetworkInfo.h>
 #import <AdSupport/AdSupport.h>
@@ -58,13 +56,13 @@ QuantcastMeasurement* gSharedInstance = nil;
 }
 
 #if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
-@property (retain,nonatomic) QuantcastGeoManager* geoManager;
+@property (strong,nonatomic) QuantcastGeoManager* geoManager;
 #endif
 
-@property (retain, nonatomic) NSString* cachedAppInstallIdentifier;
-@property (retain, nonatomic) NSString* quantcastAPIKey;
-@property (retain, nonatomic) NSString* quantcastNetworkPCode;
-@property (retain, nonatomic) NSString* hashedUserId;
+@property (strong, nonatomic) NSString* cachedAppInstallIdentifier;
+@property (strong, nonatomic) NSString* quantcastAPIKey;
+@property (strong, nonatomic) NSString* quantcastNetworkPCode;
+@property (strong, nonatomic) NSString* hashedUserId;
 @property (readonly) NSOperationQueue* quantcastQueue;
 
 +(BOOL)isOptedOutStatus;
@@ -136,28 +134,13 @@ QuantcastMeasurement* gSharedInstance = nil;
 -(void)dealloc {
     [_quantcastQueue removeObserver:self forKeyPath:@"operationCount"];
     [_quantcastQueue cancelAllOperations];
-    [_quantcastQueue release];
     
     [self stopReachabilityNotifier];
     
 #if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
     self.geoLocationEnabled = NO;
-    [_geoManager release];
 #endif
-
-    [_quantcastAPIKey release];
     
-    [_dataManager release];
-    [_hashedUserId release];
-
-    [_telephoneInfo release];
-    [_cachedAppInstallIdentifier release];
-    
-    [_appLabels release];
-    [_networkLabels release];
-    [_policy release];
-    
-    [super dealloc];
 }
 
 -(void)appendUserAgent:(BOOL)add {
@@ -166,7 +149,7 @@ QuantcastMeasurement* gSharedInstance = nil;
     
     //check for quantcast user agent first
     NSString* qcRegex = [NSString stringWithFormat:@"%@/iOS_(\\d+)\\.(\\d+)\\.(\\d+)/[a-zA-Z0-9]{16}-[a-zA-Z0-9]{16}", QCMEASUREMENT_UA_PREFIX];
-    NSError* regexError = nil;
+    NSError* __autoreleasing regexError = nil;
     NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:qcRegex options:0 error:&regexError];
     if(nil != regexError){
        QUANTCAST_LOG(@"Error creating user agent regular expression = %@ ", regexError );
@@ -205,10 +188,9 @@ QuantcastMeasurement* gSharedInstance = nil;
         dispatch_sync(dispatch_get_main_queue(), ^{
             UIWebView* webView = [[UIWebView alloc] initWithFrame:CGRectZero];
             userAgent = [[webView stringByEvaluatingJavaScriptFromString:@"navigator.userAgent"] copy] ;
-            [webView release];
         });
     }
-    return [userAgent autorelease];
+    return userAgent;
 }
 
 -(BOOL)advertisingTrackingEnabled {
@@ -236,25 +218,27 @@ QuantcastMeasurement* gSharedInstance = nil;
     if ( self.isOptedOut ) {
         return nil;
     }
-    
     NSString* udidStr = nil;
+
+    if(![_policy isBlacklistedParameter:QCPARAMETER_DID]){
     
-    Class adManagerClass = NSClassFromString(@"ASIdentifierManager");
-    
-    if ( nil != adManagerClass ) {
+        Class adManagerClass = NSClassFromString(@"ASIdentifierManager");
         
-        id manager = [adManagerClass sharedManager];
-        
-        if ( [manager isAdvertisingTrackingEnabled] ) {
-            NSUUID* uuid = [manager advertisingIdentifier];
+        if ( nil != adManagerClass ) {
             
-            if ( nil != uuid ) {
-                udidStr = [uuid UUIDString];
+            id manager = [adManagerClass sharedManager];
+            
+            if ( [manager isAdvertisingTrackingEnabled] ) {
+                NSUUID* uuid = [manager advertisingIdentifier];
                 
-                // now check for the iOS 6 bug
-                if ( [udidStr compare:@"00000000-0000-0000-0000-000000000000"] == NSOrderedSame ) {
-                    // this is a bad device identifier. treat as having no device identifier.
-                    udidStr = nil;
+                if ( nil != uuid ) {
+                    udidStr = [uuid UUIDString];
+                    
+                    // now check for the iOS 6 bug
+                    if ( [udidStr compare:@"00000000-0000-0000-0000-000000000000"] == NSOrderedSame ) {
+                        // this is a bad device identifier. treat as having no device identifier.
+                        udidStr = nil;
+                    }
                 }
             }
         }
@@ -287,7 +271,7 @@ QuantcastMeasurement* gSharedInstance = nil;
         return @"";
     }
     
-    NSError* writeError = nil;
+    NSError* __autoreleasing writeError = nil;
 
     NSString* identFile = [cacheDir stringByAppendingPathComponent:QCMEASUREMENT_IDENTIFIER_FILENAME];
     
@@ -296,7 +280,7 @@ QuantcastMeasurement* gSharedInstance = nil;
     
     
     if ( [[NSFileManager defaultManager] fileExistsAtPath:identFile] && !adIdPrefHasChanged ) {
-        NSError* readError = nil;
+        NSError* __autoreleasing readError = nil;
         
         NSString* idStr = [NSString stringWithContentsOfFile:identFile encoding:NSUTF8StringEncoding error:&readError];
         
@@ -417,7 +401,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 -(NSTimeInterval)checkTimestamp:(NSString*)path{
     NSTimeInterval timestamp = 0;
     if ( [[NSFileManager defaultManager] fileExistsAtPath:path]) {
-        NSError* error = nil;
+        NSError* __autoreleasing error = nil;
         NSDictionary* attrib = [[NSFileManager defaultManager] attributesOfItemAtPath:path error:&error];
         if (nil != error) {
            QUANTCAST_LOG(@"Error getting session attributes = %@ ", error );
@@ -649,7 +633,7 @@ QuantcastMeasurement* gSharedInstance = nil;
             [self appendUserAgent:YES];
         
             if (nil == _dataManager) {
-                _policy = [[QuantcastPolicy policyWithAPIKey:self.quantcastAPIKey networkPCode:_quantcastNetworkPCode networkReachability:self countryCode:self.carrier.isoCountryCode appIsDirectAtChildren:inAppIsDirectedAtChildren] retain];
+                _policy = [QuantcastPolicy policyWithAPIKey:self.quantcastAPIKey networkPCode:_quantcastNetworkPCode networkReachability:self countryCode:self.carrier.isoCountryCode appIsDirectAtChildren:inAppIsDirectedAtChildren];
                 
                 if ( nil == _policy ) {
                     // policy wasn't able to be built. Stop reachability and bail, thus not activating measurement.
@@ -662,7 +646,7 @@ QuantcastMeasurement* gSharedInstance = nil;
             
 #if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
                 if (nil == self.geoManager ) {
-                    self.geoManager = [[[QuantcastGeoManager alloc] initWithEventLogger:self] autorelease];
+                    self.geoManager = [[QuantcastGeoManager alloc] initWithEventLogger:self];
                     self.geoManager.geoLocationEnabled = self.geoLocationEnabled;
                 }
 #endif
@@ -692,7 +676,7 @@ QuantcastMeasurement* gSharedInstance = nil;
             if ( self.isMeasurementActive ) {
                 QuantcastEvent* e = [QuantcastEvent closeSessionEventWithSessionID:self.currentSessionID eventTimestamp:timestamp applicationInstallID:self.appInstallIdentifier eventAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:inAppLabelsOrNil] eventNetworkLabels:inNetworkLabels];
                 
-                [self recordEvent:e withUpload:NO];
+                [self recordEvent:e withUpload:YES];
                 [self updateSessionTimestamp];
                 
     #if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
@@ -791,18 +775,18 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
         QUANTCAST_ERROR(@"Info was NULL in QuantcastReachabilityCallback");
         return;
     }
-    if ( ![(NSObject*) info isKindOfClass: [QuantcastMeasurement class]] ) {
+    if ( ![(__bridge NSObject*) info isKindOfClass: [QuantcastMeasurement class]] ) {
         QUANTCAST_ERROR(@"Info was wrong class in QuantcastReachabilityCallback");
         return;
     }
 
-    NSAutoreleasePool* myPool = [[NSAutoreleasePool alloc] init];
+    @autoreleasepool {
     
-    QuantcastMeasurement* qcMeasurement = (QuantcastMeasurement*) info;
-    [[NSNotificationCenter defaultCenter] postNotificationName:kQuantcastNetworkReachabilityChangedNotification object:qcMeasurement];
-    [qcMeasurement logNetworkReachability];
+        QuantcastMeasurement* qcMeasurement = (__bridge QuantcastMeasurement*) info;
+        [[NSNotificationCenter defaultCenter] postNotificationName:kQuantcastNetworkReachabilityChangedNotification object:qcMeasurement];
+        [qcMeasurement logNetworkReachability];
     
-    [myPool release];
+    }
 }
 
 
@@ -828,16 +812,23 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     BOOL retVal = NO;
     
     if ( NULL == _reachability ) {
-        SCNetworkReachabilityContext    context = {0, self, NULL, NULL, NULL};
+        SCNetworkReachabilityContext    context = {0, (__bridge void *)(self), NULL, NULL, NULL};
 
         NSURL* url = [NSURL URLWithString:QCMEASUREMENT_UPLOAD_URL];
-        struct sockaddr_in myAddress;
-        bzero(&myAddress, sizeof(myAddress));
-        myAddress.sin_len = sizeof(myAddress);
-        myAddress.sin_family = AF_INET;
-        myAddress.sin_addr = *(struct in_addr *) gethostbyname([url host].UTF8String)->h_addr_list[0];
+        struct hostent *host = gethostbyname([url host].UTF8String);
+    
+        if(host == NULL){
+            _reachability = SCNetworkReachabilityCreateWithName(NULL, [[url host] UTF8String]);
+        }else{
+            struct sockaddr_in myAddress;
+            bzero(&myAddress, sizeof(myAddress));
+            myAddress.sin_len = sizeof(myAddress);
+            myAddress.sin_family = AF_INET;
+            myAddress.sin_addr = *(struct in_addr *) host->h_addr_list[0];
+            _reachability = SCNetworkReachabilityCreateWithAddress(kCFAllocatorDefault, (const struct sockaddr*)&myAddress);
+        }
         
-        _reachability = SCNetworkReachabilityCreateWithAddress(kCFAllocatorDefault, (const struct sockaddr*)&myAddress);
+        
 
         if(SCNetworkReachabilitySetCallback(_reachability, QuantcastReachabilityCallback, &context))
         {
@@ -970,7 +961,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     [self launchOnQuantcastThread:^(NSDate *timestamp) {
         if ( self.isMeasurementActive ) {
             // save current hashed user ID in order to detect session changes
-            NSString* originalHashedUserId = [[_hashedUserId copy] autorelease];
+            NSString* originalHashedUserId = _hashedUserId;
             if ( ( originalHashedUserId == nil && hashedId != nil ) ||
                 ( originalHashedUserId != nil && hashedId == nil ) ||
                 ( originalHashedUserId != nil && ![originalHashedUserId isEqualToString:hashedId] ) ) {
@@ -1135,10 +1126,61 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     
 }
 
+-(void)displayQuantcastPrivacyPolicy{
+    [self displayQuantcastPrivacyPolicy:nil];
+}
+
+-(void)displayQuantcastPrivacyPolicy:(UIViewController*)inController{
+    NSURL* qcPrivacyURL = [NSURL URLWithString:@"http://www.quantcast.com/privacy/"];
+    if(nil == inController){
+        [[UIApplication sharedApplication] openURL:qcPrivacyURL];
+    }else{
+        //keep them in app
+        UIViewController* webController = [[UIViewController alloc] init];
+        webController.title = @"Privacy Policy";
+        UIWebView* web = [[UIWebView alloc] initWithFrame:[UIScreen mainScreen].bounds];
+        web.scalesPageToFit = YES;
+        [web loadRequest:[NSURLRequest requestWithURL:qcPrivacyURL]];
+        webController.view = web;
+        
+        if( nil != inController.navigationController ){
+            [inController.navigationController pushViewController:webController animated:YES];
+        }
+        else{
+            UINavigationController* navWrapper = [[UINavigationController alloc] initWithRootViewController:webController];
+            navWrapper.title = @"Quantcast Privacy Policy";
+            navWrapper.navigationBar.topItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(dismissPrivacyPolicy:)];
+            navWrapper.modalPresentationStyle = UIModalPresentationFormSheet;
+            if ([inController respondsToSelector:@selector(presentViewController:animated:completion:)]) {
+                [inController presentViewController:navWrapper animated:YES completion:NULL];
+            }
+            else {
+                // pre-iOS 5
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+                [inController presentModalViewController:navWrapper animated:YES];
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
+            }
+        }
+        
+    }
+}
+
+-(void)dismissPrivacyPolicy:(id)button{
+    if ([[[UIApplication sharedApplication].keyWindow.rootViewController presentedViewController] respondsToSelector:@selector(dismissViewControllerAnimated:completion:)]) {
+        [[[UIApplication sharedApplication].keyWindow.rootViewController presentedViewController] dismissViewControllerAnimated:YES completion:NULL];
+    }
+    else {
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+        [[[UIApplication sharedApplication].keyWindow.rootViewController presentedViewController] dismissModalViewControllerAnimated:YES];
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
+    }
+    
+}
+
 -(void)displayUserPrivacyDialogOver:(UIViewController*)inCurrentViewController withDelegate:(id<QuantcastOptOutDelegate>)inDelegate {
  
-    QuantcastOptOutViewController* optOutController = [[[QuantcastOptOutViewController alloc] initWithDelegate:inDelegate] autorelease];
-    UINavigationController* navWrapper = [[[UINavigationController alloc] initWithRootViewController:optOutController] autorelease];
+    QuantcastOptOutViewController* optOutController = [[QuantcastOptOutViewController alloc] initWithDelegate:inDelegate];
+    UINavigationController* navWrapper = [[UINavigationController alloc] initWithRootViewController:optOutController];
     
     navWrapper.modalPresentationStyle = UIModalPresentationFormSheet;
     if ([inCurrentViewController respondsToSelector:@selector(presentViewController:animated:completion:)]) {

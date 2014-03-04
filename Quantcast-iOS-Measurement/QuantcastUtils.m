@@ -9,10 +9,9 @@
  * permissions and limitations under the License. Unauthorized use of this file constitutes
  * copyright infringement and violation of law.
  */
-
-#if __has_feature(objc_arc) && __clang_major__ >= 3
-#error "Quantcast Measurement is not designed to be used with ARC. Please add '-fno-objc-arc' to this file's compiler flags"
-#endif // __has_feature(objc_arc)
+#if !__has_feature(objc_arc)
+#error "Quantcast Measurement is designed to be used with ARC. Please turn on ARC or add '-fobjc-arc' to this file's compiler flags"
+#endif // !__has_feature(objc_arc)
 
 #import "QuantcastUtils.h"
 #import "QuantcastParameters.h"
@@ -122,7 +121,7 @@ static BOOL _enableLogging = NO;
     
     NSString* cacheDir = [QuantcastUtils quantcastCacheDirectoryPath];
     
-    NSError* dirError = nil;
+    NSError* __autoreleasing dirError = nil;
     NSArray* dirContents = [fileManager contentsOfDirectoryAtPath:cacheDir error:&dirError];
     
     if ( nil == dirError && [dirContents count] > 0 ) {
@@ -131,7 +130,7 @@ static BOOL _enableLogging = NO;
         
         for (NSString* filename in dirContents) {
             if ( ![filesToKeepSet containsObject:filename] ) {
-                NSError* error = nil;
+                NSError* __autoreleasing error = nil;
                 
                 [fileManager removeItemAtPath:[[QuantcastUtils quantcastCacheDirectoryPath] stringByAppendingPathComponent:filename] error:&error];
                 if (nil != error) {
@@ -180,7 +179,7 @@ static BOOL _enableLogging = NO;
 }
 
 #import "zlib.h" 
-+(NSData*)gzipData:(NSData*)inData error:(NSError**)outError {
++(NSData*)gzipData:(NSData*)inData error:(NSError*__autoreleasing*)outError {
     if (!inData || [inData length] == 0)  
     {  
         if ( NULL != outError ) {
@@ -334,7 +333,7 @@ static BOOL _enableLogging = NO;
             
              
             
-            SecTrustSetVerifyDate(trust, (CFDateRef)validCheckDate);
+            SecTrustSetVerifyDate(trust, (__bridge CFDateRef)validCheckDate);
             err = SecTrustEvaluate(trust, &trustResult);
             
             if ((err == noErr) && ((trustResult == kSecTrustResultProceed) || (trustResult == kSecTrustResultUnspecified))) {
@@ -352,7 +351,7 @@ static BOOL _enableLogging = NO;
 
         QUANTCAST_LOG(@"QC Measurement: Could not validate trust certificates from %@", challenge.protectionSpace.host );
         
-        NSError* error = [[[NSError alloc] initWithDomain:@"QCAuthenticationError" code:1 userInfo:@{ NSLocalizedDescriptionKey: @"Could not validate trust certificate", NSURLErrorFailingURLStringErrorKey : [[connection currentRequest] URL] } ] autorelease];
+        NSError* error = [[NSError alloc] initWithDomain:@"QCAuthenticationError" code:1 userInfo:@{ NSLocalizedDescriptionKey: @"Could not validate trust certificate", NSURLErrorFailingURLStringErrorKey : [[connection currentRequest] URL] } ];
         
         [[QuantcastMeasurement sharedInstance] logSDKError:QC_SDKERRORTYPE_HTTPSAUTHCHALLENGE
                                                  withError:error
@@ -362,7 +361,7 @@ static BOOL _enableLogging = NO;
         [challenge.sender cancelAuthenticationChallenge:challenge];
         
         QUANTCAST_LOG(@"Got an unhandled authentication challenge from %@", challenge.protectionSpace.host );
-        NSError* error = [[[NSError alloc] initWithDomain:@"QCAuthenticationError" code:2 userInfo:@{ NSLocalizedDescriptionKey: @"Unhandled authentication challenge", NSURLErrorFailingURLStringErrorKey : [[connection currentRequest] URL] } ] autorelease];
+        NSError* error = [[NSError alloc] initWithDomain:@"QCAuthenticationError" code:2 userInfo:@{ NSLocalizedDescriptionKey: @"Unhandled authentication challenge", NSURLErrorFailingURLStringErrorKey : [[connection currentRequest] URL] } ];
         [[QuantcastMeasurement sharedInstance] logSDKError:QC_SDKERRORTYPE_HTTPSAUTHCHALLENGE
                                                  withError:error
                                             errorParameter:challenge.protectionSpace.host];
@@ -469,10 +468,10 @@ static BOOL _enableLogging = NO;
 }
 
 +(NSString *)urlEncodeString:(NSString*)inString {
-	NSString* encodedString = (NSString *)CFURLCreateStringByAddingPercentEscapes( kCFAllocatorDefault, (CFStringRef)inString, NULL, (CFStringRef)@"!*'\"();:@&=+$,/?%#[]% ", CFStringConvertNSStringEncodingToEncoding(NSUTF8StringEncoding) );
+	NSString* encodedString = (NSString *)CFBridgingRelease(CFURLCreateStringByAddingPercentEscapes( kCFAllocatorDefault, (CFStringRef)inString, NULL, (CFStringRef)@"!*'\"();:@&=+$,/?%#[]% ", CFStringConvertNSStringEncodingToEncoding(NSUTF8StringEncoding) ));
 
 
-    return [encodedString autorelease];
+    return encodedString;
 }
 
 +(void)setLogging:(BOOL)loggingOn{
@@ -487,7 +486,7 @@ static BOOL _enableLogging = NO;
     CFUUIDRef newUUID = CFUUIDCreate(kCFAllocatorDefault);
     CFStringRef UUIDStr = CFUUIDCreateString(kCFAllocatorDefault, newUUID);
     
-    NSString* uuid = [NSString stringWithString:(NSString*)UUIDStr];
+    NSString* uuid = [NSString stringWithString:(__bridge NSString*)UUIDStr];
     
     CFRelease(UUIDStr);
     CFRelease(newUUID);

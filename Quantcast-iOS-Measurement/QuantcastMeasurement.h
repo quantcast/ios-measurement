@@ -115,9 +115,9 @@
 /*!
  @property isOptedOut
  @abstract Indicates whether the user has opted out of Quantcast Measurement or not.
- @discussion You can use this method to determine if the user has opted out of measurement on this device either via your app or another on the device. Whether the user opted out via this app or another is not determinable as Quantcast Measurement opt out is on a per-device basis. If the user wishes to change their opt out status on their device, they must do so through the Quantcast User Privacy dialog presented with the displayUserPrivacyDialogOver:withDelegate: method.
+ @discussion You can use this method to determine if the user has opted out of measurement on this device either via your app or another on the device. Whether the user opted out via this app or another is not determinable as Quantcast Measurement opt out is on a per-device basis. If the user wishes to change their opt out status on their device, they can either do so through the Quantcast User Privacy dialog presented with the displayUserPrivacyDialogOver:withDelegate: method or by setting this property to YES.
  */
-@property (readonly,nonatomic) BOOL isOptedOut;
+@property (nonatomic, setter=setOptOutStatus:) BOOL isOptedOut;
 
 /*!
  @method displayUserPrivacyDialogOver:withDelegate:
@@ -128,6 +128,14 @@
  */
 -(void)displayUserPrivacyDialogOver:(UIViewController*)inCurrentViewController withDelegate:(id<QuantcastOptOutDelegate>)inDelegateOrNil;
 
+/*!
+ @method displayQuantcastPrivacyPolicy:
+ @abstract Displays the Quantcast Privacy Policy.
+ @discussion Use these methods to display the Quantcast privacy policy when displaying a custom opt out view.
+ @param inControllerOrNil This should be the current UIViewController. The Quantcast privacy policy will be displayed over this view.  If nil, the policy will be launched in an external browser.
+ */
+-(void)displayQuantcastPrivacyPolicy;
+-(void)displayQuantcastPrivacyPolicy:(UIViewController*)inControllerOrNil;
 
 #pragma mark - Optional Detailed Integration
 
@@ -136,7 +144,7 @@
  @abstract Property that contains a static application labels
  @discussion This property can be set to either an NSString or an NSArray of NSStrings.  When set, the label(s) will be automatically passed to all calls which take labels.  This is a convience property for applications that segment their audience by a fairly static group of labels.   This property can be changed at any time.
  */
-@property (retain,nonatomic) id<NSObject> appLabels;
+@property (strong,nonatomic) id<NSObject> appLabels;
 
 
 /*!

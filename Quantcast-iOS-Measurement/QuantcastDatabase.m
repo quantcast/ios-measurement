@@ -10,10 +10,9 @@
  * copyright infringement and violation of law.
  */
 
-
-#if __has_feature(objc_arc) && __clang_major__ >= 3
-#error "Quantcast Measurement is not designed to be used with ARC. Please add '-fno-objc-arc' to this file's compiler flags"
-#endif // __has_feature(objc_arc)
+#if !__has_feature(objc_arc)
+#error "Quantcast Measurement is designed to be used with ARC. Please turn on ARC or add '-fobjc-arc' to this file's compiler flags"
+#endif // !__has_feature(objc_arc)
 
 #import "QuantcastDatabase.h"
 #import "QuantcastUtils.h"
@@ -35,7 +34,7 @@
 
 +(QuantcastDatabase*)databaseWithFilePath:(NSString*)inFilePath {
     
-    return [[[QuantcastDatabase alloc] initWithFilePath:inFilePath] autorelease];
+    return [[QuantcastDatabase alloc] initWithFilePath:inFilePath];
 }
 
 
@@ -43,7 +42,7 @@
     self = [super init];
     
     if ( self ) {
-        _databaseFilePath = [inFilePath retain];
+        _databaseFilePath = inFilePath;
         _preparedStatements = [[NSMutableDictionary alloc] initWithCapacity:1];
         
         if ( !sqlite3_threadsafe() ) {
@@ -58,10 +57,7 @@
     
     
     [self closeDatabaseConnection];
-    [_preparedStatements release];
-    [_databaseFilePath release];
     
-    [super dealloc];
 }
 
 -(NSString*)databaseFilePath {
@@ -127,7 +123,7 @@
     return YES;
 }
 
--(BOOL)executeSQL:(NSString*)inSQL withResultsColumCount:(NSUInteger)inResultsColumnCount producingResults:(NSArray**)outResultsArray {
+-(BOOL)executeSQL:(NSString*)inSQL withResultsColumCount:(NSUInteger)inResultsColumnCount producingResults:(NSArray*__autoreleasing*)outResultsArray {
     
     NSMutableArray* resultRows = nil;
 
@@ -146,7 +142,7 @@
                 NSMutableArray* rowValues = [NSMutableArray arrayWithCapacity:inResultsColumnCount];
                 
                 for (NSUInteger i = 0; i < inResultsColumnCount; ++i ) {
-                    NSString* columnValue = [[[NSString alloc] initWithUTF8String:(const char *) sqlite3_column_text(statement, (int)i)] autorelease];
+                    NSString* columnValue = [[NSString alloc] initWithUTF8String:(const char *) sqlite3_column_text(statement, (int)i)];
                     
                     [rowValues addObject:columnValue];
                 }
@@ -185,7 +181,7 @@
     
     NSString* sql = [NSString stringWithFormat:@"SELECT COUNT(*) FROM %@;",inTableName];
     
-    NSArray* results = nil;
+    NSArray* __autoreleasing results = nil;
     
     if ([self executeSQL:sql withResultsColumCount:1 producingResults:&results]) {
         if ( 1 == [results count] ) {
@@ -280,7 +276,6 @@
         [self clearStatementInDataObject:statementObj];
     }
     
-    [oldList release];
 }
 
 -(void)clearStatementInDataObject:(NSData*)inStatementDataObj {

@@ -9,11 +9,9 @@
  * permissions and limitations under the License. Unauthorized use of this file constitutes
  * copyright infringement and violation of law.
  */
-
-
-#if __has_feature(objc_arc) && __clang_major__ >= 3
-#error "Quantcast Measurement is not designed to be used with ARC. Please add '-fno-objc-arc' to this file's compiler flags"
-#endif // __has_feature(objc_arc)
+#if !__has_feature(objc_arc)
+#error "Quantcast Measurement is designed to be used with ARC. Please turn on ARC or add '-fobjc-arc' to this file's compiler flags"
+#endif // !__has_feature(objc_arc)
 
 #import "QuantcastMeasurement.h"
 #import <sys/utsname.h>
@@ -46,9 +44,9 @@
     
     self = [super init];
     if (self) {
-        _timestamp = [inTimeStamp retain];
-        _sessionID = [inSessionID retain];
-        _parameters = [[NSMutableDictionary dictionaryWithCapacity:1] retain];
+        _timestamp = inTimeStamp;
+        _sessionID = inSessionID;
+        _parameters = [NSMutableDictionary dictionaryWithCapacity:1];
         
     }
     
@@ -56,13 +54,6 @@
 }
 
 
--(void)dealloc {
-    [_timestamp release];
-    [_sessionID release];
-    [_parameters release];
-    
-    [super dealloc];
-}
 
 
 #pragma mark - Parameter Management
@@ -160,7 +151,7 @@
                       eventTimestamp:(NSDate *)inTimestamp
                 applicationInstallID:(NSString*)inAppInstallID
 {
-    QuantcastEvent* e = [[[QuantcastEvent alloc] initWithSessionID:inSessionID timeStamp:inTimestamp] autorelease];
+    QuantcastEvent* e = [[QuantcastEvent alloc] initWithSessionID:inSessionID timeStamp:inTimestamp];
     [e putParameter:QCPARAMETER_AID withValue:inAppInstallID];
     return e;
 }
@@ -228,7 +219,7 @@
     NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
     if ([paths count] > 0) {
         NSString* base = [paths objectAtIndex:0];
-        NSError* error = nil;
+        NSError* __autoreleasing error = nil;
         NSDictionary* attrib = [[NSFileManager defaultManager] attributesOfItemAtPath:base error:&error];
         if (nil != error) {
            QUANTCAST_LOG(@"Error getting file attributes = %@ ", error );
@@ -421,7 +412,7 @@
         [e putParameter:param withValue:value];
     }
     
-    return [e autorelease];
+    return e;
 }
 
 @end
