@@ -1,7 +1,7 @@
 #Quantcast Measure for Apps#
 ###iOS SDK Changelog###
 
-##Version 1.3.0##
+##Version 1.4.0##
 March 03, 2014
 * Updated to support ARC - See README for integration instruction changes
 * Added programmatic way to Opt Out users
