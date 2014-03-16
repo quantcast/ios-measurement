@@ -1,6 +1,10 @@
 #Quantcast Measure for Apps#
 ###iOS SDK Changelog###
 
+##Version 1.4.1##
+March 15, 2014
+* Fixed network label issue
+
 ##Version 1.4.0##
 March 03, 2014
 * Updated to support ARC - See README for integration instruction changes
