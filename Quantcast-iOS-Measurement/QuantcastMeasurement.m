@@ -48,7 +48,6 @@ QuantcastMeasurement* gSharedInstance = nil;
     QuantcastDataManager* _dataManager;
 
     BOOL _appIsDeclaredDirectedAtChildren;
-    BOOL _advertisingTrackingEnabled;
     CTTelephonyNetworkInfo* _telephoneInfo;
     BOOL _usesOneStep;
     
@@ -103,6 +102,9 @@ QuantcastMeasurement* gSharedInstance = nil;
 -(id)init {
     self = [super init];
     if (self) {
+
+        [self checkInitalAdPref];
+        
         _backgroundTaskID = UIBackgroundTaskInvalid;
         _quantcastQueue = [[NSOperationQueue alloc] init];
         //operation count needs to be 1 to ensure event task synchronization
@@ -143,12 +145,31 @@ QuantcastMeasurement* gSharedInstance = nil;
     
 }
 
+-(void)checkInitalAdPref{
+    //if ad pref doesnt exist than set the default ad Pref to Enabled
+    NSUserDefaults *prefs = [NSUserDefaults standardUserDefaults];
+    if ([prefs objectForKey:QCMEASUREMENT_ADIDPREF_DEFAULTS] == nil) {
+        BOOL initialValue = YES;
+        NSString* cacheDir = [QuantcastUtils quantcastCacheDirectoryPathCreatingIfNeeded];
+        NSString* adIdPrefFile = [cacheDir stringByAppendingPathComponent:QCMEASUREMENT_DEPRECATED_ADIDPREF_FILENAME];
+        if ([[NSFileManager defaultManager] fileExistsAtPath:adIdPrefFile] ) {
+            NSError* readError = nil;
+            NSString* savedAdIdPref = [NSString stringWithContentsOfFile:adIdPrefFile encoding:NSUTF8StringEncoding error:&readError];
+            if(readError == nil){
+                initialValue = [savedAdIdPref boolValue];
+            }
+        }
+        [prefs setBool:initialValue forKey:QCMEASUREMENT_ADIDPREF_DEFAULTS];
+        [prefs synchronize];
+    }
+}
+
 -(void)appendUserAgent:(BOOL)add {
     
     NSString* userAgent = [self originalUserAgent];
     
     //check for quantcast user agent first
-    NSString* qcRegex = [NSString stringWithFormat:@"%@/iOS_(\\d+)\\.(\\d+)\\.(\\d+)/[a-zA-Z0-9]{16}-[a-zA-Z0-9]{16}", QCMEASUREMENT_UA_PREFIX];
+    NSString* qcRegex = [NSString stringWithFormat:@"%@/iOS_(\\d+)\\.(\\d+)\\.(\\d+)/([a-zA-Z0-9]{16}-[a-zA-Z0-9]{16}|p-[-_a-zA-Z0-9]{13})", QCMEASUREMENT_UA_PREFIX];
     NSError* __autoreleasing regexError = nil;
     NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:qcRegex options:0 error:&regexError];
     if(nil != regexError){
@@ -159,7 +180,11 @@ QuantcastMeasurement* gSharedInstance = nil;
     
     NSString* newUA = nil;
     if( start.location == NSNotFound && add ) {
-        newUA = [userAgent stringByAppendingFormat:@"%@/%@/%@", QCMEASUREMENT_UA_PREFIX, QCMEASUREMENT_API_IDENTIFIER, self.quantcastAPIKey];
+        if( nil != self.quantcastAPIKey ){
+            newUA = [userAgent stringByAppendingFormat:@"%@/%@/%@", QCMEASUREMENT_UA_PREFIX, QCMEASUREMENT_API_IDENTIFIER, self.quantcastAPIKey];
+        }else{
+            newUA = [userAgent stringByAppendingFormat:@"%@/%@/%@", QCMEASUREMENT_UA_PREFIX, QCMEASUREMENT_API_IDENTIFIER, self.quantcastNetworkPCode];
+        }
     }
     else if( start.location != NSNotFound && !add ) {
         newUA = [NSString stringWithFormat:@"%@%@", [userAgent substringToIndex:start.location], [userAgent substringFromIndex:NSMaxRange(start)]];
@@ -1095,7 +1120,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
                     [self setupMeasurementSessionWithAPIKey:self.quantcastAPIKey userIdentifier:nil labels:@"_OPT-IN"];
                 }
                 else {
-                    [self beginMeasurementSessionWithAPIKey:self.quantcastAPIKey labels:@"_OPT-IN"];
+                    [self internalBeginSessionWithAPIKey:self.quantcastAPIKey attributedNetwork:self.quantcastNetworkPCode userIdentifier:nil appLabels:@"_OPT-IN" networkLabels:nil appIsDeclaredDirectedAtChildren:_appIsDeclaredDirectedAtChildren];
                 }
                 
                 if ( self.geoLocationEnabled ) {

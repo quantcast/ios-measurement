@@ -106,8 +106,8 @@
 // Quantcast Measurement SDK
 //
 
-#define QCMEASUREMENT_API_VERSION               @"1_4_1"
-#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.4.1"
+#define QCMEASUREMENT_API_VERSION               @"1_4_2"
+#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.4.2"
 #define QCMEASUREMENT_CONN_TIMEOUT_SECONDS      60
 
 #ifndef QCMEASUREMENT_UPLOAD_URL
@@ -119,6 +119,7 @@
 #define QCMEASUREMENT_DATABASE_FILENAME         @"qcmeasurement.db"
 #define QCMEASUREMENT_IDENTIFIER_FILENAME       @"qc-identifier.txt"
 #define QCMEASUREMENT_SESSIONID_FILENAME        @"session-id.txt"
+#define QCMEASUREMENT_DEPRECATED_ADIDPREF_FILENAME         @"ad-id-pref.txt"
 
 #define QCMEASUREMENT_ADIDPREF_DEFAULTS         @"com.quantcast.measure.pref.prior-ad-targeting"
 #define QCMEASUREMENT_OPTOUT_DEFAULTS           @"com.quantcast.measure.pref.optout"

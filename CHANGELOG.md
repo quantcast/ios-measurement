@@ -1,6 +1,10 @@
 #Quantcast Measure for Apps#
 ###iOS SDK Changelog###
 
+##Version 1.4.2##
+April 22, 2014
+* Fixed upgrade vs install issue.
+
 ##Version 1.4.1##
 March 15, 2014
 * Fixed network label issue
