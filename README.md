@@ -72,7 +72,7 @@ If your project does not use automatic reference counting (ARC), take the follow
 
     <img src="https://raw.github.com/quantcast-engineering/quantcast-documentation/master/ios/images/image009.png" alt="Screenshot - Multi-select Quantcast Files" style="width: 700px;"/>
 
-3.	Hit enter to bring up a text input box, then type in “–fobjc-arc” and hit enter. 
+3.	Hit enter to bring up a text input box, then type in “-fobjc-arc” and hit enter. 
 
     <img src="https://raw.github.com/quantcast-engineering/quantcast-documentation/master/ios/images/image012.png" alt="Screenshot - Set Compile Flag" style="width: 700px;"/>
 
