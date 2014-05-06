@@ -55,6 +55,7 @@
 #endif
 
 @class QuantcastPolicy;
+@class UIViewController;
 
 /*!
  @class QuantcastMeasurement

@@ -1262,10 +1262,11 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
 
 -(void)logSDKError:(NSString*)inSDKErrorType withError:(NSError*)inErrorOrNil errorParameter:(NSString*)inErrorParametOrNil {
     if ( !self.isOptedOut && self.isMeasurementActive ) {
-
-        QuantcastEvent* e = [QuantcastEvent logSDKError:inSDKErrorType withErrorObject:inErrorOrNil errorParameter:inErrorParametOrNil withSessionID:self.currentSessionID eventTimestamp:[NSDate date] applicationInstallID:self.appInstallIdentifier];
-        
-        [self recordEvent:e];
+        [self launchOnQuantcastThread:^(NSDate *timestamp) {
+            QuantcastEvent* e = [QuantcastEvent logSDKError:inSDKErrorType withErrorObject:inErrorOrNil errorParameter:inErrorParametOrNil withSessionID:self.currentSessionID eventTimestamp:timestamp applicationInstallID:self.appInstallIdentifier];
+            
+            [self recordEvent:e];
+        }];
     }
     
 }
