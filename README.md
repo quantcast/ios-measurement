@@ -44,7 +44,6 @@ git submodule update --init
     <img src="https://raw.github.com/quantcast-engineering/quantcast-documentation/master/ios/images/image001.png" alt="Screenshot - Add Files to Project" style="width: 700px;"/>
 
 2.	Link the following iOS frameworks and libraries to your project if they are not already.  From your project properties, go to the “General” section, the scroll down to “Linked Frameworks and Libraries” and hit the “+” at the bottom left.  Then use the Command key to multiselect and add the following:
-	*	`AdSupport`
 	*	`CoreGraphics`
 	*	`CoreTelephony`
 	*	`Foundation`
@@ -55,10 +54,6 @@ git submodule update --init
 
     <img src="https://raw.github.com/quantcast-engineering/quantcast-documentation/master/ios/images/image002.png" alt="Screenshot - Add Frameworks and Libraries" style="width: 700px;"/>
 
-3.	Make the following iOS framework optional (weak link): 
-	*	`AdSupport`
-
-    <img src="https://raw.github.com/quantcast-engineering/quantcast-documentation/master/ios/images/image005.png" alt="Screenshot - Make Linking Optional" style="width: 700px;"/>
 
 #### If You Are Not Using Automatic Reference Counting (ARC) ####
 
@@ -156,6 +151,11 @@ When not using the default dialog we strongly recommend that you also have a but
 ```
 
 Note: when a user opts out of Quantcast Measure, the SDK immediately stops transmitting information to or from the user's device and deletes any cached information that may have retained. 
+
+#### Use of the AdSupport Framework ####
+Linking to the AdSupport framework is not strictly necessary for integration with the Quantcast Measure SDK. However,  if you choose to link to the AdSupport framework in order to serve ads in your app, that framework will allow Quantcast to have to access to IDFAs, which we can use to improve the quality of demographic data we provide about your users in our Measure service.
+
+Remember, if your code or any third party code in your app utilizes the IDFA, you will need to state that in the app submission process, in response to the question “Does this app use the Advertising Identifier (IDFA)?”  Thus, if you’re integrated with the Quantcast SDK and you choose to link to the Ad Support framework, you should answer that question “yes.”  Additionally, in the app submission process, you will need to confirm that your app – and everyone that interfaces with your app – honors the Limit Ad Tracking setting, which the Quantcast SDK does.
 
 ### Optional Code Integrations ###
 
