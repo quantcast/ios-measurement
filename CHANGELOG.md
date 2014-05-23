@@ -1,6 +1,16 @@
 #Quantcast Measure for Apps#
 ###iOS SDK Changelog###
 
+##Version 1.4.4##
+May 22, 2014
+* Added Advertising campaign measurement
+* Fixed unexpected database value.  fixes #9
+
+##Version 1.4.3##
+May 06, 2014
+* Database write bug fixes #7
+* Added class forward of UIViewController fixes #5
+
 ##Version 1.4.2##
 April 22, 2014
 * Fixed upgrade vs install issue.

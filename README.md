@@ -275,6 +275,18 @@ The current user identifier is passed in the `userIdentifierStr` argument.
 
 Note that in all cases, the Quantcast iOS SDK will immediately 1-way hash the passed app user identifier, and return the hashed value for your reference. You do not need to take any action with the hashed value.
 
+#### Advertising Campaign Measurement ####
+Quantcast is able to measure the audience exposed to ad campaigns that may be delivered through the application. If you want to additionally log the ad displays that occur within your app and have audience measurement against the audience exposed to a campaign, creative, or placement, first you must first add the optional source found in `Optional/QuantcastMeasurement+Advertising.h`.
+Then add the log ad impression methods when advertisements are shown or refreshed:
+
+```objective-c
+[[QuantcastMeasurement sharedInstance] logAdImpressionForCampaign:inCampaignOrNil media:inMediaOrNil placement:inPlacementOrNil withAppLabels:nil];
+```
+
+Where inCampaignOrNil is an NSString of the campaign identifier being displayed for the ad impression, inMediaOrNil is an NSString of the ad creative identifier being displayed, and inPlacementOrNil is a NSString of the placement identifier for the location. Note that the Campaign, Media and Placement strings are all optional, and also that any periods in their name will be treated like a label period, indicating the level of hierarchy.
+
+You may also pass a dynamic audience label here.  In this case, the label passed in the app labels argument will place the device user who saw the ad impression into the indicate audience segment. You might use this the ad impression label to categorize the type of ad product being displayed so that you can get aggregate reports on audience exposure. See [Audience Labels](#audience-labels) section section above for more information on Audience Segments.
+
 #### SDK Customization ####
 
 ##### Logging and Debugging #####

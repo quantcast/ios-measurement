@@ -142,9 +142,20 @@
                 NSMutableArray* rowValues = [NSMutableArray arrayWithCapacity:inResultsColumnCount];
                 
                 for (NSUInteger i = 0; i < inResultsColumnCount; ++i ) {
-                    NSString* columnValue = [[NSString alloc] initWithUTF8String:(const char *) sqlite3_column_text(statement, (int)i)];
-                    
-                    [rowValues addObject:columnValue];
+                    const char* dbText = (const char *)sqlite3_column_text(statement, (int)i);
+                    if(NULL != dbText){
+                        NSString* columnValue = [[NSString alloc] initWithUTF8String:dbText ];
+                        
+                        if( nil != columnValue ){
+                            [rowValues addObject:columnValue];
+                        }
+                        else {
+                            [rowValues addObject:@"_badVal"];
+                        }
+                    }
+                    else {
+                        [rowValues addObject:@"_badVal"];
+                    }
                 }
                 
                 [resultRows addObject:rowValues];

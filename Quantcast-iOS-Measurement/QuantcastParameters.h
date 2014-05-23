@@ -22,6 +22,7 @@
 #define QCMEASUREMENT_EVENT_PAUSE       @"pause"
 #define QCMEASUREMENT_EVENT_RESUME      @"resume"
 
+#define QCMEASUREMENT_EVENT_ADEVENT         @"ad"
 #define QCMEASUREMENT_EVENT_APPEVENT        @"appevent"
 #define QCMEASUREMENT_EVENT_NETWORKEVENT    @"netevent"
 #define QCMEASUREMENT_EVENT_LOCATION        @"location"
@@ -79,6 +80,9 @@
 #define QCPARAMETER_INSTALL           @"inst"
 #define QCPARAMETER_INBACKGROUND      @"inback"
 #define QCPARAMETER_IDFA_LINKED       @"idfa-linked"
+#define QCPARAMETER_CAMPAIGN          @"campaign"
+#define QCPARAMETER_MEDIA             @"media"
+#define QCPARAMETER_PLACEMENT         @"placement"
 
 // Latency event
 #define QCPARAMETER_LATENCY           @"latency"
@@ -106,8 +110,8 @@
 // Quantcast Measurement SDK
 //
 
-#define QCMEASUREMENT_API_VERSION               @"1_4_3"
-#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.4.3"
+#define QCMEASUREMENT_API_VERSION               @"1_4_4"
+#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.4.4"
 #define QCMEASUREMENT_CONN_TIMEOUT_SECONDS      60
 
 #ifndef QCMEASUREMENT_UPLOAD_URL

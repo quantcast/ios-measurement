@@ -13,6 +13,7 @@
 #error "Quantcast Measurement is designed to be used with ARC. Please turn on ARC or add '-fobjc-arc' to this file's compiler flags"
 #endif // !__has_feature(objc_arc)
 
+#import <Foundation/Foundation.h>
 #import "QuantcastMeasurement.h"
 #import <sys/utsname.h>
 #import <CoreTelephony/CTCarrier.h>
