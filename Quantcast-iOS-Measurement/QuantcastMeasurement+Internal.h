@@ -16,6 +16,8 @@
 @interface QuantcastMeasurement (Internal) <QuantcastEventLogger>
 @property (readonly,nonatomic) BOOL hasNetworkIntegration;
 @property (readonly,nonatomic) BOOL isMeasurementActive;
+@property (readonly,nonatomic) id<NSObject> internalSDKAppLabels;
+@property (readonly,nonatomic) id<NSObject> internalSDKNetworkLabels;
 
 -(NSString*)internalBeginSessionWithAPIKey:(NSString*)inQuantcastAPIKey attributedNetwork:(NSString*)inNetworkPCode userIdentifier:(NSString*)inUserIdentifierOrNil appLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil appIsDeclaredDirectedAtChildren:(BOOL)inAppIsDirectedAtChildren;
 
@@ -28,5 +30,7 @@
 -(NSString*)internalRecordUserIdentifier:(NSString*)inUserIdentifierOrNil withAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabels;
 
 -(void)internalLogEvent:(NSString*)inEventName withAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabels;
+
+-(void)addInternalSDKAppLabels:(NSArray*)inAppLabels networkLabels:(NSArray*)inNetworkLabels;
 
 @end

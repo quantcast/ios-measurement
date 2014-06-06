@@ -217,22 +217,11 @@
     [e putParameter:QCPARAMETER_MNN withValue:inCarrier.carrierName];
     [e putParameter:QCPARAMETER_MNC withValue:inCarrier.mobileNetworkCode];
     
-    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-    if ([paths count] > 0) {
-        NSString* base = [paths objectAtIndex:0];
-        NSError* __autoreleasing error = nil;
-        NSDictionary* attrib = [[NSFileManager defaultManager] attributesOfItemAtPath:base error:&error];
-        if (nil != error) {
-           QUANTCAST_LOG(@"Error getting file attributes = %@ ", error );
-        }
-        else {
-            NSDate* created = [attrib objectForKey:NSFileCreationDate];
-            if (nil != created) {
-                [e putParameter:QCPARAMETER_INSTALL withValue:[NSString stringWithFormat:@"%lld",(long long)[created timeIntervalSince1970]*1000]];
-            }
-        }
+    NSDate* created = [QuantcastUtils appInstallTime];
+    if (nil != created) {
+        [e putParameter:QCPARAMETER_INSTALL withValue:[NSString stringWithFormat:@"%lld",(long long)[created timeIntervalSince1970]*1000]];
     }
-    
+
     struct utsname systemInfo;
     uname(&systemInfo);
     NSString* platform =  [NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding];

@@ -52,15 +52,18 @@ QuantcastMeasurement* gSharedInstance = nil;
     BOOL _usesOneStep;
     
     NSUInteger _uploadEventCount;
+    
+    id<NSObject> _internalSDKAppLabels;
+    id<NSObject> _internalSDKNetworkLabels;
 }
 
 #if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
 @property (strong,nonatomic) QuantcastGeoManager* geoManager;
 #endif
 
-@property (strong, nonatomic) NSString* cachedAppInstallIdentifier;
 @property (strong, nonatomic) NSString* quantcastAPIKey;
 @property (strong, nonatomic) NSString* quantcastNetworkPCode;
+@property (strong, nonatomic) NSString* cachedAppInstallIdentifier;
 @property (strong, nonatomic) NSString* hashedUserId;
 @property (readonly) NSOperationQueue* quantcastQueue;
 
@@ -102,7 +105,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 -(id)init {
     self = [super init];
     if (self) {
-
+        
         [self checkInitalAdPref];
         
         _backgroundTaskID = UIBackgroundTaskInvalid;
@@ -466,7 +469,8 @@ QuantcastMeasurement* gSharedInstance = nil;
         else if ([inLabelsOrNil isKindOfClass:[NSString class]]) {
             [labels addObject:inLabelsOrNil];
         }
-        [labels addObject:@"_sdk.ios.setup"];
+
+        [self addInternalSDKAppLabels:@[@"_sdk.ios.setup"] networkLabels:nil];
         self.appLabels = [QuantcastUtils combineLabels:self.appLabels withLabels:labels];
         
         userhash = [self internalBeginSessionWithAPIKey:inQuantcastAPIKey attributedNetwork:nil userIdentifier:userIdentifierOrNil appLabels:nil networkLabels:nil appIsDeclaredDirectedAtChildren:NO];
@@ -658,7 +662,7 @@ QuantcastMeasurement* gSharedInstance = nil;
             [self appendUserAgent:YES];
         
             if (nil == _dataManager) {
-                _policy = [QuantcastPolicy policyWithAPIKey:self.quantcastAPIKey networkPCode:_quantcastNetworkPCode networkReachability:self countryCode:self.carrier.isoCountryCode appIsDirectAtChildren:inAppIsDirectedAtChildren];
+                _policy = [QuantcastPolicy policyWithAPIKey:self.quantcastAPIKey networkPCode:self.quantcastNetworkPCode networkReachability:self countryCode:self.carrier.isoCountryCode appIsDirectAtChildren:inAppIsDirectedAtChildren];
                 
                 if ( nil == _policy ) {
                     // policy wasn't able to be built. Stop reachability and bail, thus not activating measurement.
@@ -777,6 +781,30 @@ QuantcastMeasurement* gSharedInstance = nil;
             }
         }];
     }
+}
+
+#pragma mark - Internal Label Management
+
+-(void)addInternalSDKAppLabels:(NSArray*)inAppLabels networkLabels:(NSArray*)inNetworkLabels {
+    _internalSDKAppLabels = [QuantcastUtils combineLabels:inAppLabels withLabels:self.internalSDKAppLabels];
+    _internalSDKNetworkLabels = [QuantcastUtils combineLabels:inNetworkLabels withLabels:self.internalSDKNetworkLabels];
+}
+
+-(void)setInternalSDKAppLabels:(NSArray*)inAppLabels networkLabels:(NSArray*)inNetworkLabels {
+    _internalSDKAppLabels = inAppLabels;
+    _internalSDKNetworkLabels = inNetworkLabels;
+}
+
+-(id<NSObject>)internalSDKAppLabels {
+    return _internalSDKAppLabels;
+}
+
+-(id<NSObject>)internalSDKNetworkLabels {
+    return _internalSDKNetworkLabels;
+}
+
+-(id<NSObject>)appLabels {
+    return [QuantcastUtils combineLabels:_appLabels withLabels:self.internalSDKAppLabels];
 }
 
 #pragma mark - Telephony

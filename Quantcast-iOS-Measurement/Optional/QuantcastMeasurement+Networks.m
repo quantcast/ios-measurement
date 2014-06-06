@@ -101,7 +101,7 @@
 }
 
 -(id<NSObject>)networkLabels{
-    return _networkLabels;
+    return [QuantcastUtils combineLabels:_networkLabels withLabels:self.internalSDKNetworkLabels];
 }
 
 -(BOOL)validateNetworkForMessageNamed:(NSString*)name{

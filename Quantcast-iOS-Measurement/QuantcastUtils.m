@@ -13,6 +13,7 @@
 #error "Quantcast Measurement is designed to be used with ARC. Please turn on ARC or add '-fobjc-arc' to this file's compiler flags"
 #endif // !__has_feature(objc_arc)
 
+#import <zlib.h>
 #import "QuantcastUtils.h"
 #import "QuantcastParameters.h"
 #import "QuantcastMeasurement.h"
@@ -178,7 +179,6 @@ static BOOL _enableLogging = NO;
     return hashStr;
 }
 
-#import "zlib.h" 
 +(NSData*)gzipData:(NSData*)inData error:(NSError*__autoreleasing*)outError {
     if (!inData || [inData length] == 0)  
     {  
@@ -504,6 +504,27 @@ static BOOL _enableLogging = NO;
         retString = [number stringValue];
     }
     return retString;
+}
+
++(NSDate*)appInstallTime {
+    
+    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    if ([paths count] > 0) {
+        NSString* base = [paths objectAtIndex:0];
+        NSError* __autoreleasing error = nil;
+        NSDictionary* attrib = [[NSFileManager defaultManager] attributesOfItemAtPath:base error:&error];
+        if (nil != error) {
+            QUANTCAST_LOG(@"Error getting file attributes = %@ ", error );
+        }
+        else {
+            NSDate* created = [attrib objectForKey:NSFileCreationDate];
+            if (nil != created) {
+                return created;
+            }
+        }
+    }
+    
+    return nil;
 }
 
 @end

@@ -27,7 +27,6 @@
 #import "JSONKit.h"
 #endif
 
-#define SYSTEM_VERSION_LESS_THAN(v)              ([[[UIDevice currentDevice] systemVersion] compare:v options:NSNumericSearch] == NSOrderedAscending)
 #define QCMEASUREMENT_DO_NOT_SALT_STRING    @"MSG"
 
 @interface QuantcastMeasurement ()

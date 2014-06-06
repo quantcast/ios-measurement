@@ -143,7 +143,7 @@
 /*!
  @property appLabels
  @abstract Property that contains a static application labels
- @discussion This property can be set to either an NSString or an NSArray of NSStrings.  When set, the label(s) will be automatically passed to all calls which take labels.  This is a convience property for applications that segment their audience by a fairly static group of labels.   This property can be changed at any time.
+ @discussion This property can be set to either an NSString or an NSArray of NSStrings.  When set, the label(s) will be automatically passed to all calls which take labels.  This is a convience property for applications that segment their audience by a fairly static group of labels.   This property can be changed at any time. The Quantcast SDK may augment the labels you assign to this property depending on what features of this SDK you are using.
  */
 @property (strong,nonatomic) id<NSObject> appLabels;
 

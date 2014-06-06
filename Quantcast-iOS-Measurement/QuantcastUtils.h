@@ -23,9 +23,11 @@
  @class QuantcastUtils
  @internal
  */
-#define QUANTCAST_LOG(fmt, ...)  {if([QuantcastUtils logging]) NSLog((@"QC Measurement: " fmt), ##__VA_ARGS__);}
-#define QUANTCAST_WARN(fmt, ...)  {if([QuantcastUtils logging]) NSLog((@"QC Measurement: WARNING - " fmt), ##__VA_ARGS__);}
-#define QUANTCAST_ERROR(fmt, ...)  NSLog((@"QC Measurement: ERROR -  " fmt), ##__VA_ARGS__);
+#define QUANTCAST_LOG(fmt, ...)         {if([QuantcastUtils logging]) NSLog((@"QC Measurement: " fmt), ##__VA_ARGS__);}
+#define QUANTCAST_WARN(fmt, ...)        {if([QuantcastUtils logging]) NSLog((@"QC Measurement: WARNING - " fmt), ##__VA_ARGS__);}
+#define QUANTCAST_ERROR(fmt, ...)       NSLog((@"QC Measurement: ERROR -  " fmt), ##__VA_ARGS__);
+
+#define SYSTEM_VERSION_LESS_THAN(v)     ([[[UIDevice currentDevice] systemVersion] compare:v options:NSNumericSearch] == NSOrderedAscending)
 
 @interface QuantcastUtils : NSObject
 
@@ -82,4 +84,6 @@
 +(NSString*)generateUUID;
 
 +(NSString*)stringFromObject:(id)inJSONObject defaultValue:(NSString*)inDefaultValue;
+
++(NSDate*)appInstallTime;
 @end

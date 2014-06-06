@@ -110,8 +110,8 @@
 // Quantcast Measurement SDK
 //
 
-#define QCMEASUREMENT_API_VERSION               @"1_4_4"
-#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.4.4"
+#define QCMEASUREMENT_API_VERSION               @"1_4_5"
+#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.4.5"
 #define QCMEASUREMENT_CONN_TIMEOUT_SECONDS      60
 
 #ifndef QCMEASUREMENT_UPLOAD_URL

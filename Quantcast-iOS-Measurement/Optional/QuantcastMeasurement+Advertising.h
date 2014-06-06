@@ -12,6 +12,16 @@
 
 #import "QuantcastMeasurement.h"
 
+/*!
+ @class QuantcastMeasurement+Advertising
+ @abstract This extension to QuantcastMeasurement provides you with standardized in-app ad campaign reporting.
+ @discussion The Advertising extension can be used anybody looking to generate standardized audience exposure reports for ad campaigns ran within your app.
+ 
+ Requires the following frameworks:
+ <ul>
+ <li>AdSupport.framework</li>
+ </ul>
+ */
 @interface QuantcastMeasurement (Advertising)
 
 /*!

@@ -1,6 +1,11 @@
 #Quantcast Measure for Apps#
 ###iOS SDK Changelog###
 
+##Version 1.4.5##
+June 6, 2014
+* New Feature - iAd install attribution reporting can be optional activated. See `QuantcastMeasurement+InstallAttribution.h` header in the Optional folder. 
+* Corrected location of `zlib.h` import statement. [Fixes #11](https://github.com/quantcast/ios-measurement/issues/11).
+
 ##Version 1.4.4##
 May 22, 2014
 * Added Advertising campaign measurement
