@@ -1,6 +1,10 @@
 #Quantcast Measure for Apps#
 ###iOS SDK Changelog###
 
+##Version 1.4.6##
+July 28, 2014
+* Fixes #13 Optout set before begin
+ 
 ##Version 1.4.5##
 June 6, 2014
 * New Feature - iAd install attribution reporting can be optional activated. See `QuantcastMeasurement+InstallAttribution.h` header in the Optional folder. 

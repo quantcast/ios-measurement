@@ -51,6 +51,8 @@
     
     NSTimeInterval _sessionTimeout;
 }
+@property (strong, nonatomic) NSString* apiKey;
+@property (strong, nonatomic) NSString* networkCode;
 -(id)initWithPolicyURL:(NSURL*)inPolicyURL reachability:(id<QuantcastNetworkReachability>)inNetworkReachabilityOrNil;
 -(void)setPolicywithJSONData:(NSData*)inJSONData;
 -(void)networkReachabilityChanged:(NSNotification*)inNotification;
@@ -65,6 +67,8 @@
 @synthesize isMeasurementBlackedout=_isMeasurementBlackedout;
 @synthesize hasPolicyBeenLoaded=_policyHasBeenLoaded;
 @synthesize sessionPauseTimeoutSeconds=_sessionTimeout;
+@synthesize apiKey;
+@synthesize networkCode;
 
 -(id)initWithPolicyURL:(NSURL*)inPolicyURL reachability:(id<QuantcastNetworkReachability>)inNetworkReachabilityOrNil {
     self = [super init];
@@ -358,7 +362,11 @@
     
    QUANTCAST_LOG(@"Creating policy object with policy URL = %@", policyURL);
     
-    return [[QuantcastPolicy alloc] initWithPolicyURL:policyURL reachability:inReachability];
+    QuantcastPolicy* policy = [[QuantcastPolicy alloc] initWithPolicyURL:policyURL reachability:inReachability];
+    policy.apiKey = inQuantcastAPIKey;
+    policy.networkCode = inNetworkPCode;
+    
+    return policy;
 }
 
 /*!

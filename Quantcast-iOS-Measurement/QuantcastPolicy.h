@@ -30,6 +30,8 @@
 @property (readonly) BOOL allowGeoMeasurement;
 @property (readonly) double desiredGeoLocationAccuracy;
 @property (readonly) double geoMeasurementUpdateDistance;
+@property (readonly) NSString* apiKey;
+@property (readonly) NSString* networkCode;
 
 +(QuantcastPolicy*)policyWithAPIKey:(NSString*)inQuantcastAPIKey networkPCode:(NSString*)inNetworkPCode networkReachability:(id<QuantcastNetworkReachability>)inReachability countryCode:(NSString*)countryCode appIsDirectAtChildren:(BOOL)inAppIsDirectedAtChildren;
 -(void)downloadLatestPolicyWithReachability:(id<QuantcastNetworkReachability>)inNetworkReachabilityOrNil;

@@ -59,8 +59,10 @@
         
         _isOptOut = inOptOutStatus;
         
-        if (![self setUpEventDatabaseConnection]) {
-            return nil;
+        if( !_isOptOut ){
+            if (![self setUpEventDatabaseConnection]) {
+                return nil;
+            }
         }
 
         _uploadManager = nil;
@@ -395,6 +397,12 @@
     NSMutableDictionary* jsonDict = [NSMutableDictionary dictionaryWithCapacity:5];
     [jsonDict setObject:inUploadID forKey:@"uplid"];
     [jsonDict setObject:QCMEASUREMENT_API_IDENTIFIER forKey:@"qcv"];
+    if(nil != inPolicy.apiKey){
+        [jsonDict setObject:inPolicy.apiKey forKey:QCPARAMATER_APIKEY];
+    }
+    if(nil != inPolicy.networkCode){
+        [jsonDict setObject:inPolicy.networkCode forKey:QCPARAMETER_NETWORKPCODE];
+    }
     
     NSData *jsonData = nil;
     NSArray* eventList = [self recordedEventsWithDeleteDBEvents:inDoDeleteDB];

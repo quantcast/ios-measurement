@@ -647,52 +647,54 @@ QuantcastMeasurement* gSharedInstance = nil;
     
     if ( !self.isOptedOut ) {
         [self launchOnQuantcastThread:^(NSDate *timestamp) {
-            if(nil != hashedId){
-                self.hashedUserId = hashedId;
-            }
-#ifdef __IPHONE_7_0
-            if ( nil != _telephoneInfo ){
-                BOOL radioNotificationExists = (&CTRadioAccessTechnologyDidChangeNotification != NULL);
-                if( [_telephoneInfo respondsToSelector:@selector(currentRadioAccessTechnology)] && radioNotificationExists ){
-                    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(radioAccessChanged:) name:CTRadioAccessTechnologyDidChangeNotification object:nil];
+            if ( !self.isMeasurementActive ) {
+                if(nil != hashedId){
+                    self.hashedUserId = hashedId;
                 }
-            }
-#endif
-            [self startReachabilityNotifier];
-            [self appendUserAgent:YES];
-        
-            if (nil == _dataManager) {
-                _policy = [QuantcastPolicy policyWithAPIKey:self.quantcastAPIKey networkPCode:self.quantcastNetworkPCode networkReachability:self countryCode:self.carrier.isoCountryCode appIsDirectAtChildren:inAppIsDirectedAtChildren];
+    #ifdef __IPHONE_7_0
+                if ( nil != _telephoneInfo ){
+                    BOOL radioNotificationExists = (&CTRadioAccessTechnologyDidChangeNotification != NULL);
+                    if( [_telephoneInfo respondsToSelector:@selector(currentRadioAccessTechnology)] && radioNotificationExists ){
+                        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(radioAccessChanged:) name:CTRadioAccessTechnologyDidChangeNotification object:nil];
+                    }
+                }
+    #endif
+                [self startReachabilityNotifier];
+                [self appendUserAgent:YES];
+            
+                if (nil == _dataManager) {
+                    _policy = [QuantcastPolicy policyWithAPIKey:self.quantcastAPIKey networkPCode:self.quantcastNetworkPCode networkReachability:self countryCode:self.carrier.isoCountryCode appIsDirectAtChildren:inAppIsDirectedAtChildren];
+                    
+                    if ( nil == _policy ) {
+                        // policy wasn't able to be built. Stop reachability and bail, thus not activating measurement.
+                        [self stopReachabilityNotifier];
+                       QUANTCAST_LOG(@"QC Measurement: Unable to activate measurement due to policy object being nil.");
+                    }
                 
-                if ( nil == _policy ) {
-                    // policy wasn't able to be built. Stop reachability and bail, thus not activating measurement.
-                    [self stopReachabilityNotifier];
-                   QUANTCAST_LOG(@"QC Measurement: Unable to activate measurement due to policy object being nil.");
-                }
-            
-                _dataManager = [[QuantcastDataManager alloc] initWithOptOut:self.isOptedOut];
-                _dataManager.uploadEventCount = self.uploadEventCount;
-            
-#if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
-                if (nil == self.geoManager ) {
-                    self.geoManager = [[QuantcastGeoManager alloc] initWithEventLogger:self];
-                    self.geoManager.geoLocationEnabled = self.geoLocationEnabled;
-                }
-#endif
-            
-            }
-        
-            [self enableDataUploading];
-            
-            if([self checkSessionID]){
-                [self startNewSessionAndGenerateEventWithReason:QCPARAMETER_REASONTYPE_LAUNCH withAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil eventTimestamp:(NSDate *)timestamp];
-            }else{
-                QuantcastEvent* e = [QuantcastEvent resumeSessionEventWithSessionID:self.currentSessionID eventTimestamp:timestamp applicationInstallID:self.appInstallIdentifier eventAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:inAppLabelsOrNil] eventNetworkLabels:inNetworkLabelsOrNil];
+                    _dataManager = [[QuantcastDataManager alloc] initWithOptOut:self.isOptedOut];
+                    _dataManager.uploadEventCount = self.uploadEventCount;
                 
-                [self recordEvent:e];
+    #if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
+                    if (nil == self.geoManager ) {
+                        self.geoManager = [[QuantcastGeoManager alloc] initWithEventLogger:self];
+                        self.geoManager.geoLocationEnabled = self.geoLocationEnabled;
+                    }
+    #endif
+                
+                }
+            
+                [self enableDataUploading];
+                
+                if([self checkSessionID]){
+                    [self startNewSessionAndGenerateEventWithReason:QCPARAMETER_REASONTYPE_LAUNCH withAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil eventTimestamp:(NSDate *)timestamp];
+                }else{
+                    QuantcastEvent* e = [QuantcastEvent resumeSessionEventWithSessionID:self.currentSessionID eventTimestamp:timestamp applicationInstallID:self.appInstallIdentifier eventAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:inAppLabelsOrNil] eventNetworkLabels:inNetworkLabelsOrNil];
+                    
+                    [self recordEvent:e];
+                }
+               QUANTCAST_LOG(@"QC Measurement: Using '%@' for upload server.",[QuantcastUtils updateSchemeForURL:[NSURL URLWithString:QCMEASUREMENT_UPLOAD_URL]]);
+                [_dataManager initiateDataUploadWithPolicy:_policy];
             }
-           QUANTCAST_LOG(@"QC Measurement: Using '%@' for upload server.",[QuantcastUtils updateSchemeForURL:[NSURL URLWithString:QCMEASUREMENT_UPLOAD_URL]]);
-            [_dataManager initiateDataUploadWithPolicy:_policy];
         }];
     }
     
@@ -786,6 +788,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 #pragma mark - Internal Label Management
 
 -(void)addInternalSDKAppLabels:(NSArray*)inAppLabels networkLabels:(NSArray*)inNetworkLabels {
+    
     _internalSDKAppLabels = [QuantcastUtils combineLabels:inAppLabels withLabels:self.internalSDKAppLabels];
     _internalSDKNetworkLabels = [QuantcastUtils combineLabels:inNetworkLabels withLabels:self.internalSDKNetworkLabels];
 }
@@ -1008,7 +1011,6 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
         return nil;
     }
     
-
     NSString* hashedId = [self hashUserIdentifier:inUserIdentifierOrNil];
     
     [self launchOnQuantcastThread:^(NSDate *timestamp) {
@@ -1112,19 +1114,17 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
 -(void)setOptOutStatus:(BOOL)inOptOutStatus {
     
     if ( _isOptedOut != inOptOutStatus ) {
+        _isOptedOut = inOptOutStatus;
+        NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
+        [defaults setBool:inOptOutStatus forKey:QCMEASUREMENT_OPTOUT_DEFAULTS];
+        [defaults synchronize];
+    
         [self launchOnQuantcastThread:^(NSDate *timestamp) {
-            _isOptedOut = inOptOutStatus;
-            
             self.cachedAppInstallIdentifier = nil;
+            // setting the data manager to opt out will cause the cache directory to be emptied.
             _dataManager.isOptOut = inOptOutStatus;
             
-            NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
-            [defaults setBool:inOptOutStatus forKey:QCMEASUREMENT_OPTOUT_DEFAULTS];
-            [defaults synchronize];
-            
-            if ( inOptOutStatus ) {
-                // setting the data manager to opt out will cause the cache directory to be emptied. No need to do further work here deleting files.
-                
+            if ( inOptOutStatus && self.isMeasurementActive) {
                 // stop the various services
     #if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
                 if ( nil != self.geoManager ) {
@@ -1142,7 +1142,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
                 }
                 self.currentSessionID = nil;
             }
-            else {
+            else if( !inOptOutStatus && (self.quantcastAPIKey != nil || self.quantcastNetworkPCode != nil )){
                 // if the opt out status goes to NO (meaning we can do measurement), begin a new session
                 if (_usesOneStep) {
                     [self setupMeasurementSessionWithAPIKey:self.quantcastAPIKey userIdentifier:nil labels:@"_OPT-IN"];
@@ -1150,12 +1150,11 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
                 else {
                     [self internalBeginSessionWithAPIKey:self.quantcastAPIKey attributedNetwork:self.quantcastNetworkPCode userIdentifier:nil appLabels:@"_OPT-IN" networkLabels:nil appIsDeclaredDirectedAtChildren:_appIsDeclaredDirectedAtChildren];
                 }
-                
+            
                 if ( self.geoLocationEnabled ) {
                     [self setGeoManagerGeoLocationEnable:self.geoLocationEnabled];
                 }
-                
-                [self startReachabilityNotifier];
+            
                 [self setOptOutCookie:NO];
             }
         }];
