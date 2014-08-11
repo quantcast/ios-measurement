@@ -275,8 +275,9 @@ The current user identifier is passed in the `userIdentifierStr` argument.
 
 Note that in all cases, the Quantcast iOS SDK will immediately 1-way hash the passed app user identifier, and return the hashed value for your reference. You do not need to take any action with the hashed value.
 
-#### Advertising Campaign Measurement ####
-Quantcast is able to measure the audience exposed to ad campaigns that may be delivered through the application. If you want to additionally log the ad displays that occur within your app and have audience measurement against the audience exposed to a campaign, creative, or placement, first you must first add the optional source found in `Optional/QuantcastMeasurement+Advertising.h`.
+#### Measuring Directly-Served Ad Campaigns ####
+For apps that serve advertising and can access advertiser and campaign identifiers from their ad serving system, Quantcast can measure the audience exposed to these campaigns. If you want to additionally log the ad displays that occur within your app and have audience measurement against the exposed audience, first you must first add the optional source found in
+`Optional/QuantcastMeasurement+Advertising.h`.
 Then add the log ad impression methods when advertisements are shown or refreshed:
 
 ```objective-c
