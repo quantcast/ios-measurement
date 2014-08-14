@@ -286,7 +286,7 @@ Then add the log ad impression methods when advertisements are shown or refreshe
 
 Where inCampaignOrNil is an NSString of the campaign identifier being displayed for the ad impression, inMediaOrNil is an NSString of the ad creative identifier being displayed, and inPlacementOrNil is a NSString of the placement identifier for the location. Note that the Campaign, Media and Placement strings are all optional, and also that any periods in their name will be treated like a label period, indicating the level of hierarchy.
 
-You may also pass a dynamic audience label here.  In this case, the label passed in the app labels argument will place the device user who saw the ad impression into the indicate audience segment. You might use this the ad impression label to categorize the type of ad product being displayed so that you can get aggregate reports on audience exposure. See [Audience Labels](#audience-labels) section section above for more information on Audience Segments.
+You may also pass a dynamic audience label here.  In this case, the label passed in the app labels argument will place the device user who saw the ad impression into the indicated audience segment. You might use this the ad impression label to categorize the type of ad product being displayed so that you can get aggregate reports on audience exposure. See [Audience Labels](#audience-labels) section above for more information on Audience Segments.
 
 #### SDK Customization ####
 
