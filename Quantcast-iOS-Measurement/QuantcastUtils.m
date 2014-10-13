@@ -14,9 +14,11 @@
 #endif // !__has_feature(objc_arc)
 
 #import <zlib.h>
+#import <AdSupport/AdSupport.h>
 #import "QuantcastUtils.h"
 #import "QuantcastParameters.h"
 #import "QuantcastMeasurement.h"
+#import "QuantcastPolicy.h"
 
 #ifndef QCMEASUREMENT_USE_SECURE_CONNECTIONS
 #define QCMEASUREMENT_USE_SECURE_CONNECTIONS 0
@@ -525,6 +527,44 @@ static BOOL _enableLogging = NO;
     }
     
     return nil;
+}
+
++(NSString*)deviceIdentifier:(QuantcastPolicy*) inPolicy {
+    NSString* udidStr = nil;
+    if(![inPolicy isBlacklistedParameter:QCPARAMETER_DID]){
+        
+        Class adManagerClass = NSClassFromString(@"ASIdentifierManager");
+        
+        if ( nil != adManagerClass ) {
+            
+            id manager = [adManagerClass sharedManager];
+            
+            if ( [manager isAdvertisingTrackingEnabled] ) {
+                NSUUID* uuid = [manager advertisingIdentifier];
+                
+                if ( nil != uuid ) {
+                    udidStr = [uuid UUIDString];
+                    
+                    // now check for the iOS 6 bug
+                    if ( [udidStr compare:@"00000000-0000-0000-0000-000000000000"] == NSOrderedSame ) {
+                        // this is a bad device identifier. treat as having no device identifier.
+                        udidStr = nil;
+                    }
+                }
+            }
+        }
+    }
+    return udidStr;
+}
+
++(NSString*)hashDeviceID:(NSString*)inDeviceID withSalt:(NSString*)inSalt {
+    if ( nil != inSalt ) {
+        NSString* saltedGoodness = [inDeviceID stringByAppendingString:inSalt];
+        return [QuantcastUtils quantcastHash:saltedGoodness];
+    }
+    else {
+        return inDeviceID;
+    }
 }
 
 @end

@@ -246,34 +246,8 @@ QuantcastMeasurement* gSharedInstance = nil;
     if ( self.isOptedOut ) {
         return nil;
     }
-    NSString* udidStr = nil;
 
-    if(![_policy isBlacklistedParameter:QCPARAMETER_DID]){
-    
-        Class adManagerClass = NSClassFromString(@"ASIdentifierManager");
-        
-        if ( nil != adManagerClass ) {
-            
-            id manager = [adManagerClass sharedManager];
-            
-            if ( [manager isAdvertisingTrackingEnabled] ) {
-                NSUUID* uuid = [manager advertisingIdentifier];
-                
-                if ( nil != uuid ) {
-                    udidStr = [uuid UUIDString];
-                    
-                    // now check for the iOS 6 bug
-                    if ( [udidStr compare:@"00000000-0000-0000-0000-000000000000"] == NSOrderedSame ) {
-                        // this is a bad device identifier. treat as having no device identifier.
-                        udidStr = nil;
-                    }
-                }
-            }
-        }
-    }
-
-    return udidStr;
-
+    return [QuantcastUtils deviceIdentifier:_policy];
 }
 
 -(NSString*)appInstallIdentifier {
@@ -480,7 +454,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 }
 
 -(void)terminateNotification{
-    [self endMeasurementSessionWithLabels:nil];
+    [self internalEndMeasurementSessionWithAppLabels:nil networkLabels:nil];
 }
 
 -(void)pauseNotification{

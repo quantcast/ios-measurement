@@ -32,8 +32,6 @@
 
 -(id)getParameter:(NSString*)inParamKey;
 
-+(NSString*)hashDeviceID:(NSString*)inDeviceID withSalt:(NSString*)inSalt;
-
 -(void)addTimeZoneParameters;
 -(void)putLabels:(id<NSObject>)inLabelsObjectOrNil withParamterKey:(NSString*)inParameterKey;
 
@@ -121,7 +119,7 @@
             id value = [_parameters objectForKey:param];
             
             if([QCPARAMETER_AID isEqualToString:param] || [QCPARAMETER_DID isEqualToString:param]){
-                value = [QuantcastEvent hashDeviceID:value withSalt:inPolicyOrNil.deviceIDHashSalt];
+                value = [QuantcastUtils hashDeviceID:value withSalt:inPolicyOrNil.deviceIDHashSalt];
             }
             
             [jsonDict setObject:value forKey:param];
@@ -137,16 +135,6 @@
 }
 
 #pragma mark - Event Factory
-
-+(NSString*)hashDeviceID:(NSString*)inDeviceID withSalt:(NSString*)inSalt {
-    if ( nil != inSalt ) {
-        NSString* saltedGoodness = [inDeviceID stringByAppendingString:inSalt];
-        return [QuantcastUtils quantcastHash:saltedGoodness];
-    }
-    else {
-        return inDeviceID;
-    }
-}
 
 +(QuantcastEvent*)eventWithSessionID:(NSString*)inSessionID
                       eventTimestamp:(NSDate *)inTimestamp

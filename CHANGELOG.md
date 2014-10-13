@@ -1,6 +1,11 @@
 #Quantcast Measure for Apps#
 ###iOS SDK Changelog###
 
+##Version 1.4.7##
+October 10, 2014
+* minor message structure update
+* code refactor
+
 ##Version 1.4.6##
 July 28, 2014
 * Fixes #13 Optout set before begin

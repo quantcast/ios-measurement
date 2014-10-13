@@ -404,6 +404,12 @@
         [jsonDict setObject:inPolicy.networkCode forKey:QCPARAMETER_NETWORKPCODE];
     }
     
+    NSString* udidStr = [QuantcastUtils deviceIdentifier:inPolicy];
+    if(nil != udidStr){
+        udidStr = [QuantcastUtils hashDeviceID:udidStr withSalt:inPolicy.deviceIDHashSalt];
+        [jsonDict setObject:udidStr forKey:QCPARAMETER_DID];
+    }
+    
     NSData *jsonData = nil;
     NSArray* eventList = [self recordedEventsWithDeleteDBEvents:inDoDeleteDB];
     if(eventList.count > 0){
