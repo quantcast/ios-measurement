@@ -71,21 +71,6 @@ If your project does not use automatic reference counting (ARC), take the follow
 
     <img src="https://raw.github.com/quantcast-engineering/quantcast-documentation/master/ios/images/image012.png" alt="Screenshot - Set Compile Flag" style="width: 700px;"/>
 
-#### Supporting iOS 4.3-4.6 ####
-
-If you intend to support iOS 4.3 - 4.6, perform these additional steps. Otherwise, skip to the next section.
-
-1.	Import the latest version of JSONKit into your project.  The JSONKit code is available in your Quantcast SDK download, or in the Quantcast github repository under the JSONKit folder.  In Xcode, select your project and choose the option “Add Files to <Your Project Name>“, then select the JSONKit folder.
-
-
-2.	Add the following preprocessor macro definition to your project's precompiled header file (the file that ends with '.pch'):
-
-	```objective-c
-	#define QCMEASUREMENT_ENABLE_JSONKIT 1
-	```
-	
-    <img src="https://raw.github.com/quantcast-engineering/quantcast-documentation/master/ios/images/image015.png" alt="Screenshot - Enable JSONKIT" style="width: 700px;"/>
-
 ### SDK Integration ###
 
 The recommended way to integrate the Quantcast SDK requires only a single line of code: 

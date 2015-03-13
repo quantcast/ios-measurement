@@ -105,20 +105,22 @@
 #define QC_SDKERRORTYPE_POLICYDOWNLOADFAILURE       @"policy-download-failure"
 #define QC_SDKERRORTYPE_GEOCODERFAILURE             @"geo-coder-failure"
 #define QC_SDKERRORTYPE_SESSIONREADFAILURE          @"session-read-failure"
-
+#define QC_SDKERRORTYPE_AIDREADFAILURE              @"aid-read-failure"
+#define QC_SDKERRORTYPE_AIDWRITEFAILURE             @"aid-write-failure"
 // 
 // Quantcast Measurement SDK
 //
 
-#define QCMEASUREMENT_API_VERSION               @"1_4_7"
-#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.4.7"
+#define QCMEASUREMENT_API_VERSION               @"1_4_8"
+#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.4.8"
 #define QCMEASUREMENT_CONN_TIMEOUT_SECONDS      60
 
 #ifndef QCMEASUREMENT_UPLOAD_URL
     #define QCMEASUREMENT_UPLOAD_URL            @"http://m.quantcount.com/mobile"
 #endif
 
-#define QCMEASUREMENT_CACHE_DIRNAME             @"qc-measurement-cache"
+#define QCMEASUREMENT_SUPPORT_DIRNAME             @"qc-measurement-support"
+#define QCMEASUREMENT_DEPRECATED_CACHE_DIRNAME  @"qc-measurement-cache"
 #define QCMEASUREMENT_POLICY_FILENAME           @"qc-policy.json"
 #define QCMEASUREMENT_DATABASE_FILENAME         @"qcmeasurement.db"
 #define QCMEASUREMENT_IDENTIFIER_FILENAME       @"qc-identifier.txt"

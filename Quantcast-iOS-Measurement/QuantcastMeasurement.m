@@ -38,6 +38,7 @@ QuantcastMeasurement* gSharedInstance = nil;
     UIBackgroundTaskIdentifier _backgroundTaskID;
     
     SCNetworkReachabilityRef _reachability;
+    QuantcastNetworkStatus _currentReachability;
     QuantcastPolicy* _policy;
     
     BOOL _isOptedOut;
@@ -107,7 +108,9 @@ QuantcastMeasurement* gSharedInstance = nil;
     if (self) {
         
         [self checkInitalAdPref];
+        [self moveCacheDirectoryIfNeeded];
         
+        _currentReachability = QuantcastUnknownReachable;
         _backgroundTaskID = UIBackgroundTaskInvalid;
         _quantcastQueue = [[NSOperationQueue alloc] init];
         //operation count needs to be 1 to ensure event task synchronization
@@ -153,10 +156,10 @@ QuantcastMeasurement* gSharedInstance = nil;
     NSUserDefaults *prefs = [NSUserDefaults standardUserDefaults];
     if ([prefs objectForKey:QCMEASUREMENT_ADIDPREF_DEFAULTS] == nil) {
         BOOL initialValue = YES;
-        NSString* cacheDir = [QuantcastUtils quantcastCacheDirectoryPathCreatingIfNeeded];
+        NSString* cacheDir = [QuantcastUtils quantcastDeprecatedCacheDirectoryPath];
         NSString* adIdPrefFile = [cacheDir stringByAppendingPathComponent:QCMEASUREMENT_DEPRECATED_ADIDPREF_FILENAME];
         if ([[NSFileManager defaultManager] fileExistsAtPath:adIdPrefFile] ) {
-            NSError* readError = nil;
+            NSError* __autoreleasing readError = nil;
             NSString* savedAdIdPref = [NSString stringWithContentsOfFile:adIdPrefFile encoding:NSUTF8StringEncoding error:&readError];
             if(readError == nil){
                 initialValue = [savedAdIdPref boolValue];
@@ -164,6 +167,31 @@ QuantcastMeasurement* gSharedInstance = nil;
         }
         [prefs setBool:initialValue forKey:QCMEASUREMENT_ADIDPREF_DEFAULTS];
         [prefs synchronize];
+    }
+}
+
+/* As of v1.4.8 the Quantcast cache directory has been moved to a different location.  This method makes sure that when apps upgrade SDK
+   versions, the old cache files are moved to the new location.
+*/
+-(void)moveCacheDirectoryIfNeeded {
+    NSString* cacheDir = [QuantcastUtils quantcastDeprecatedCacheDirectoryPath];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:cacheDir]) {
+        return;
+    }
+    
+    NSString* supportDir = [QuantcastUtils quantcastSupportDirectoryPath];
+    
+    NSError* __autoreleasing moveError = nil;
+    if ([[NSFileManager defaultManager] moveItemAtPath:cacheDir toPath:supportDir error:&moveError]) {
+        //if move successful the mark all files to not back up
+        [QuantcastUtils excludeBackupToItemAtPath:supportDir];
+        NSArray* folderContent = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:supportDir error:&moveError];
+        
+        for (NSString* item in folderContent)
+        {
+            NSString* path = [supportDir stringByAppendingPathComponent:item];
+            [QuantcastUtils excludeBackupToItemAtPath:path];
+        }
     }
 }
 
@@ -267,15 +295,15 @@ QuantcastMeasurement* gSharedInstance = nil;
    
     // first, check if one exists and use it contents
     
-    NSString* cacheDir = [QuantcastUtils quantcastCacheDirectoryPathCreatingIfNeeded];
+    NSString* aidDir = [QuantcastUtils quantcastSupportDirectoryPathCreatingIfNeeded];
     
-    if ( nil == cacheDir) {
+    if ( nil == aidDir) {
         return @"";
     }
     
     NSError* __autoreleasing writeError = nil;
 
-    NSString* identFile = [cacheDir stringByAppendingPathComponent:QCMEASUREMENT_IDENTIFIER_FILENAME];
+    NSString* identFile = [aidDir stringByAppendingPathComponent:QCMEASUREMENT_IDENTIFIER_FILENAME];
     
     // first thing is to determine if apple's ad ID pref has changed. If so, create a new app id.
     BOOL adIdPrefHasChanged = [self hasUserAdvertisingPrefChangeWithCurrentPref:inAdvertisingTrackingEnabled];
@@ -287,7 +315,8 @@ QuantcastMeasurement* gSharedInstance = nil;
         NSString* idStr = [NSString stringWithContentsOfFile:identFile encoding:NSUTF8StringEncoding error:&readError];
         
         if ( nil != readError ) {
-           QUANTCAST_LOG(@"Error reading app specific identifier file = %@ ", readError );
+            [self logSDKError:QC_SDKERRORTYPE_AIDREADFAILURE withError:readError errorParameter:nil];
+            QUANTCAST_LOG(@"Error reading app specific identifier file = %@ ", readError );
         }
         
         // make sure string is of proper size before using it. Expecting something like "68753A44-4D6F-1226-9C60-0050E4C00067"
@@ -303,9 +332,11 @@ QuantcastMeasurement* gSharedInstance = nil;
     writeError = nil;
     
     [newAppInstallIdStr writeToFile:identFile atomically:YES encoding:NSUTF8StringEncoding error:&writeError];
+    [QuantcastUtils excludeBackupToItemAtPath:identFile];
     
     if ( nil != writeError ) {
-       QUANTCAST_LOG(@"Error when writing app specific identifier = %@", writeError);
+        [self logSDKError:QC_SDKERRORTYPE_AIDWRITEFAILURE withError:writeError errorParameter:nil];
+        QUANTCAST_LOG(@"Error when writing app specific identifier = %@", writeError);
     }
     else {
        QUANTCAST_LOG(@"Create new app identifier '%@' and wrote to file '%@'", newAppInstallIdStr, identFile );
@@ -359,13 +390,14 @@ QuantcastMeasurement* gSharedInstance = nil;
 }
 
 -(void)saveSessionId:(NSString*) sessionID{
-    NSString* cacheDir = [QuantcastUtils quantcastCacheDirectoryPathCreatingIfNeeded];
+    NSString* cacheDir = [QuantcastUtils quantcastSupportDirectoryPathCreatingIfNeeded];
     NSString* sessionIdFile = [cacheDir stringByAppendingPathComponent:QCMEASUREMENT_SESSIONID_FILENAME];
     [[NSFileManager defaultManager] createFileAtPath:sessionIdFile contents:[sessionID dataUsingEncoding:NSUTF8StringEncoding] attributes:nil];
+    [QuantcastUtils excludeBackupToItemAtPath:sessionIdFile];
 }
 
 -(void)updateSessionTimestamp{
-    NSString* cacheDir = [QuantcastUtils quantcastCacheDirectoryPathCreatingIfNeeded];
+    NSString* cacheDir = [QuantcastUtils quantcastSupportDirectoryPathCreatingIfNeeded];
     NSString* sessionIdFile = [cacheDir stringByAppendingPathComponent:QCMEASUREMENT_SESSIONID_FILENAME];
     
     NSDictionary* attribDict = @{NSFileModificationDate:[NSDate date]};
@@ -374,7 +406,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 
 -(BOOL)checkSessionID {
     BOOL newSession = NO;
-    NSString* cacheDir = [QuantcastUtils quantcastCacheDirectoryPathCreatingIfNeeded];
+    NSString* cacheDir = [QuantcastUtils quantcastSupportDirectoryPathCreatingIfNeeded];
     NSString* sessionIdFile = [cacheDir stringByAppendingPathComponent:QCMEASUREMENT_SESSIONID_FILENAME];
     
     NSTimeInterval modified = [self checkTimestamp:sessionIdFile];
@@ -468,10 +500,11 @@ QuantcastMeasurement* gSharedInstance = nil;
 -(void)startNewSessionAndGenerateEventWithReason:(NSString*)inReason withAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil eventTimestamp:(NSDate *)timestamp{
 
     self.currentSessionID = [self generateNewSessionId];
+    _currentReachability = [self currentReachabilityStatus];
     QuantcastEvent* e = [QuantcastEvent openSessionEventWithClientUserHash:self.hashedUserId
                                                             eventTimestamp:timestamp
                                                           newSessionReason:inReason
-                                                            connectionType:[self reachabilityAsString:[self currentReachabilityStatus]]
+                                                            connectionType:[self reachabilityAsString:_currentReachability]
                                                                  sessionID:self.currentSessionID
                                                            quantcastAPIKey:self.quantcastAPIKey
                                                      quantcastNetworkPCode:self.quantcastNetworkPCode
@@ -825,12 +858,17 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
         [self launchOnQuantcastThread:^(NSDate *timestamp) {
             if(self.isMeasurementActive ) {
         
-                QuantcastEvent* e = [QuantcastEvent networkReachabilityEventWithConnectionType:[self reachabilityAsString:[self currentReachabilityStatus]]
+                //make sure we dont send duplicate reachability events
+                QuantcastNetworkStatus status = [self currentReachabilityStatus];
+                if (status != _currentReachability) {
+                    _currentReachability = status;
+                    QuantcastEvent* e = [QuantcastEvent networkReachabilityEventWithConnectionType:[self reachabilityAsString:_currentReachability]
                                                                         withSessionID:self.currentSessionID
                                                                        eventTimestamp:timestamp
                                                                  applicationInstallID:self.appInstallIdentifier];
         
-                [self recordEvent:e];
+                    [self recordEvent:e];
+                }
             }
         }];
     }
@@ -1105,6 +1143,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
                     [self setGeoManagerGeoLocationEnable:NO];
                 }
     #endif
+                
                 [self stopReachabilityNotifier];
                 [self appendUserAgent:NO];
                 [self setOptOutCookie:YES];

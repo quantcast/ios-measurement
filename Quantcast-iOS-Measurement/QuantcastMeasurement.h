@@ -25,12 +25,6 @@
 // Libraries required:
 //      libz, libsqlite3
 //
-// Additional code repositories required is running on iOS 4 (not require for iOS 5 and later):
-//      JSONKit         - https://github.com/johnezang/JSONKit
-//
-//      And place the following in your precompiled header:
-//          #define QCMEASUREMENT_ENABLE_JSONKIT 1
-//
 // Additional frameworks that are required if secure data uploads (https) are desired:
 //      Security
 //

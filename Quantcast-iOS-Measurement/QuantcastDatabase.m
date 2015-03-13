@@ -73,6 +73,7 @@
            QUANTCAST_LOG(@"Could not open sqllite3 database with path = %@", _databaseFilePath );
             return NULL;
         }
+        [QuantcastUtils excludeBackupToItemAtPath:self.databaseFilePath];
     }
     
     return _databaseConnection;

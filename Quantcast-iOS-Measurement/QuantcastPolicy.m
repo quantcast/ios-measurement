@@ -13,19 +13,11 @@
 #error "Quantcast Measurement is designed to be used with ARC. Please turn on ARC or add '-fobjc-arc' to this file's compiler flags"
 #endif // !__has_feature(objc_arc)
 
-#ifndef QCMEASUREMENT_ENABLE_JSONKIT
-#define QCMEASUREMENT_ENABLE_JSONKIT 0
-#endif
-
 #import <CoreTelephony/CTCarrier.h>
 #import "QuantcastPolicy.h"
 #import "QuantcastParameters.h"
 #import "QuantcastUtils.h"
 #import "QuantcastMeasurement.h"
-
-#if QCMEASUREMENT_ENABLE_JSONKIT
-#import "JSONKit.h"
-#endif
 
 #define QCMEASUREMENT_DO_NOT_SALT_STRING    @"MSG"
 
@@ -84,7 +76,7 @@
         _geoMeasurementUpdateDistance = 50.0;
 
        // first, determine if there is a saved polciy on disk, if not, create it with default polciy
-        NSString* cacheDir = [QuantcastUtils quantcastCacheDirectoryPath];
+        NSString* cacheDir = [QuantcastUtils quantcastSupportDirectoryPath];
         
         NSString* policyFilePath = [cacheDir stringByAppendingPathComponent:QCMEASUREMENT_POLICY_FILENAME];
 
@@ -179,14 +171,8 @@
                                                options:NSJSONReadingMutableLeaves
                                                  error:&jsonError];
         }
-#if QCMEASUREMENT_ENABLE_JSONKIT
-        else if(nil != NSClassFromString(@"JSONDecoder")) {
-            // try with JSONKit
-            policyDict = [[JSONDecoder decoder] objectWithData:inJSONData error:&jsonError];
-        }
-#endif
         else {
-            [self handleError:@"There is no available JSON decoder to user. Please enable JSONKit in your project!"];
+            [self handleError:@"There is no available JSON decoder to user. Quantcast SDK requires iOS 5.0 and above!"];
         }
         
         if ( nil != jsonError ) {
@@ -314,9 +300,12 @@
 }
 
 -(void)connectionDidFail:(NSError*)error{
-    [[QuantcastMeasurement sharedInstance] logSDKError:QC_SDKERRORTYPE_POLICYDOWNLOADFAILURE
+    //if there is no internet connection then dont log it
+    if (nil != error && error.code != NSURLErrorNotConnectedToInternet) {
+        [[QuantcastMeasurement sharedInstance] logSDKError:QC_SDKERRORTYPE_POLICYDOWNLOADFAILURE
                                              withError:error
                                         errorParameter:_policyURL.description];
+    }
     
    QUANTCAST_LOG(@"Error downloading policy JSON from url %@, error = %@",  _policyURL, error );
     _waitingForUpdate = NO;
@@ -339,9 +328,10 @@
     }
     
     // first, determine if there is a saved policy on disk, if not, create it with default polciy
-    NSString* cacheDir = [QuantcastUtils quantcastCacheDirectoryPath];
+    NSString* cacheDir = [QuantcastUtils quantcastSupportDirectoryPathCreatingIfNeeded];
     NSString* policyFilePath = [cacheDir stringByAppendingPathComponent:QCMEASUREMENT_POLICY_FILENAME];
     BOOL fileWriteSuccess = [[NSFileManager defaultManager] createFileAtPath:policyFilePath contents:policyData attributes:nil];
+    [QuantcastUtils excludeBackupToItemAtPath:policyFilePath];
     
     if ( !fileWriteSuccess ) {
        QUANTCAST_ERROR(@"Could not create downloaded policy JSON at path = %@",policyFilePath);

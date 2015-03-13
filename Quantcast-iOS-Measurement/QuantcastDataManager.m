@@ -22,9 +22,6 @@
 #import "QuantcastPolicy.h"
 #import "QuantcastNetworkReachability.h"
 
-#if QCMEASUREMENT_ENABLE_JSONKIT
-#import "JSONKit.h"
-#endif
 
 #ifndef QCMEASUREMENT_DEFAULT_MAX_EVENT_RETENTION_COUNT 
 #define QCMEASUREMENT_DEFAULT_MAX_EVENT_RETENTION_COUNT 10000
@@ -111,7 +108,7 @@
 }
 
 -(BOOL)setUpEventDatabaseConnection {
-    NSString* cacheDir = [QuantcastUtils quantcastCacheDirectoryPathCreatingIfNeeded];
+    NSString* cacheDir = [QuantcastUtils quantcastSupportDirectoryPathCreatingIfNeeded];
     
     if ( nil == cacheDir) {
         return NO;
@@ -374,6 +371,7 @@
        QUANTCAST_LOG(@"Could not create JSON file at path '%@' with contents = %@", creationFilepath, fileJSONStr );
         return nil;
     }
+    [QuantcastUtils excludeBackupToItemAtPath:creationFilepath];
     
     // file has been created. Now move it to it's ready loacation.
     
@@ -426,14 +424,8 @@
         if (nil != jsonClass) {
             jsonData = [NSJSONSerialization dataWithJSONObject:jsonDict options:0 error:&writeError];
         }
-    #if QCMEASUREMENT_ENABLE_JSONKIT
-        else if (nil != NSClassFromString(@"JSONDecoder")) {
-            // try with JSONKit
-            jsonData = [jsonDict JSONDataWithOptions:JKSerializeOptionEscapeForwardSlashes error:&writeError];
-        }
-    #endif
         else {
-            QUANTCAST_ERROR(@"There is no available JSON encoder to user. Please enable JSONKit in your project!");
+            QUANTCAST_ERROR(@"There is no available JSON encoder to user. Quantcast SDK requires iOS 5.0 and above!");
         }
         
         if(nil != writeError){

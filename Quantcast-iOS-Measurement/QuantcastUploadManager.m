@@ -175,7 +175,7 @@
     NSError* __autoreleasing uploadError = nil;
     [NSURLConnection sendSynchronousRequest:urlRequest returningResponse:&uploadResponse error:&uploadError];
     
-    if( nil != uploadError){
+    if( nil != uploadError && uploadError.code != NSURLErrorNotConnectedToInternet){
         [[QuantcastMeasurement sharedInstance] logSDKError:QC_SDKERRORTYPE_UPLOADFAILURE
                                                  withError:uploadError
                                             errorParameter:uploadID];

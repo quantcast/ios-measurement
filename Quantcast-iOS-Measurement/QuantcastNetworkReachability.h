@@ -18,6 +18,7 @@
 #import <arpa/inet.h>
 
 typedef enum {
+    QuantcastUnknownReachable = -1,
     QuantcastNotReachable = 0,
     QuantcastReachableViaWiFi,
     QuantcastReachableViaWWAN

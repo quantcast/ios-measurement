@@ -1,6 +1,11 @@
 #Quantcast Measure for Apps#
 ###iOS SDK Changelog###
 
+##Version 1.4.8##
+March 13, 2015
+* Move QC file directory to more permanent location
+* Drop support for iOS 4
+
 ##Version 1.4.7##
 October 10, 2014
 * minor message structure update

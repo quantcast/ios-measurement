@@ -43,36 +43,68 @@ static BOOL _enableLogging = NO;
 
 @implementation QuantcastUtils
 
-+(NSString*)quantcastCacheDirectoryPath {
++(NSString*)quantcastDeprecatedCacheDirectoryPath {
     NSArray* cachePaths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
     
     if ( [cachePaths count] > 0 ) {
         
         NSString* cacheDir = [cachePaths objectAtIndex:0];
         
-        NSString* qcCachePath = [cacheDir stringByAppendingPathComponent:QCMEASUREMENT_CACHE_DIRNAME];
+        NSString* qcCachePath = [cacheDir stringByAppendingPathComponent:QCMEASUREMENT_DEPRECATED_CACHE_DIRNAME];
         
         return qcCachePath;
+    }
+    
+    return nil;
+}
+
++(NSString*)quantcastSupportDirectoryPath {
+    NSArray* supportPaths = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES);
+    
+    if ( [supportPaths count] > 0 ) {
+        
+        NSString* supportDir = [supportPaths objectAtIndex:0];
+        
+        NSString* qcSupportPath = [supportDir stringByAppendingPathComponent:QCMEASUREMENT_SUPPORT_DIRNAME];
+        
+        return qcSupportPath;
     }
 
     return nil;
 }
 
-+(NSString*)quantcastCacheDirectoryPathCreatingIfNeeded {
-    NSString* cacheDir = [QuantcastUtils quantcastCacheDirectoryPath];
++(NSString*)quantcastSupportDirectoryPathCreatingIfNeeded {
+    NSString* cacheDir = [QuantcastUtils quantcastSupportDirectoryPath];
     
     if (![[NSFileManager defaultManager] fileExistsAtPath:cacheDir]) {
         if (![[NSFileManager defaultManager] createDirectoryAtPath:cacheDir withIntermediateDirectories:YES attributes:nil error:nil]){
             QUANTCAST_LOG(@"Unable to create cache directory = %@", cacheDir );
             return nil;
         }
+        
+        [QuantcastUtils excludeBackupToItemAtPath:cacheDir];
     }
     
     return cacheDir;
 }
 
++ (BOOL)excludeBackupToItemAtPath:(NSString *)path
+{
+    BOOL success = NO;
+    //In iOS 5.1+, make sure this isn't backed up to the cloud
+    if (&NSURLIsExcludedFromBackupKey != NULL && [[NSFileManager defaultManager] fileExistsAtPath:path]) {
+        NSError *error = nil;
+        success = [[NSURL fileURLWithPath:path] setResourceValue: [NSNumber numberWithBool: YES]
+                                  forKey: NSURLIsExcludedFromBackupKey error: &error];
+        if(!success){
+            QUANTCAST_LOG(@"Error excluding %@ from backup %@", path, error);
+        }
+    }
+    return success;
+}
+
 +(NSString*)quantcastDataGeneratingDirectoryPath {
-    NSString*  cacheDir = [QuantcastUtils quantcastCacheDirectoryPath];
+    NSString*  cacheDir = [QuantcastUtils quantcastSupportDirectoryPath];
     
     cacheDir = [cacheDir stringByAppendingPathComponent:@"generating"];   
     
@@ -89,7 +121,7 @@ static BOOL _enableLogging = NO;
 }
 
 +(NSString*)quantcastDataReadyToUploadDirectoryPath {
-    NSString*  cacheDir = [QuantcastUtils quantcastCacheDirectoryPath];
+    NSString*  cacheDir = [QuantcastUtils quantcastSupportDirectoryPath];
     
     cacheDir =  [cacheDir stringByAppendingPathComponent:@"ready"];
     // determine if directory exists. If it doesn't create it.
@@ -104,7 +136,7 @@ static BOOL _enableLogging = NO;
     return cacheDir;
 }
 +(NSString*)quantcastUploadInProgressDirectoryPath {
-    NSString*  cacheDir = [QuantcastUtils quantcastCacheDirectoryPath];
+    NSString*  cacheDir = [QuantcastUtils quantcastSupportDirectoryPath];
     
     cacheDir = [cacheDir stringByAppendingPathComponent:@"uploading"];
     // determine if directory exists. If it doesn't create it.
@@ -122,7 +154,7 @@ static BOOL _enableLogging = NO;
 +(void)emptyAllQuantcastCaches {
     NSFileManager* fileManager = [NSFileManager defaultManager];    
     
-    NSString* cacheDir = [QuantcastUtils quantcastCacheDirectoryPath];
+    NSString* cacheDir = [QuantcastUtils quantcastSupportDirectoryPath];
     
     NSError* __autoreleasing dirError = nil;
     NSArray* dirContents = [fileManager contentsOfDirectoryAtPath:cacheDir error:&dirError];
@@ -135,14 +167,14 @@ static BOOL _enableLogging = NO;
             if ( ![filesToKeepSet containsObject:filename] ) {
                 NSError* __autoreleasing error = nil;
                 
-                [fileManager removeItemAtPath:[[QuantcastUtils quantcastCacheDirectoryPath] stringByAppendingPathComponent:filename] error:&error];
+                [fileManager removeItemAtPath:[cacheDir stringByAppendingPathComponent:filename] error:&error];
                 if (nil != error) {
                     QUANTCAST_LOG(@"Unable to delete Quantcast Cache directory! error = %@", error);
                 }
 
             }
         }
-    } 
+    }
 }
 
 +(int64_t)qhash2:(const int64_t)inKey string:(NSString*)inString {
