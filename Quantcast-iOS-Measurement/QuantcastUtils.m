@@ -92,7 +92,11 @@ static BOOL _enableLogging = NO;
 {
     BOOL success = NO;
     //In iOS 5.1+, make sure this isn't backed up to the cloud
-    if (&NSURLIsExcludedFromBackupKey != NULL && [[NSFileManager defaultManager] fileExistsAtPath:path]) {
+    BOOL supportsBackup = YES;
+    #if __IPHONE_OS_VERSION_MIN_REQUIRED <= __IPHONE_5_0
+        supportsBackup = &NSURLIsExcludedFromBackupKey != NULL;
+    #endif
+    if (supportsBackup && [[NSFileManager defaultManager] fileExistsAtPath:path]) {
         NSError *error = nil;
         success = [[NSURL fileURLWithPath:path] setResourceValue: [NSNumber numberWithBool: YES]
                                   forKey: NSURLIsExcludedFromBackupKey error: &error];

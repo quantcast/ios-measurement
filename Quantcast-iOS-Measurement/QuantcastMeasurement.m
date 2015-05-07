@@ -30,9 +30,6 @@
 #import "QuantcastGeoManager.h"
 #endif
 
-QuantcastMeasurement* gSharedInstance = nil;
-
-
 @interface QuantcastMeasurement () <QuantcastNetworkReachability> {
     NSOperationQueue* _quantcastQueue;
     UIBackgroundTaskIdentifier _backgroundTaskID;
@@ -96,6 +93,7 @@ QuantcastMeasurement* gSharedInstance = nil;
 
 +(QuantcastMeasurement*)sharedInstance {
     static dispatch_once_t pred;
+    static QuantcastMeasurement* gSharedInstance = nil;
     dispatch_once(&pred, ^{
         gSharedInstance = [[QuantcastMeasurement alloc] init];
     });
@@ -476,7 +474,6 @@ QuantcastMeasurement* gSharedInstance = nil;
             [labels addObject:inLabelsOrNil];
         }
 
-        [self addInternalSDKAppLabels:@[@"_sdk.ios.setup"] networkLabels:nil];
         self.appLabels = [QuantcastUtils combineLabels:self.appLabels withLabels:labels];
         
         userhash = [self internalBeginSessionWithAPIKey:inQuantcastAPIKey attributedNetwork:nil userIdentifier:userIdentifierOrNil appLabels:nil networkLabels:nil appIsDeclaredDirectedAtChildren:NO];
@@ -660,7 +657,10 @@ QuantcastMeasurement* gSharedInstance = nil;
                 }
     #ifdef __IPHONE_7_0
                 if ( nil != _telephoneInfo ){
-                    BOOL radioNotificationExists = (&CTRadioAccessTechnologyDidChangeNotification != NULL);
+                    BOOL radioNotificationExists = YES;
+                    #if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_7_0
+                        radioNotificationExists = &CTRadioAccessTechnologyDidChangeNotification != NULL;
+                    #endif
                     if( [_telephoneInfo respondsToSelector:@selector(currentRadioAccessTechnology)] && radioNotificationExists ){
                         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(radioAccessChanged:) name:CTRadioAccessTechnologyDidChangeNotification object:nil];
                     }
@@ -1305,8 +1305,8 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
         [self launchOnQuantcastThread:^(NSDate *timestamp) {
             if( self.isMeasurementActive ){
                 QuantcastEvent* e = [QuantcastEvent logSDKError:inSDKErrorType withErrorObject:inErrorOrNil errorParameter:inErrorParametOrNil withSessionID:self.currentSessionID eventTimestamp:timestamp applicationInstallID:self.appInstallIdentifier];
-                
-                [self recordEvent:e];
+                //dont try to upload event immediately.  This should prevent the same error from being triggered over and over
+                [self recordEvent:e withUpload:NO];
             }
         }];
     }

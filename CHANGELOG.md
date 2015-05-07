@@ -1,6 +1,11 @@
 #Quantcast Measure for Apps#
 ###iOS SDK Changelog###
 
+
+##Version 1.4.9##
+May 7, 2015
+* Fixes #16  XCode 6.3 warnings
+
 ##Version 1.4.8##
 March 13, 2015
 * Move QC file directory to more permanent location

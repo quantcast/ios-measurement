@@ -14,6 +14,7 @@
 #endif // !__has_feature(objc_arc)
 
 #import <CoreTelephony/CTCarrier.h>
+#import <UIKit/UIKit.h>
 #import "QuantcastPolicy.h"
 #import "QuantcastParameters.h"
 #import "QuantcastUtils.h"

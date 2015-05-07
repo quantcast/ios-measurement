@@ -1,5 +1,5 @@
 /*
- * © Copyright 2012-2014 Quantcast Corp.
+ * © Copyright 2012-2015 Quantcast Corp.
  *
  * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
  * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
@@ -14,6 +14,7 @@
 #endif // !__has_feature(objc_arc)
 
 #import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
 #import "QuantcastMeasurement.h"
 #import <sys/utsname.h>
 #import <CoreTelephony/CTCarrier.h>
@@ -111,8 +112,8 @@
 -(NSDictionary*)JSONDictEnforcingPolicy:(QuantcastPolicy*)inPolicyOrNil{
     
     NSMutableDictionary *jsonDict = [NSMutableDictionary dictionaryWithCapacity:_parameters.count + 2];
-    [jsonDict setObject:_sessionID forKey:@"sid"];
-    [jsonDict setObject:[NSString stringWithFormat:@"%qi", (int64_t)[_timestamp timeIntervalSince1970]] forKey:@"et"];
+    [jsonDict setObject:_sessionID forKey:QCPARAMETER_SID];
+    [jsonDict setObject:[NSString stringWithFormat:@"%qi", (int64_t)[_timestamp timeIntervalSince1970]] forKey:QCPARAMETER_ET];
     for ( NSString* param in [_parameters allKeys]) {
         if(![inPolicyOrNil isBlacklistedParameter:param]){
             

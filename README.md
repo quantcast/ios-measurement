@@ -1,16 +1,17 @@
 Quantcast iOS SDK
 =================
 
-This implementation guide provides steps for integrating the Quantcast Measure for Apps SDK, so you can take advantage of valuable, actionable insights:
+This implementation guide provides steps for integrating the Quantcast for Apps SDK, so you can take advantage of valuable, actionable insights:
 
 * **Know Your Audience** - Quantcast uses direct measurement and machine learning to build accurate and detailed demographic profiles.
 * **Compare and Compete** - Gauge user loyalty by analyzing visit frequency, retention and upgrades over time.
-* **Attract Advertising** – Attract advertisers by showcasing your most powerful data points using a trusted source. 
+* **Attract Advertising** – Attract advertisers by showcasing your most powerful data points using a trusted source.
+* **Improve Campaign Performance** – Increase your campaign performance by understanding characteristics of your best users and finding more people like them.   
 
 If you have any implementation questions, please email mobilesupport@quantcast.com. We're here to help.
 
 
-Integrating Quantcast Measure for Mobile Apps
+Integrating Quantcast for Mobile Apps
 ---------------------------------------------
 
 To integrate Quantcast’s SDK into your iOS app, you must use Xcode 4.5 or later. The Quantcast SDK supports apps built for iOS 5.0 and later. 
@@ -54,6 +55,10 @@ git submodule update --init
 
     <img src="https://raw.github.com/quantcast-engineering/quantcast-documentation/master/ios/images/image002.png" alt="Screenshot - Add Frameworks and Libraries" style="width: 700px;"/>
 
+#### Use of the AdSupport Framework ####
+Linking to the AdSupport framework is not strictly necessary for integration with the Quantcast SDK. However, if you choose to link to the AdSupport framework in order to serve ads in your app or track installation attribution, that framework will allow Quantcast to have to access to IDFAs, which we can use to improve the quality of demographic data we provide about your users in our Measure service.
+
+Remember, if your code or any third party code in your app utilizes the IDFA, you will need to state that in the app submission process, in response to the question “Does this app use the Advertising Identifier (IDFA)?”  Thus, if you’re integrated with the Quantcast SDK and you choose to link to the Ad Support framework, you should answer that question “yes.”  Additionally, in the app submission process, you will need to confirm that your app – and everyone that interfaces with your app – honors the Limit Ad Tracking setting, which the Quantcast SDK does.
 
 #### If You Are Not Using Automatic Reference Counting (ARC) ####
 
@@ -137,12 +142,19 @@ When not using the default dialog we strongly recommend that you also have a but
 
 Note: when a user opts out of Quantcast Measure, the SDK immediately stops transmitting information to or from the user's device and deletes any cached information that may have retained. 
 
-#### Use of the AdSupport Framework ####
-Linking to the AdSupport framework is not strictly necessary for integration with the Quantcast Measure SDK. However,  if you choose to link to the AdSupport framework in order to serve ads in your app, that framework will allow Quantcast to have to access to IDFAs, which we can use to improve the quality of demographic data we provide about your users in our Measure service.
-
-Remember, if your code or any third party code in your app utilizes the IDFA, you will need to state that in the app submission process, in response to the question “Does this app use the Advertising Identifier (IDFA)?”  Thus, if you’re integrated with the Quantcast SDK and you choose to link to the Ad Support framework, you should answer that question “yes.”  Additionally, in the app submission process, you will need to confirm that your app – and everyone that interfaces with your app – honors the Limit Ad Tracking setting, which the Quantcast SDK does.
-
 ### Optional Code Integrations ###
+
+#### Combined Web/App Audiences ####
+Quantcast Measure enables you to measure your combined web and mobile app audiences, allowing you to understand the differences and similarities of your online and mobile app audiences, or even the combined audiences of your different apps. To enable this feature, you will need to provide a user identifier, which Quantcast will always anonymize with a 1-way hash before it is transmitted from the user's device. This user identifier should also be provided for your website(s); please see [Quantcast's web measurement documentation](https://www.quantcast.com/learning-center/guides/cross-platform-audience-measurement-guide) for instructions.
+
+Normally, your app user identifier would be provided in your `UIApplication` delegate's `application:didFinishLaunchingWithOptions:` method via the `beginMeasurementSessionWithAPIKey:userIdentifier:labels:` method as described in the [Required Code Integration](#required-code-integration) section above. If the app's active user identifier changes later in the app's life cycle, you can update the user identifier using the following method call:
+
+```objective-c
+[[QuantcastMeasurement sharedInstance] recordUserIdentifier:userIdentifierStr withLabels:nil];
+```
+The current user identifier is passed in the `userIdentifierStr` argument. 
+
+Note that in all cases, the Quantcast iOS SDK will immediately 1-way hash the passed app user identifier, and return the hashed value for your reference. You do not need to take any action with the hashed value.
 
 #### Audience Labels ####
 Use labels to create Audience Segments, or groups of users that share a common property or attribute.  For instance, you can create an audience segment of users who purchase in your app.  For each audience segment you create, Quantcast will track membership of the segment over time, and generate an audience report that includes their demographics.  If you have implemented the same audience segments on your website(s), you will see a combined view of your web and app audiences for each audience segment. Learn more about how to use audience segments, including how to create segment hierarchies using the dot notation, here: [https://www.quantcast.com/help/using-audience-segments] (https://www.quantcast.com/help/using-audience-segments). 
@@ -169,50 +181,6 @@ All labels that are set during the course of an app session will register a visi
 The `labels:` argument of most Quantcast SDK methods is typed to be an `id` pointer. However, it only accepts either a `NSString` object representing a single label, or a `NSArray` object containing one or more `NSString` objects representing a collection of labels to be applied to the event.
 
 While there is no specific constraint on the intended use of the label dimension, it is not recommended that you use it to indicate discrete events; in these cases, use the `logEvent:withLabels:` method described under [Tracking App Events](#tracking-app-events).
-
-
-#### Applying Audience Labels Upon App Suspension and Resume ####
-
-If you need more control over how labels are applied when your app is suspended and resumed, you can use the following integration of the Quantcast iOS SDK, which includes a set of 4 required calls to indicate when the app has been launched, paused (put into the background), resumed, and quit.  These 4 calls replace the integration using the `setupMeasurementSessionWithAPIKey` call – they cannot be used concurrently. 
-
-To implement the required set of SDK calls, perform the following steps:
-
-1.	Import `QuantcastMeasurement.h` into your `UIApplication` delegate class
-
-	```objective-c
-	#import "QuantcastMeasurement.h"
-	```
-
-2.	In your `UIApplication` delegate's `application:didFinishLaunchingWithOptions:` method, place the following:
-
-	```objective-c
-	[[QuantcastMeasurement sharedInstance] beginMeasurementSessionWithAPIKey:@"<Insert your API Key Here>" 
-userIdentifier:nil labels:nil];
-    ```
-
-	Replace "<_Insert your API Key Here_>" with your Quantcast API Key. The API Key can be found in the file “api-key.txt” in your Quantcast SDK folder. All your API keys can also be found on your Quantcast dashboard: [https://www.quantcast.com/user/resources?listtype=apps] (https://www.quantcast.com/user/resources?listtype=apps). 
-
-	The `userIdentifier:` parameter accepts a string that uniquely identifies an individual user, such as an account login. Passing this information allows Quantcast to provide reports on your combined audience across all your properties: online, mobile web and mobile app. Please see the [Combined Web/App Audiences](#combined-webapp-audiences) section for more information.
-
-	The `labels:` parameter may be nil and is used to create Audience Segments.  Learn more in the [Audience Labels](#audience-labels) section.
-	
-3.	In your `UIApplication` delegate's `applicationWillTerminate:` method, place the following:
-
-	```objective-c
-	[[QuantcastMeasurement sharedInstance] endMeasurementSessionWithLabels:nil];
-	```
-		
-4.	In your `UIApplication` delegate's `applicationDidEnterBackground:` method, place the following:
-
-	```objective-c
-	[[QuantcastMeasurement sharedInstance] pauseSessionWithLabels:nil];
-	```
-
-5.	In your `UIApplication` delegate's `applicationWillEnterForeground:` method, place the following:
-
-	```objective-c
-	[[QuantcastMeasurement sharedInstance] resumeSessionWithLabels:nil];
-	```
 
 #### Tracking App Events ####
 Quantcast Measure can be used to measure audiences that engage in certain activities within your app. To log the occurrence of an app event or activity, call the following method:
@@ -247,18 +215,6 @@ The Quantcast iOS SDK will automatically pause geo-tracking while your app is in
 
 #### Digital Magazines and Periodicals ####
 Quantcast Measure provides measurement features specific to digital magazines and periodicals. These options allow the measurement of specific issues, articles and pages in addition to the general measurement of the app hosting the magazine. In order to take advantage of this measurement, you must at a minimum tag when a particular issue has been opened and closed and when each page in that issue has been viewed (in addition to the basic SDK integration). You may also optionally tag when a particular article has been viewed. For more information, please refer to the documentation in the Periodicals header file which can be found in the SDK source folder at `Optional/QuantcastMeasurement+Periodicals.h`.  
-
-#### Combined Web/App Audiences ####
-Quantcast Measure enables you to measure your combined web and mobile app audiences, allowing you to understand the differences and similarities of your online and mobile app audiences, or even the combined audiences of your different apps. To enable this feature, you will need to provide a user identifier, which Quantcast will always anonymize with a 1-way hash before it is transmitted from the user's device. This user identifier should also be provided for your website(s); please see [Quantcast's web measurement documentation](https://www.quantcast.com/learning-center/guides/cross-platform-audience-measurement-guide) for instructions.
-
-Normally, your app user identifier would be provided in your `UIApplication` delegate's `application:didFinishLaunchingWithOptions:` method via the `beginMeasurementSessionWithAPIKey:userIdentifier:labels:` method as described in the [Required Code Integration](#required-code-integration) section above. If the app's active user identifier changes later in the app's life cycle, you can update the user identifier using the following method call:
-
-```objective-c
-[[QuantcastMeasurement sharedInstance] recordUserIdentifier:userIdentifierStr withLabels:nil];
-```
-The current user identifier is passed in the `userIdentifierStr` argument. 
-
-Note that in all cases, the Quantcast iOS SDK will immediately 1-way hash the passed app user identifier, and return the hashed value for your reference. You do not need to take any action with the hashed value.
 
 #### Measuring Directly-Served Ad Campaigns ####
 For apps that serve advertising and can access advertiser and campaign identifiers from their ad serving system, Quantcast can measure the audience exposed to these campaigns. If you want to additionally log the ad displays that occur within your app and have audience measurement against the exposed audience, first you must first add the optional source found in
