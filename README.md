@@ -249,13 +249,14 @@ The Quantcast iOS SDK will upload the events it collects to Quantcast's server p
 You may change this property multiple times throughout your app's execution.
 
 ##### Secure Data Uploads #####
-The Quantcast iOS SDK can support secure data uploads using SSL/TLS. In order to enable secure data uploads, first link your project to the `Security` framework. Then add following preprocessor macro definition to your project's precompiled header file (the file that ends with '.pch'):
+As of version 1.5.0, secure downloads are turned on by default. This was changed due to Apple's new [App Transport Security](https://developer.apple.com/library/prerelease/ios/technotes/App-Transport-Security-Technote/) update
+The Quantcast iOS SDK can still support non-https calls if that is preferred. In order to disable secure data uploads, add following preprocessor macro definition to your project's precompiled header file (the file that ends with '.pch'):
 
 ```objective-c
-#define QCMEASUREMENT_USE_SECURE_CONNECTIONS 1
+#define QCMEASUREMENT_USE_SECURE_CONNECTIONS 0
 ```
 
-Note that using secure data uploads causes your app to use encryption technology. Various jurisdictions have laws controlling the export of software applications that use encryption. Please review your jurisdiction's laws concerning exporting software that uses encryption before enabling secure data uploads in the Quantcast iOS SDK. 
+Note that if you turn off secure connections, then you will need to set up the proper exceptions using the `NSAppTransportSecurity` key in you info.plist.  The `NSExceptionDomains` key should be set to `quantcount.com` and included subdirectories `NSIncludesSubdomains`. Please read more about setting up exceptions [here](https://developer.apple.com/library/prerelease/ios/technotes/App-Transport-Security-Technote/)
 
 ### Trouble Shooting ###
 

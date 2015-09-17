@@ -21,11 +21,64 @@
 
 @interface QuantcastMeasurement (){
     id<NSObject> _networkLabels;
+    BOOL _usesOneStep;
 }
 -(void)launchOnQuantcastThread:(void (^)(NSDate *))block;
 @end
 
 @implementation QuantcastMeasurement (Networks)
+
+-(NSString*)setupMeasurementSessionWithAPIKey:(NSString*)inQuantcastAPIKey
+                            attributedNetwork:(NSString*)inNetworkPCode
+                               userIdentifier:(NSString*)inUserIdentifierOrNil
+                                    appLabels:(id<NSObject>)inAppLabelsOrNil
+                                networkLabels:(id<NSObject>)inNetworkLabelsOrNil
+                      appIsDirectedAtChildren:(BOOL)inIsAppDirectedAtChildren
+{
+    if (nil == inNetworkPCode) {
+        QUANTCAST_ERROR(@"You must pass a network p-code in attributedNetwork: if you are going to start measurement with the Network form of beginMeasurementSessionWithAPIKey:");
+        return nil;
+    }
+    
+    NSString* userhash = nil;
+    if ( !self.isOptedOut ) {
+        
+        if(self.isMeasurementActive){
+            QUANTCAST_ERROR(@"beginMeasurementSessionWithAPIKey was already called.  Remove all beginMeasurementSessionWithAPIKey, pauseSessionWithLabels, resumeSessionWithLabels, and endMeasurementSessionWithLabels calls when you use setupMeasurementSessionWithAPIKey.");
+            return nil;
+        }
+        
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(terminateNotification) name:UIApplicationWillTerminateNotification object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(pauseNotification) name:UIApplicationDidEnterBackgroundNotification object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(resumeNotification) name:UIApplicationWillEnterForegroundNotification object:nil];
+        
+        NSMutableArray* labels = [NSMutableArray array];
+        if ([inAppLabelsOrNil isKindOfClass:[NSArray class]]) {
+            [labels addObjectsFromArray:(NSArray*)inAppLabelsOrNil];
+        }
+        else if ([inAppLabelsOrNil isKindOfClass:[NSString class]]) {
+            [labels addObject:inAppLabelsOrNil];
+        }
+        self.appLabels = [QuantcastUtils combineLabels:self.appLabels withLabels:labels];
+        
+        userhash = [self internalBeginSessionWithAPIKey:inQuantcastAPIKey attributedNetwork:inNetworkPCode userIdentifier:inUserIdentifierOrNil appLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil appIsDeclaredDirectedAtChildren:inIsAppDirectedAtChildren];
+    }
+    _usesOneStep = YES;
+    return userhash;
+}
+
+-(void)terminateNotification{
+    [self internalEndMeasurementSessionWithAppLabels:nil networkLabels:nil];
+}
+
+-(void)pauseNotification{
+    [self internalPauseSessionWithAppLabels:nil networkLabels:nil];
+}
+
+-(void)resumeNotification{
+    [self internalResumeSessionWithAppLabels:nil networkLabels:nil];
+}
+
 
 -(NSString*)beginMeasurementSessionWithAPIKey:(NSString*)inQuantcastAPIKey
                             attributedNetwork:(NSString*)inNetworkPCode

@@ -650,6 +650,10 @@
     _appIsDeclaredDirectedAtChildren = inAppIsDirectedAtChildren;
     
     if ( !self.isOptedOut ) {
+        //copy the incoming labels.  This prevents the client from changing the original object from underneath us.
+        NSArray* appLabelCopy = [QuantcastUtils copyLabels:inAppLabelsOrNil];
+        NSArray* networkLabelCopy = [QuantcastUtils copyLabels:inNetworkLabelsOrNil];
+        
         [self launchOnQuantcastThread:^(NSDate *timestamp) {
             if ( !self.isMeasurementActive ) {
                 if(nil != hashedId){
@@ -693,9 +697,9 @@
                 [self enableDataUploading];
                 
                 if([self checkSessionID]){
-                    [self startNewSessionAndGenerateEventWithReason:QCPARAMETER_REASONTYPE_LAUNCH withAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabelsOrNil eventTimestamp:(NSDate *)timestamp];
+                    [self startNewSessionAndGenerateEventWithReason:QCPARAMETER_REASONTYPE_LAUNCH withAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:appLabelCopy] networkLabels:networkLabelCopy eventTimestamp:(NSDate *)timestamp];
                 }else{
-                    QuantcastEvent* e = [QuantcastEvent resumeSessionEventWithSessionID:self.currentSessionID eventTimestamp:timestamp applicationInstallID:self.appInstallIdentifier eventAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:inAppLabelsOrNil] eventNetworkLabels:inNetworkLabelsOrNil];
+                    QuantcastEvent* e = [QuantcastEvent resumeSessionEventWithSessionID:self.currentSessionID eventTimestamp:timestamp applicationInstallID:self.appInstallIdentifier eventAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:appLabelCopy] eventNetworkLabels:networkLabelCopy];
                     
                     [self recordEvent:e];
                 }
@@ -708,11 +712,14 @@
     return hashedId;
 }
 
--(void)internalEndMeasurementSessionWithAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabels {
+-(void)internalEndMeasurementSessionWithAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil {
     if ( !self.isOptedOut  ) {
+        //copy the incoming labels.  This prevents the client from changing the original object from underneath us.
+        NSArray* appLabelCopy = [QuantcastUtils copyLabels:inAppLabelsOrNil];
+        NSArray* networkLabelCopy = [QuantcastUtils copyLabels:inNetworkLabelsOrNil];
         [self launchOnQuantcastThread:^(NSDate *timestamp) {
             if ( self.isMeasurementActive ) {
-                QuantcastEvent* e = [QuantcastEvent closeSessionEventWithSessionID:self.currentSessionID eventTimestamp:timestamp applicationInstallID:self.appInstallIdentifier eventAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:inAppLabelsOrNil] eventNetworkLabels:inNetworkLabels];
+                QuantcastEvent* e = [QuantcastEvent closeSessionEventWithSessionID:self.currentSessionID eventTimestamp:timestamp applicationInstallID:self.appInstallIdentifier eventAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:appLabelCopy] eventNetworkLabels:networkLabelCopy];
                 
                 [self recordEvent:e withUpload:YES];
                 [self updateSessionTimestamp];
@@ -737,12 +744,15 @@
     }
 }
 
--(void)internalPauseSessionWithAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabels {
+-(void)internalPauseSessionWithAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil {
     
     if ( !self.isOptedOut ) {
+        //copy the incoming labels.  This prevents the client from changing the original object from underneath us.
+        NSArray* appLabelCopy = [QuantcastUtils copyLabels:inAppLabelsOrNil];
+        NSArray* networkLabelCopy = [QuantcastUtils copyLabels:inNetworkLabelsOrNil];
         [self launchOnQuantcastThread:^(NSDate *timestamp) {
             if ( self.isMeasurementActive ) {
-                QuantcastEvent* e = [QuantcastEvent pauseSessionEventWithSessionID:self.currentSessionID eventTimestamp:timestamp applicationInstallID:self.appInstallIdentifier eventAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:inAppLabelsOrNil] eventNetworkLabels:inNetworkLabels];
+                QuantcastEvent* e = [QuantcastEvent pauseSessionEventWithSessionID:self.currentSessionID eventTimestamp:timestamp applicationInstallID:self.appInstallIdentifier eventAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:appLabelCopy] eventNetworkLabels:networkLabelCopy];
                 
                 
                 [self recordEvent:e withUpload:NO];
@@ -764,22 +774,25 @@
     }
 }
 
--(void)internalResumeSessionWithAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabels {
+-(void)internalResumeSessionWithAppLabels:(id<NSObject>)inAppLabelsOrNil networkLabels:(id<NSObject>)inNetworkLabelsOrNil {
     [self setOptOutStatus:[QuantcastMeasurement isOptedOutStatus]];
     
     if ( !self.isOptedOut ) {
+        //copy the incoming labels.  This prevents the client from changing the original object from underneath us.
+        NSArray* appLabelCopy = [QuantcastUtils copyLabels:inAppLabelsOrNil];
+        NSArray* networkLabelCopy = [QuantcastUtils copyLabels:inNetworkLabelsOrNil];
         [self launchOnQuantcastThread:^(NSDate *timestamp) {
             if ( self.isMeasurementActive ) {
-                QuantcastEvent* e = [QuantcastEvent resumeSessionEventWithSessionID:self.currentSessionID eventTimestamp:timestamp applicationInstallID:self.appInstallIdentifier eventAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:inAppLabelsOrNil] eventNetworkLabels:inNetworkLabels];
+                QuantcastEvent* e = [QuantcastEvent resumeSessionEventWithSessionID:self.currentSessionID eventTimestamp:timestamp applicationInstallID:self.appInstallIdentifier eventAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:appLabelCopy] eventNetworkLabels:networkLabelCopy];
                 
                 [self recordEvent:e];
                 
                 [self startReachabilityNotifier];
                 
-                if (![self startNewSessionIfUsersAdPrefChangedWithAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabels eventTimestamp:timestamp]) {
+                if (![self startNewSessionIfUsersAdPrefChangedWithAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:appLabelCopy] networkLabels:networkLabelCopy eventTimestamp:timestamp]) {
                     if ( [self checkSessionID] ) {
                         [_policy downloadLatestPolicyWithReachability:self];
-                        [self startNewSessionAndGenerateEventWithReason:QCPARAMETER_REASONTYPE_RESUME withAppLabels:inAppLabelsOrNil networkLabels:inNetworkLabels eventTimestamp:timestamp];
+                        [self startNewSessionAndGenerateEventWithReason:QCPARAMETER_REASONTYPE_RESUME withAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:appLabelCopy] networkLabels:networkLabelCopy eventTimestamp:timestamp];
                        QUANTCAST_LOG(@"Starting new session after app being paused for extend period of time.");
                     }
                 }

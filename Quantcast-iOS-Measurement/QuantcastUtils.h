@@ -31,6 +31,11 @@
 
 @class QuantcastPolicy;
 
+@interface QCSyncronizedRequest : NSObject
+- (NSData *)sendSynchronousRequest:(NSURLRequest *)request returningResponse:(NSURLResponse **)response error:(NSError **)error;
+
+@end
+
 @interface QuantcastUtils : NSObject
 
 +(NSString*)quantcastDeprecatedCacheDirectoryPath;
@@ -79,6 +84,7 @@
  */
 +(NSString*)encodeLabelsList:(NSArray*)inLabelsArrayOrNil;
 
++(NSArray*)copyLabels:(id<NSObject>)inLabelsObjectOrNil;
 +(id<NSObject>)combineLabels:(id<NSObject>)labels1 withLabels:(id<NSObject>)labels2;
 +(NSString*)urlEncodeString:(NSString*)inString;
 
