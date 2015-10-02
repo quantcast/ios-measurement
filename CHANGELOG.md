@@ -1,6 +1,10 @@
 #Quantcast Measure for Apps#
 ###iOS SDK Changelog###
 
+##Version 1.5.1##
+October 2, 2015
+* Minor update to upload packet
+
 ##Version 1.5.0##
 September 17, 2015
 * Https now on by default for iOS 9

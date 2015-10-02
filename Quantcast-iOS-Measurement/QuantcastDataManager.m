@@ -408,6 +408,16 @@
         [jsonDict setObject:udidStr forKey:QCPARAMETER_DID];
     }
     
+    NSString* dos = [[UIDevice currentDevice] systemName];
+    if(nil != dos){
+        [jsonDict setObject:dos forKey:QCPARAMETER_DOS];
+    }
+    
+    NSString* appBundleID = [[NSBundle mainBundle] bundleIdentifier];
+    if( nil != appBundleID){
+        [jsonDict setObject:appBundleID forKey:QCPARAMATER_PKID];
+    }
+    
     NSData *jsonData = nil;
     NSArray* eventList = [self recordedEventsWithDeleteDBEvents:inDoDeleteDB];
     if(eventList.count > 0){
