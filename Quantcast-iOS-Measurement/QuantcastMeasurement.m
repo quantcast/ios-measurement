@@ -15,6 +15,11 @@
 
 #import <CoreTelephony/CTTelephonyNetworkInfo.h>
 #import <AdSupport/AdSupport.h>
+#import <ifaddrs.h>
+#import <sys/socket.h>
+#import <netdb.h>
+#import <arpa/inet.h>
+
 #import "QuantcastMeasurement.h"
 #import "QuantcastMeasurement+Internal.h"
 #import "QuantcastParameters.h"

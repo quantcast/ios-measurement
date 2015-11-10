@@ -12,10 +12,6 @@
 
 
 #import <SystemConfiguration/SystemConfiguration.h>
-#import <ifaddrs.h>
-#import <sys/socket.h>
-#import <netdb.h>
-#import <arpa/inet.h>
 
 typedef enum {
     QuantcastUnknownReachable = -1,

@@ -642,8 +642,8 @@ static BOOL _enableLogging = NO;
     [m_connection start];
     CFRunLoopRun();
     
-    *error = [m_error copy];
-    *response = [m_response copy];
+    if (error != NULL) *error = [m_error copy];
+    if (response != NULL) *response = [m_response copy];
     
     return m_data;
 }

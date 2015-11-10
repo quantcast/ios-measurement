@@ -16,6 +16,7 @@
 
 #import "QuantcastDatabase.h"
 #import "QuantcastUtils.h"
+#import <sqlite3.h>
 
 @interface QuantcastDatabase (){
     

@@ -1,6 +1,11 @@
 #Quantcast Measure for Apps#
 ###iOS SDK Changelog###
 
+##Version 1.5.2##
+November 10, 2015
+* Fixed static analyzer warning Fixes #20
+* move library imports out of .h Fixes #19
+
 ##Version 1.5.1##
 October 2, 2015
 * Minor update to upload packet
