@@ -1,5 +1,5 @@
 /*
- * © Copyright 2012-2014 Quantcast Corp.
+ * © Copyright 2012-2016 Quantcast Corp.
  *
  * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
  * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
@@ -109,12 +109,12 @@
 -(void)downloadLatestPolicyWithReachability:(id<QuantcastNetworkReachability>)inNetworkReachabilityOrNil {
     if ( nil != inNetworkReachabilityOrNil && nil != _policyURL && !_waitingForUpdate) {
         
-        _waitingForUpdate = YES;
         _policyHasBeenLoaded = NO;
         
         // if the network is available, check to see if there is a new
         
         if ([inNetworkReachabilityOrNil currentReachabilityStatus] != QuantcastNotReachable ) {
+            _waitingForUpdate = YES;
             [self startPolicyDownloadWithURL:_policyURL];
         }
         else {

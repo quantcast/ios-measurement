@@ -1,6 +1,13 @@
 #Quantcast Measure for Apps#
 ###iOS SDK Changelog###
 
+##Version 1.5.3##
+May 13, 2016
+* Fixed Reachability to support ipv6 Fixes #21
+* Removed some deprecated methods Fixes #23
+* Update documentation Fixes #22
+* Copywrite update
+
 ##Version 1.5.2##
 November 10, 2015
 * Fixed static analyzer warning Fixes #20

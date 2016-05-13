@@ -1,5 +1,5 @@
 /*
- * © Copyright 2012-2014 Quantcast Corp.
+ * © Copyright 2012-2016 Quantcast Corp.
  *
  * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
  * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
@@ -759,7 +759,6 @@
             if ( self.isMeasurementActive ) {
                 QuantcastEvent* e = [QuantcastEvent pauseSessionEventWithSessionID:self.currentSessionID eventTimestamp:timestamp applicationInstallID:self.appInstallIdentifier eventAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:appLabelCopy] eventNetworkLabels:networkLabelCopy];
                 
-                
                 [self recordEvent:e withUpload:NO];
                 
                 [self updateSessionTimestamp];
@@ -789,10 +788,12 @@
         [self launchOnQuantcastThread:^(NSDate *timestamp) {
             if ( self.isMeasurementActive ) {
                 QuantcastEvent* e = [QuantcastEvent resumeSessionEventWithSessionID:self.currentSessionID eventTimestamp:timestamp applicationInstallID:self.appInstallIdentifier eventAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:appLabelCopy] eventNetworkLabels:networkLabelCopy];
+
+                [self startReachabilityNotifier];
+                
+                [_policy downloadLatestPolicyWithReachability:self];
                 
                 [self recordEvent:e];
-                
-                [self startReachabilityNotifier];
                 
                 if (![self startNewSessionIfUsersAdPrefChangedWithAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:appLabelCopy] networkLabels:networkLabelCopy eventTimestamp:timestamp]) {
                     if ( [self checkSessionID] ) {
@@ -901,21 +902,9 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
         SCNetworkReachabilityContext    context = {0, (__bridge void *)(self), NULL, NULL, NULL};
 
         NSURL* url = [NSURL URLWithString:QCMEASUREMENT_UPLOAD_URL];
-        struct hostent *host = gethostbyname([url host].UTF8String);
     
-        if(host == NULL){
-            _reachability = SCNetworkReachabilityCreateWithName(NULL, [[url host] UTF8String]);
-        }else{
-            struct sockaddr_in myAddress;
-            bzero(&myAddress, sizeof(myAddress));
-            myAddress.sin_len = sizeof(myAddress);
-            myAddress.sin_family = AF_INET;
-            myAddress.sin_addr = *(struct in_addr *) host->h_addr_list[0];
-            _reachability = SCNetworkReachabilityCreateWithAddress(kCFAllocatorDefault, (const struct sockaddr*)&myAddress);
-        }
+        _reachability = SCNetworkReachabilityCreateWithName(NULL, [[url host] UTF8String]);
         
-        
-
         if(SCNetworkReachabilitySetCallback(_reachability, QuantcastReachabilityCallback, &context))
         {
             if(SCNetworkReachabilityScheduleWithRunLoop(_reachability, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode))

@@ -14,7 +14,7 @@ If you have any implementation questions, please email mobilesupport@quantcast.c
 Integrating Quantcast for Mobile Apps
 ---------------------------------------------
 
-To integrate Quantcast’s SDK into your iOS app, you must use Xcode 4.5 or later. The Quantcast SDK supports apps built for iOS 5.0 and later. 
+To integrate Quantcast’s SDK into your iOS app, you must use Xcode 4.5 or later. The Quantcast SDK supports apps built for iOS 7.0 and later. 
 
 ### Download the SDK ###
 
@@ -50,6 +50,7 @@ git submodule update --init
 	*	`Foundation`
 	*	`libsqlite3.dylib`
 	*	`libz.dylib`
+	*   `Security`
 	*	`SystemConfiguration`
 	*	`UIKit`
 
