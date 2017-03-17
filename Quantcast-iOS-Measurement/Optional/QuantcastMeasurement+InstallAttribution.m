@@ -43,18 +43,20 @@
     if ( shouldFetchiAdAttribution ) {
         QUANTCAST_LOG(@"Fetching this app's iAd attribution status.");
         
-        // the iOS 7.1 way
-        [[ADClient sharedClient] determineAppInstallationAttributionWithCompletionHandler:^(BOOL appInstallationWasAttributedToiAd) {
-            [defaults setBool:appInstallationWasAttributedToiAd forKey:QCMEASUREMENT_IAD_ATTRIBUTED_INSTALL_DEFAULTS];
-            [defaults setObject:[NSNumber numberWithInt:1] forKey:QCMEASUREMENT_IAD_ATTRIBUTION_VERSION_DEFAULTS];
-            
-            if ( appInstallationWasAttributedToiAd ) {
-                NSDate* installDate = [QuantcastUtils appInstallTime];
-                [defaults setObject:installDate forKey:QCMEASUREMENT_IAD_APP_INSTALL_DATE_DEFAULTS];
+        // the iOS 9 way
+        [[ADClient sharedClient] requestAttributionDetailsWithBlock:^(NSDictionary* attributionDetails, NSError* error) {
+            if (!error) {
+                [defaults setBool:attributionDetails[@"iad-attribution"] forKey:QCMEASUREMENT_IAD_ATTRIBUTED_INSTALL_DEFAULTS];
+                [defaults setObject:[NSNumber numberWithInt:1] forKey:QCMEASUREMENT_IAD_ATTRIBUTION_VERSION_DEFAULTS];
+                
+                if ( attributionDetails[@"iad-attribution"] ) {
+                    NSDate* installDate = [QuantcastUtils appInstallTime];
+                    [defaults setObject:installDate forKey:QCMEASUREMENT_IAD_APP_INSTALL_DATE_DEFAULTS];
+                }
+                
+                [defaults synchronize];
+                [self setiAdAttributionLabels];
             }
-            
-            [defaults synchronize];
-            [self setiAdAttributionLabels];
         }];
     }
     else {
