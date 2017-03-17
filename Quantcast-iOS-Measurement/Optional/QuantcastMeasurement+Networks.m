@@ -18,6 +18,7 @@
 #import "QuantcastEvent.h"
 #import "QuantcastParameters.h"
 #import "QuantcastUtils.h"
+#import <UIKit/UIKit.h>
 
 @interface QuantcastMeasurement (){
     id<NSObject> _networkLabels;
