@@ -48,9 +48,9 @@
             return nil;
         }
         
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(terminateNotification) name:UIApplicationWillTerminateNotification object:nil];
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(pauseNotification) name:UIApplicationDidEnterBackgroundNotification object:nil];
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(resumeNotification) name:UIApplicationWillEnterForegroundNotification object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(terminateNotificationNetworks) name:UIApplicationWillTerminateNotification object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(pauseNotificationNetworks) name:UIApplicationDidEnterBackgroundNotification object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(resumeNotificationNetworks) name:UIApplicationWillEnterForegroundNotification object:nil];
         
         NSMutableArray* labels = [NSMutableArray array];
         if ([inAppLabelsOrNil isKindOfClass:[NSArray class]]) {
@@ -67,15 +67,15 @@
     return userhash;
 }
 
--(void)terminateNotification{
+-(void)terminateNotificationNetworks{
     [self internalEndMeasurementSessionWithAppLabels:nil networkLabels:nil];
 }
 
--(void)pauseNotification{
+-(void)pauseNotificationNetworks{
     [self internalPauseSessionWithAppLabels:nil networkLabels:nil];
 }
 
--(void)resumeNotification{
+-(void)resumeNotificationNetworks{
     [self internalResumeSessionWithAppLabels:nil networkLabels:nil];
 }
 
