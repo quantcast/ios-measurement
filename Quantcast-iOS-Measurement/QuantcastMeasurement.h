@@ -14,7 +14,7 @@
 //
 // ** IMPORTANT **
 //
-// Requires iOS 4 and Xcode 4.5 or later. 
+// Requires iOS 4 and Xcode 4.5 or later.
 //
 // Frameworks required:
 //      SystemConfiguration, Foundation, UIKit, CoreTelephony
@@ -48,6 +48,7 @@
 #error "Quantcast Measurement is only available for iOS SDK 4.0 and later. "
 #endif
 
+@class UIViewController;
 @class QuantcastPolicy;
 @class UIViewController;
 
@@ -56,7 +57,7 @@
  @abstract The main interface with Quantcast's iOS App Measurement SDK
  @discussion
  */
-@interface QuantcastMeasurement : NSObject 
+@interface QuantcastMeasurement : NSObject
 
 /*!
  @method sharedInstance
@@ -152,7 +153,7 @@
 
 /*!
  @method beginMeasurementSessionWithAPIKey:labels:
- @abstract Starts a Quantcast Measurement session. 
+ @abstract Starts a Quantcast Measurement session.
  @discussion Start a Quantcast Measurement session. This method is NOT required if setupMeasurement is called.  Nothing in the Quantcast Measurement API will work until this method (or beginMeasurementSession:withUserIdentifier:labels:) is called. Must be called first, preferably in the UIApplication delegate's application:didFinishLaunchingWithOptions: method.
  @param inQuantcastAPIKey The Quantcast API key that activity for this app should be reported under. Obtain this key from the Quantcast website.
  @param inLabelsOrNil Either an NSString object or NSArray object containing one or more NSString objects, each of which are a distinct label to be applied to this event. A label is any arbitrary string that you want to be ascociated with this event, and will create a second dimension in Quantcast Measurement reporting. Nominally, this is a "user class" indicator. For example, you might use one of two labels in your app: one for user who ave not purchased an app upgrade, and one for users who have purchased an upgrade.
@@ -191,7 +192,7 @@
  @method resumeSessionWithLabels:
  @abstract Resumes the Quantcast Measurement Session.
  @discussion Resumes the operations of the Quantcast Measurement API after it was suspended. This method is NOT required if setupMeasurement is used. Ideally, this method is called from the UIApplication delegate's applicationWillEnterForeground: method.
- @param inLabelsOrNil  Either an NSString object or NSArray object containing one or more NSString objects, each of which are a distinct label to be applied to this event. A label is any arbitrary string that you want to be ascociated with this event, and will create a second dimension in Quantcast Measurement reporting. Nominally, this is a "user class" indicator. For example, you might use one of two labels in your app: one for user who ave not purchased an app upgrade, and one for users who have purchased an upgrade. 
+ @param inLabelsOrNil  Either an NSString object or NSArray object containing one or more NSString objects, each of which are a distinct label to be applied to this event. A label is any arbitrary string that you want to be ascociated with this event, and will create a second dimension in Quantcast Measurement reporting. Nominally, this is a "user class" indicator. For example, you might use one of two labels in your app: one for user who ave not purchased an app upgrade, and one for users who have purchased an upgrade.
  */
 -(void)resumeSessionWithLabels:(id<NSObject>)inLabelsOrNil;
 
@@ -202,7 +203,7 @@
  @abstract The maximum number of events the SDK will retain locally before attempting to upload them to the Quantcast servers.
  @discussion This is the integer number of events the SDK will collect before initiating an upload to the Quantcast servers. Uploads that occur too often will drain the device's battery. Uploads that don't occur often enough will cause significant delays in uploading data to the Quantcast server for analysis and reporting. You may set this property to an integer value greater than or equal to 2. This value defaults to 100 if it is unset by you.
  */
- 
+
 @property (assign,nonatomic) NSUInteger uploadEventCount;
 
 #pragma mark - Debugging
