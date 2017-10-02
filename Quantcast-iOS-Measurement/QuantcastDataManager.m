@@ -1,5 +1,5 @@
 /*
- * © Copyright 2012-2016 Quantcast Corp.
+ * © Copyright 2012-2017 Quantcast Corp.
  *
  * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
  * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
@@ -50,7 +50,6 @@
     
     if (self) {
         _uploadEventCount = QCMEASUREMENT_DEFAULT_UPLOAD_EVENT_COUNT;
-        _backgroundUploadEventCount = QCMEASUREMENT_DEFAULT_BACKGROUND_UPLOAD_EVENT_COUNT;
         _maxEventRetentionCount = QCMEASUREMENT_DEFAULT_MAX_EVENT_RETENTION_COUNT;
         _isDataDumpInprogress = NO;
         
@@ -175,7 +174,7 @@
 
 -(void)uploadEventsWithPolicy:(QuantcastPolicy*)inPolicy {
     NSUInteger eventCount = [self eventCount];
-    if ( inPolicy.hasPolicyBeenLoaded && !_isDataDumpInprogress && ( eventCount >= self.uploadEventCount || ([UIApplication sharedApplication].applicationState == UIApplicationStateBackground && eventCount >= self.backgroundUploadEventCount ) ) ) {
+    if ( inPolicy.hasPolicyBeenLoaded && !_isDataDumpInprogress && eventCount >= self.uploadEventCount ) {
         [self initiateDataUploadWithPolicy:inPolicy];
     }
     else if ( eventCount >= _maxEventRetentionCount ) {

@@ -14,11 +14,11 @@ If you have any implementation questions, please email mobilesupport@quantcast.c
 Integrating Quantcast for Mobile Apps
 ---------------------------------------------
 
-To integrate Quantcast’s SDK into your iOS app, you must use Xcode 4.5 or later. The Quantcast SDK supports apps built for iOS 7.0 and later. 
+To integrate Quantcast’s SDK into your iOS app, you must use Xcode 6 or later. The Quantcast SDK supports apps built for iOS 7.0 and later due to the use of NSURLSession. 
 
 ### Download the SDK ###
 
-There are two ways to get the SDK.  You can download it directly from [the Quantcast website] (https://www.quantcast.com/user/quantcast-app-measurement-sdk.zip "Quantcast Measure for Apps SDK"), or you can use GitHub.  If you download the file from our site, unzip the file before continuing to the section [Set Up Your Xcode Project] (#set-up-your-xcode-project).
+There are two ways to get the SDK.  You can download it directly from [the Quantcast website](https://www.quantcast.com/user/quantcast-app-measurement-sdk.zip "Quantcast Measure for Apps SDK"), or you can use GitHub.  If you download the file from our site, unzip the file before continuing to the section [Set Up Your Xcode Project](#set-up-your-xcode-project).
 
 #### (optional) Getting the Quantcast SDK from GitHub ####
 
@@ -45,11 +45,12 @@ git submodule update --init
     <img src="https://raw.github.com/quantcast-engineering/quantcast-documentation/master/ios/images/image001.png" alt="Screenshot - Add Files to Project" style="width: 700px;"/>
 
 2.	Link the following iOS frameworks and libraries to your project if they are not already.  From your project properties, go to the “General” section, the scroll down to “Linked Frameworks and Libraries” and hit the “+” at the bottom left.  Then use the Command key to multiselect and add the following:
+    *   `AdSupport`  See [Use of the AdSupport Framework](#use-of-the-adsupport-framework).
 	*	`CoreGraphics`
 	*	`CoreTelephony`
 	*	`Foundation`
-	*	`libsqlite3.dylib`
-	*	`libz.dylib`
+	*	`libsqlite3.dylib or libsqlite3.tbd`
+	*	`libz.dylib or libz.tbd`
 	*   `Security`
 	*	`SystemConfiguration`
 	*	`UIKit`
@@ -92,11 +93,10 @@ The recommended way to integrate the Quantcast SDK requires only a single line o
 2.	In your `UIApplication` delegate's `application:didFinishLaunchingWithOptions:` method, place the following:
 
 	```objective-c
-	[[QuantcastMeasurement sharedInstance] setupMeasurementSessionWithAPIKey:@"<Insert your API Key Here>" 
-userIdentifier:nil labels:nil];
+	[[QuantcastMeasurement sharedInstance] setupMeasurementSessionWithAPIKey:@"<Insert your API Key Here>" userIdentifier:nil labels:nil];
     ```
 
-	Replace "<_Insert your API Key Here_>" with your Quantcast API Key. The API Key can be found in the file “api-key.txt” in your Quantcast SDK folder. All your API keys can also be found on your Quantcast dashboard: [https://www.quantcast.com/user/resources?listtype=apps] (https://www.quantcast.com/user/resources?listtype=apps). For more information about how and when to use the API Key, read [Understanding the API Key] (#optional-understanding-the-api-key).
+	Replace "<_Insert your API Key Here_>" with your Quantcast API Key. The API Key can be found in the file “api-key.txt” in your Quantcast SDK folder. All your API keys can also be found on your Quantcast dashboard: [https://www.quantcast.com/user/resources?listtype=apps](https://www.quantcast.com/user/resources?listtype=apps). For more information about how and when to use the API Key, read [Understanding the API Key](#optional-understanding-the-api-key).
 
 	The `userIdentifier:` parameter accepts a string that uniquely identifies an individual user, such as an account login. Passing this information allows Quantcast to provide reports on your combined audience across all your properties: online, mobile web and mobile app. Please see the [Combined Web/App Audiences](#combined-webapp-audiences) section for more information.
 
@@ -158,7 +158,7 @@ The current user identifier is passed in the `userIdentifierStr` argument.
 Note that in all cases, the Quantcast iOS SDK will immediately 1-way hash the passed app user identifier, and return the hashed value for your reference. You do not need to take any action with the hashed value.
 
 #### Audience Labels ####
-Use labels to create Audience Segments, or groups of users that share a common property or attribute.  For instance, you can create an audience segment of users who purchase in your app.  For each audience segment you create, Quantcast will track membership of the segment over time, and generate an audience report that includes their demographics.  If you have implemented the same audience segments on your website(s), you will see a combined view of your web and app audiences for each audience segment. Learn more about how to use audience segments, including how to create segment hierarchies using the dot notation, here: [https://www.quantcast.com/help/using-audience-segments] (https://www.quantcast.com/help/using-audience-segments). 
+Use labels to create Audience Segments, or groups of users that share a common property or attribute.  For instance, you can create an audience segment of users who purchase in your app.  For each audience segment you create, Quantcast will track membership of the segment over time, and generate an audience report that includes their demographics.  If you have implemented the same audience segments on your website(s), you will see a combined view of your web and app audiences for each audience segment. Learn more about how to use audience segments, including how to create segment hierarchies using the dot notation, here: [https://www.quantcast.com/help/using-audience-segments](https://www.quantcast.com/help/using-audience-segments). 
 
 There are two ways to assign labels.  The first is via the `appLabels` property.  Set the `appLabels` property to record labels related to user properties.  For example, to assign two labels, “purchaser.ebook” and “sharer.onFB”, you could do this:
 
@@ -192,27 +192,7 @@ Quantcast Measure can be used to measure audiences that engage in certain activi
 `theEventStr` is the string that is associated with the event you are logging. Hierarchical information can be indicated by using a left-to-right notation with a period as a separator. For example, logging one event named "button.left" and another named "button.right" will create three reportable items in Quantcast Measure: "button.left", "button.right", and "button". There is no limit on the cardinality that this hierarchal scheme can create, though low-frequency events may not have an audience report due to the lack of a statistically significant population.
 
 #### Geo-Location Measurement ####
-To turn on geo-location measurement, please take the following steps:
-
-1. Link your project to the `CoreLocation` framework
-2. Ensure that the `QuantcastGeoManager.m` compile unit , which can be found in the `Optional` folder of the SDK, has been added to your project.
-3. Add the following line to your project's pre-compiled header file:
-   
-   ```objective-c
-   #define QCMEASUREMENT_ENABLE_GEOMEASUREMENT 1
-   ```
-
-4. Insert the following call into your `UIApplication` delegate's `application:didFinishLaunchingWithOptions:` method after you call either form of the `beginMeasurementSession:` methods:
-
-   ```objective-c
-   [QuantcastMeasurement sharedInstance].geoLocationEnabled = YES;
-   ```
-
-You may also safely change the state of the `geoLocationEnabled` at any point after your app has launched. The Quantcast SDK will always adhere to its current setting.
-
-Note that you should only enable geo-tracking if your app has some location-aware purpose for the user.
-
-The Quantcast iOS SDK will automatically pause geo-tracking while your app is in the background. 
+Quantcast no longer offers Geo Location measurement out of the box.   If you are interested in this feature please send your business reason to mobilesupport@quantcast.com.
 
 #### Digital Magazines and Periodicals ####
 Quantcast Measure provides measurement features specific to digital magazines and periodicals. These options allow the measurement of specific issues, articles and pages in addition to the general measurement of the app hosting the magazine. In order to take advantage of this measurement, you must at a minimum tag when a particular issue has been opened and closed and when each page in that issue has been viewed (in addition to the basic SDK integration). You may also optionally tag when a particular article has been viewed. For more information, please refer to the documentation in the Periodicals header file which can be found in the SDK source folder at `Optional/QuantcastMeasurement+Periodicals.h`.  

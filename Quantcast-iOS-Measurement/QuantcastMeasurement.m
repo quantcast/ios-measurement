@@ -1,5 +1,5 @@
 /*
- * © Copyright 2012-2016 Quantcast Corp.
+ * © Copyright 2012-2017 Quantcast Corp.
  *
  * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
  * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
@@ -31,10 +31,6 @@
 #import "QuantcastNetworkReachability.h"
 #import "QuantcastOptOutDelegate.h"
 
-#if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
-#import "QuantcastGeoManager.h"
-#endif
-
 @interface QuantcastMeasurement () <QuantcastNetworkReachability> {
     NSOperationQueue* _quantcastQueue;
     UIBackgroundTaskIdentifier _backgroundTaskID;
@@ -43,8 +39,9 @@
     QuantcastNetworkStatus _currentReachability;
     QuantcastPolicy* _policy;
     
-    BOOL _isOptedOut;
     BOOL _geoLocationEnabled;
+    
+    BOOL _isOptedOut;
     
     id<NSObject> _networkLabels;
     
@@ -59,10 +56,6 @@
     id<NSObject> _internalSDKAppLabels;
     id<NSObject> _internalSDKNetworkLabels;
 }
-
-#if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
-@property (strong,nonatomic) QuantcastGeoManager* geoManager;
-#endif
 
 @property (strong, nonatomic) NSString* quantcastAPIKey;
 @property (strong, nonatomic) NSString* quantcastNetworkPCode;
@@ -88,8 +81,6 @@
 -(void)logNetworkReachability;
 -(BOOL)startReachabilityNotifier;
 -(void)stopReachabilityNotifier;
-
--(void)setGeoManagerGeoLocationEnable:(BOOL)inGeoLocationEnabled;
 
 @end
 
@@ -122,7 +113,6 @@
         [_quantcastQueue addObserver:self forKeyPath:@"operationCount" options:0 context:NULL];
         
         _appIsDeclaredDirectedAtChildren = NO;
-        _geoLocationEnabled = NO;
         _cachedAppInstallIdentifier = nil;
         
         // the first thing to do is determine user opt-out status, as that will guide everything else.
@@ -147,10 +137,6 @@
     [_quantcastQueue cancelAllOperations];
     
     [self stopReachabilityNotifier];
-    
-#if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
-    self.geoLocationEnabled = NO;
-#endif
     
 }
 
@@ -195,6 +181,7 @@
             NSString* path = [supportDir stringByAppendingPathComponent:item];
             [QuantcastUtils excludeBackupToItemAtPath:path];
         }
+        [[NSFileManager defaultManager] removeItemAtPath:cacheDir error:nil];
     }
 }
 
@@ -415,8 +402,7 @@
     NSTimeInterval modified = [self checkTimestamp:sessionIdFile];
     
     if(modified > 0){
-        BOOL isAppLaunchedInBackground = [UIApplication sharedApplication].applicationState == UIApplicationStateBackground;
-        if((NSDate.timeIntervalSinceReferenceDate - modified) > _policy.sessionPauseTimeoutSeconds && !isAppLaunchedInBackground){
+        if((NSDate.timeIntervalSinceReferenceDate - modified) > _policy.sessionPauseTimeoutSeconds){
             newSession = YES;
         }
         else if( nil == self.currentSessionID ){
@@ -690,13 +676,6 @@
                     _dataManager = [[QuantcastDataManager alloc] initWithOptOut:self.isOptedOut];
                     _dataManager.uploadEventCount = self.uploadEventCount;
                 
-    #if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
-                    if (nil == self.geoManager ) {
-                        self.geoManager = [[QuantcastGeoManager alloc] initWithEventLogger:self];
-                        self.geoManager.geoLocationEnabled = self.geoLocationEnabled;
-                    }
-    #endif
-                
                 }
             
                 [self enableDataUploading];
@@ -728,10 +707,6 @@
                 
                 [self recordEvent:e withUpload:YES];
                 [self updateSessionTimestamp];
-                
-    #if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
-                self.geoManager = nil;
-    #endif
                 
                 [self stopReachabilityNotifier];
                 
@@ -1096,30 +1071,6 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
 }
 
 
-
-#pragma mark - Geo Location Handling
-
--(BOOL)geoLocationEnabled {
-    return _geoLocationEnabled;
-}
-
--(void)setGeoLocationEnabled:(BOOL)inGeoLocationEnabled {
-    _geoLocationEnabled = inGeoLocationEnabled && nil != NSClassFromString(@"CLLocationManager");;
-    [self setGeoManagerGeoLocationEnable:inGeoLocationEnabled];
-}
-
--(void)setGeoManagerGeoLocationEnable:(BOOL)inGeoLocationEnabled {
-#if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
-    if ( nil != self.geoManager ) {
-        self.geoManager.geoLocationEnabled = inGeoLocationEnabled;
-    }
-#else
-    if ( inGeoLocationEnabled) {
-       QUANTCAST_ERROR(@"Tried to turn geo-measurement on but code has not been compiled. Please add '#define QCMEASUREMENT_ENABLE_GEOMEASUREMENT 1' to your pre-compiled header.");
-    }
-#endif
-}
-
 #pragma mark - User Privacy Management
 @synthesize isOptedOut=_isOptedOut;
 
@@ -1145,11 +1096,6 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
             
             if ( inOptOutStatus && self.isMeasurementActive) {
                 // stop the various services
-    #if QCMEASUREMENT_ENABLE_GEOMEASUREMENT
-                if ( nil != self.geoManager ) {
-                    [self setGeoManagerGeoLocationEnable:NO];
-                }
-    #endif
                 
                 [self stopReachabilityNotifier];
                 [self appendUserAgent:NO];
@@ -1169,10 +1115,6 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
                 }
                 else {
                     [self internalBeginSessionWithAPIKey:self.quantcastAPIKey attributedNetwork:self.quantcastNetworkPCode userIdentifier:nil appLabels:@"_OPT-IN" networkLabels:nil appIsDeclaredDirectedAtChildren:_appIsDeclaredDirectedAtChildren];
-                }
-            
-                if ( self.geoLocationEnabled ) {
-                    [self setGeoManagerGeoLocationEnable:self.geoLocationEnabled];
                 }
             
                 [self setOptOutCookie:NO];
@@ -1205,7 +1147,12 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
 -(void)displayQuantcastPrivacyPolicy:(UIViewController*)inController{
     NSURL* qcPrivacyURL = [NSURL URLWithString:@"http://www.quantcast.com/privacy/"];
     if(nil == inController){
-        [[UIApplication sharedApplication] openURL:qcPrivacyURL];
+        if ([self respondsToSelector:@selector(openURL:options:completionHandler:)]){
+            [[UIApplication sharedApplication] openURL:qcPrivacyURL options:@{} completionHandler:nil];
+        }else{
+            #pragma GCC diagnostic ignored "-Wdeprecated"
+            [[UIApplication sharedApplication] openURL:qcPrivacyURL];
+        }
     }else{
         //keep them in app
         UIViewController* webController = [[UIViewController alloc] init];

@@ -1,6 +1,16 @@
 #Quantcast Measure for Apps#
 ###iOS SDK Changelog###
 
+##Version 1.6.0##
+October 3, 2016
+* Main Thread checker fix Fixes #29
+* Fix Swift 3 compatibility Fixes #25
+* Remove Geo location functionality
+* Remove iAd attribution extension 
+* Fix ambigous naming
+* Change NSURLConnetion to NSURLSession
+* Copywrite update
+
 ##Version 1.5.3##
 May 13, 2016
 * Fixed Reachability to support ipv6 Fixes #21

@@ -1,5 +1,5 @@
 /*
- * © Copyright 2012-2016 Quantcast Corp.
+ * © Copyright 2012-2017 Quantcast Corp.
  *
  * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
  * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
@@ -52,19 +52,7 @@
 +(NSString*)quantcastHash:(NSString*)inStrToHash;
 
 +(NSData*)gzipData:(NSData*)inData error:(NSError*__autoreleasing*)outError;
-
-/*!
- @internal
- @method handleConnection:didReceiveAuthenticationChallenge:withTrustedHost: 
- @abstract Convenience method for handdling https authentication challenges
- @discussion This method handles https authentication chalenges sent to NSURLConnectionDelegate objects
- @param connection the passed NSURLConnection
- @param challenge the passed NSURLAuthenticationChallenge
- @param inTrustedHost the domain name that self-signed certificates should be accepted from. Pass nil if none should be accepted.
- @param inEnableLogging YES if logging should be enabled
- */
-+(void)handleConnection:(NSURLConnection *)connection didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge withTrustedHost:(NSString*)inTrustedHost;
-
+\
 /*!
  @internal
  @method updateSchemeForURL:

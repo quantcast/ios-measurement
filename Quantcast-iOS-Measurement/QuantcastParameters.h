@@ -1,5 +1,5 @@
 /*
- * © Copyright 2012-2016 Quantcast Corp.
+ * © Copyright 2012-2017 Quantcast Corp.
  *
  * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
  * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
@@ -111,8 +111,8 @@
 // Quantcast Measurement SDK
 //
 
-#define QCMEASUREMENT_API_VERSION               @"1_5_3"
-#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.5.3"
+#define QCMEASUREMENT_API_VERSION               @"1_6_0"
+#define QCMEASUREMENT_API_IDENTIFIER            @"iOS_1.6.0"
 #define QCMEASUREMENT_CONN_TIMEOUT_SECONDS      60
 
 #ifndef QCMEASUREMENT_UPLOAD_URL
@@ -140,10 +140,6 @@
 
 #ifndef QCMEASUREMENT_DEFAULT_UPLOAD_EVENT_COUNT
 #define QCMEASUREMENT_DEFAULT_UPLOAD_EVENT_COUNT 50
-#endif
-
-#ifndef QCMEASUREMENT_DEFAULT_BACKGROUND_UPLOAD_EVENT_COUNT
-#define QCMEASUREMENT_DEFAULT_BACKGROUND_UPLOAD_EVENT_COUNT 4
 #endif
 
 #ifndef QCMEASUREMENT_ENABLE_GEOMEASUREMENT

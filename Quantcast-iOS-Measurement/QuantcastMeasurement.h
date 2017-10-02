@@ -1,5 +1,5 @@
 /*
- * © Copyright 2012-2016 Quantcast Corp.
+ * © Copyright 2012-2017 Quantcast Corp.
  *
  * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
  * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
@@ -14,38 +14,24 @@
 //
 // ** IMPORTANT **
 //
-// Requires iOS 4 and Xcode 4.5 or later. 
+// Requires iOS 7 or later
 //
 // Frameworks required:
-//      SystemConfiguration, Foundation, UIKit, CoreTelephony
+//      SystemConfiguration, Foundation, UIKit, CoreTelephony, Security
 //
 // Frameworks that should be weak-linked:
 //      AdSupport
 //
 // Libraries required:
 //      libz, libsqlite3
-//
-// Additional frameworks that are required if secure data uploads (https) are desired:
-//      Security
-//
-//      And place the following in your precompiled header:
-//          #define QCMEASUREMENT_USE_SECURE_CONNECTIONS 1
-//
-// Additional frameworks that are required if geo-location measurement is desired:
-//      CoreLocation
-//
-//      And place the following in your precompiled header:
-//          #define QCMEASUREMENT_ENABLE_GEOMEASUREMENT 1
-//
 
 #import <Foundation/Foundation.h>
-#import <CoreLocation/CoreLocation.h>
 #import <SystemConfiguration/SystemConfiguration.h>
 
 #import "QuantcastOptOutDelegate.h"
 
-#ifndef __IPHONE_4_0
-#error "Quantcast Measurement is only available for iOS SDK 4.0 and later. "
+#ifndef __IPHONE_7_0
+#error "Quantcast Measurement is only available for iOS SDK 7.0 and later. "
 #endif
 
 @class QuantcastPolicy;
@@ -54,7 +40,6 @@
 /*!
  @class QuantcastMeasurement
  @abstract The main interface with Quantcast's iOS App Measurement SDK
- @discussion
  */
 @interface QuantcastMeasurement : NSObject 
 
@@ -76,7 +61,7 @@
  @abstract Starts a Quantcast Measurement session and all begin, pause, resume and end notifications.
  @discussion Start a Quantcast Measurement session. Nothing in the Quantcast Measurement API will work until this method (or beginMeasurementSession:withUserIdentifier:labels:) is called. Must be called first, preferably in the UIApplication delegate's application:didFinishLaunchingWithOptions: method.  When using this method, do not call beginMesurement, pauseSession, resumeSession, or endMeasurement.  This method is for convience for those application who do not need to send any labels or whose label will remain constant between across all begin, pause, resume and end calls.
  @param inQuantcastAPIKey The Quantcast API key that activity for this app should be reported under. Obtain this key from the Quantcast website.
- @param inUserIdentifierOrNil a user identifier string that is meanigful to the app publisher. This is usually a user login name or anything that identifies the user (different from a device id), but there is no requirement on format of this other than that it is a meaningful user identifier to you. Quantcast will immediately one-way hash this value, thus not recording it in its raw form. You should pass nil to indicate that there is no user identifier available, either at the start of the session or at all.
+ @param userIdentifierOrNil a user identifier string that is meanigful to the app publisher. This is usually a user login name or anything that identifies the user (different from a device id), but there is no requirement on format of this other than that it is a meaningful user identifier to you. Quantcast will immediately one-way hash this value, thus not recording it in its raw form. You should pass nil to indicate that there is no user identifier available, either at the start of the session or at all.
  @param inLabelsOrNil Either an NSString object or NSArray object containing one or more NSString objects, each of which are a distinct label to be applied to this event. A label is any arbitrary string that you want to be ascociated with this event, and will create a second dimension in Quantcast Measurement reporting. Nominally, this is a "user class" indicator. For example, you might use one of two labels in your app: one for user who ave not purchased an app upgrade, and one for users who have purchased an upgrade.
  */
 -(NSString*)setupMeasurementSessionWithAPIKey:(NSString*)inQuantcastAPIKey userIdentifier:(NSString*)userIdentifierOrNil labels:(id<NSObject>)inLabelsOrNil;
@@ -129,8 +114,8 @@
  @discussion Use these methods to display the Quantcast privacy policy when displaying a custom opt out view.
  @param inControllerOrNil This should be the current UIViewController. The Quantcast privacy policy will be displayed over this view.  If nil, the policy will be launched in an external browser.
  */
--(void)displayQuantcastPrivacyPolicy;
 -(void)displayQuantcastPrivacyPolicy:(UIViewController*)inControllerOrNil;
+-(void)displayQuantcastPrivacyPolicy;
 
 #pragma mark - Optional Detailed Integration
 
@@ -141,14 +126,13 @@
  */
 @property (strong,nonatomic) id<NSObject> appLabels;
 
-
 /*!
  @property geoLocationEnabled
  @abstract Property that controls whether geo-location is logged
- @discussion By default, geo-location logging is off (NO). If you wish for Quantcast to provide measurement services pertaining to the user's geo-location, you should enable (set to YES) this property shortly after starting a measurement session. Furthermore, see the notes at the top of this file about which frameworks to add to your project. NOTE - Geolocation measurment is only supported on iOS 5 or later. Attempting to set this property to YES on a device running iOS 4.x will have no affect.
+ @discussion This method no longer does anything.  It is here for backwards compatibility.   For user privacy reasons we no longer support Geo Location.
+ @deprecated
  */
-@property (assign,nonatomic) BOOL geoLocationEnabled;
-
+@property (assign,nonatomic) BOOL geoLocationEnabled DEPRECATED_ATTRIBUTE;
 
 /*!
  @method beginMeasurementSessionWithAPIKey:labels:

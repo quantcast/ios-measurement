@@ -1,5 +1,5 @@
 /*
- * © Copyright 2012-2016 Quantcast Corp.
+ * © Copyright 2012-2017 Quantcast Corp.
  *
  * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
  * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
@@ -329,85 +329,6 @@ static BOOL _enableLogging = NO;
     return [NSData dataWithData:compressedResults];
 }
 
-+(void)handleConnection:(NSURLConnection *)connection didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge withTrustedHost:(NSString*)inTrustedHost {
- 
-#if QCMEASUREMENT_USE_SECURE_CONNECTIONS
-    NSUInteger prevFailures = challenge.previousFailureCount;
-    
-    
-    if ( 0 == prevFailures && [challenge.protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust] ) {
-        
-        SecTrustResultType trustResult;
-        SecTrustRef trust = challenge.protectionSpace.serverTrust;
-        
-        
-        OSStatus err = SecTrustEvaluate(trust, &trustResult);
-        
-        NSURLCredential* credentials = [NSURLCredential credentialForTrust:trust];
-        
-        if ((err == noErr) && ((trustResult == kSecTrustResultProceed) || (trustResult == kSecTrustResultUnspecified))) {
-            [challenge.sender useCredential:credentials forAuthenticationChallenge:challenge];
-            QUANTCAST_LOG(@"Handled an authentication challenge from %@", challenge.protectionSpace.host );
-            return;
-        }
-        
-        
-        // could not validate credentials. Check to see if acceptable.
-
-        //
-        // frequently invalid certificate issues are caused by the device's date being set years into the past, like 1970.
-        // This is before the "valid on" date for the certificate. check for that and report error appropiately. Since the
-        // Quantcast SDK was published first in January, 2013, use that date as the check. Crude, but most date failures on iOS
-        // devices are due to battery failure and inability to connect to a cellular carrier, so the date resets to 1970.
-        //
-        // seconds since epoch for January 1, 2013 is: 1356998400
-        //
-
-        const NSTimeInterval QCMEASUREMENT_REFERENCE_TIMESTAMP = (NSTimeInterval)1356998400;
-        NSDate* nowDate = [NSDate date];
-        NSDate* validCheckDate = [NSDate dateWithTimeIntervalSince1970:QCMEASUREMENT_REFERENCE_TIMESTAMP];
-
-        if ( nil != inTrustedHost && [inTrustedHost compare:challenge.protectionSpace.host] == NSOrderedSame && trustResult == kSecTrustResultRecoverableTrustFailure && [nowDate compare:validCheckDate] == NSOrderedAscending ) {
-            
-             
-            
-            SecTrustSetVerifyDate(trust, (__bridge CFDateRef)validCheckDate);
-            err = SecTrustEvaluate(trust, &trustResult);
-            
-            if ((err == noErr) && ((trustResult == kSecTrustResultProceed) || (trustResult == kSecTrustResultUnspecified))) {
-                
-                [challenge.sender useCredential:credentials forAuthenticationChallenge:challenge];
-            
-                QUANTCAST_LOG(@"Accepted invalid trust certificates from %@ due to device date = %@", challenge.protectionSpace.host, nowDate );
-                return;
-            }
-        }
-        
-        // challenge could not be authenticated. reject.
-
-        [challenge.sender cancelAuthenticationChallenge:challenge];
-
-        QUANTCAST_LOG(@"QC Measurement: Could not validate trust certificates from %@", challenge.protectionSpace.host );
-        
-        NSError* error = [[NSError alloc] initWithDomain:@"QCAuthenticationError" code:1 userInfo:@{ NSLocalizedDescriptionKey: @"Could not validate trust certificate", NSURLErrorFailingURLStringErrorKey : [[connection currentRequest] URL] } ];
-        
-        [[QuantcastMeasurement sharedInstance] logSDKError:QC_SDKERRORTYPE_HTTPSAUTHCHALLENGE
-                                                 withError:error
-                                            errorParameter:challenge.protectionSpace.host];
-    }
-    else {
-        [challenge.sender cancelAuthenticationChallenge:challenge];
-        
-        QUANTCAST_LOG(@"Got an unhandled authentication challenge from %@", challenge.protectionSpace.host );
-        NSError* error = [[NSError alloc] initWithDomain:@"QCAuthenticationError" code:2 userInfo:@{ NSLocalizedDescriptionKey: @"Unhandled authentication challenge", NSURLErrorFailingURLStringErrorKey : [[connection currentRequest] URL] } ];
-        [[QuantcastMeasurement sharedInstance] logSDKError:QC_SDKERRORTYPE_HTTPSAUTHCHALLENGE
-                                                 withError:error
-                                            errorParameter:challenge.protectionSpace.host];
-        
-    }
-#endif
-}
-
 +(NSURL*)updateSchemeForURL:(NSURL*)inURL {
 #if QCMEASUREMENT_USE_SECURE_CONNECTIONS
     return [QuantcastUtils adjustURL:inURL toSecureConnection:YES];
@@ -618,12 +539,12 @@ static BOOL _enableLogging = NO;
 
 @end
 
-@interface QCSyncronizedRequest ()<NSURLConnectionDataDelegate>{
+@interface QCSyncronizedRequest ()<NSURLSessionDelegate>{
     NSURLConnection* m_connection;
     CFRunLoopRef m_runLoop;
     BOOL m_isRunning;
     NSURLResponse* m_response;
-    NSMutableData* m_data;
+    NSData* m_data;
     NSError* m_error;
 }
 
@@ -631,56 +552,26 @@ static BOOL _enableLogging = NO;
 
 @implementation QCSyncronizedRequest
 
+// The entire Quantcast SDK is using a background thread so we are making out requests syncrhonous to simplify logic and readability.
 -(NSData *)sendSynchronousRequest:(NSURLRequest *)request returningResponse:(NSURLResponse **)response error:(NSError **)error
 {
+    // needed to strongly capture the out parameters of NSURLSession
+    __block NSError *strongError = nil;
+    __block NSURLResponse *strongResponse = nil;
     m_isRunning=YES;
-    m_data = [NSMutableData new];
     
-    m_connection = [NSURLConnection connectionWithRequest:request delegate:self];
-    [m_connection start];
-    CFRunLoopRun();
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
     
-    if (error != NULL) *error = [m_error copy];
-    if (response != NULL) *response = [m_response copy];
-    
+    [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable inResponse, NSError * _Nullable inError) {
+        strongError = inError;
+        strongResponse = inResponse;
+        m_data = data;
+        dispatch_semaphore_signal(sem);
+    }] resume];
+    dispatch_semaphore_wait(sem, DISPATCH_TIME_FOREVER);
+    if (error) *error = strongError;
+    if (response) *response = strongResponse;
     return m_data;
 }
-
-- (void)connection:(NSURLConnection *)connection willSendRequestForAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge{
-    [QuantcastUtils handleConnection:connection didReceiveAuthenticationChallenge:challenge withTrustedHost:[connection.originalRequest.URL host]];
-}
-
-- (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response
-{
-    m_response = response;
-    
-    NSHTTPURLResponse* httpResponse = (NSHTTPURLResponse *)response;
-    NSInteger statusCode = httpResponse.statusCode;
-    
-    if(statusCode < 400){
-        //just to check against rogue expected lengths lets set a min and max
-        NSUInteger maxCapacity = MAX((NSUInteger)llabs(httpResponse.expectedContentLength), 1024);
-        NSUInteger capacity = MIN(maxCapacity, 1024*1024);
-        m_data = [[NSMutableData alloc] initWithCapacity:capacity];
-    }
-
-}
-
-- (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data
-{
-    [m_data appendData:data];
-}
-
-- (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
-{
-    m_error=error;
-    CFRunLoopStop(CFRunLoopGetCurrent());
-}
-
-- (void)connectionDidFinishLoading:(NSURLConnection *)connection
-{
-    CFRunLoopStop(CFRunLoopGetCurrent());
-}
-
 @end
 

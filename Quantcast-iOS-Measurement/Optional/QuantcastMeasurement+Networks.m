@@ -1,5 +1,5 @@
 /*
- * © Copyright 2012-2014 Quantcast Corp.
+ * © Copyright 2012-2017 Quantcast Corp.
  *
  * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
  * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
@@ -13,6 +13,7 @@
 #error "Quantcast Measurement is designed to be used with ARC. Please turn on ARC or add '-fobjc-arc' to this file's compiler flags"
 #endif // !__has_feature(objc_arc)
 
+#import <UIKit/UIKit.h>
 #import "QuantcastMeasurement+Networks.h"
 #import "QuantcastMeasurement+Internal.h"
 #import "QuantcastEvent.h"
@@ -48,9 +49,9 @@
             return nil;
         }
         
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(terminateNotification) name:UIApplicationWillTerminateNotification object:nil];
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(pauseNotification) name:UIApplicationDidEnterBackgroundNotification object:nil];
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(resumeNotification) name:UIApplicationWillEnterForegroundNotification object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(terminateNotificationNetworks) name:UIApplicationWillTerminateNotification object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(pauseNotificationNetworks) name:UIApplicationDidEnterBackgroundNotification object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(resumeNotificationNetworks) name:UIApplicationWillEnterForegroundNotification object:nil];
         
         NSMutableArray* labels = [NSMutableArray array];
         if ([inAppLabelsOrNil isKindOfClass:[NSArray class]]) {
@@ -67,15 +68,15 @@
     return userhash;
 }
 
--(void)terminateNotification{
+-(void)terminateNotificationNetworks{
     [self internalEndMeasurementSessionWithAppLabels:nil networkLabels:nil];
 }
 
--(void)pauseNotification{
+-(void)pauseNotificationNetworks{
     [self internalPauseSessionWithAppLabels:nil networkLabels:nil];
 }
 
--(void)resumeNotification{
+-(void)resumeNotificationNetworks{
     [self internalResumeSessionWithAppLabels:nil networkLabels:nil];
 }
 

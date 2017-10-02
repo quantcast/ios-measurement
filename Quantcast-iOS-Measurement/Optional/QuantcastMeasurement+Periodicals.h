@@ -1,5 +1,5 @@
 /*
- * © Copyright 2012-2014 Quantcast Corp.
+ * © Copyright 2012-2017 Quantcast Corp.
  *
  * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
  * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
@@ -13,7 +13,7 @@
 #import "QuantcastMeasurement.h"
 
 /*!
- @class QuantcastMeasurement+Periodicals
+ QuantcastMeasurement+Periodicals
  @abstract An extension to the Quantcast SDK to allow detailed measurement of periodicals, such as magazines and newspaper apps.
  @discussion This extension to the Quantcast Measure SDK enables you to measure the user egagement and composition of periodicals, such as magazines and newspaper apps, particularly Newsstand apps on iOS. To measure a periodical app properly, you should at a minimum log the opening and closing of each issue, plus log each page view in each issue. You may optionally log the viewing of each article by name and log the downloading of content. 
  

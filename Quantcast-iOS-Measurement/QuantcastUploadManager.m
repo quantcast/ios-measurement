@@ -1,5 +1,5 @@
 /*
- * © Copyright 2012-2016 Quantcast Corp.
+ * © Copyright 2012-2017 Quantcast Corp.
  *
  * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
  * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
@@ -33,9 +33,7 @@
 }
 @property (readonly,nonatomic) BOOL ableToUpload;
 
--(void)networkReachabilityChanged:(NSNotification*)inNotification;
 -(void)uploadJSONFile:(NSString*)inJSONFilePath dataManager:(QuantcastDataManager*)inDataManager;
-
 
 @end
 
@@ -47,18 +45,6 @@
     
     if (self) {
         _uploadQueue = dispatch_queue_create("com.quntcast.measurement.upload", DISPATCH_QUEUE_SERIAL);
-        // if there is no Reachability object, assume we are debugging and enable uploading
-        _ableToUpload = YES;
-        
-        if ( nil != inNetworkReachabilityOrNil ) {
-         
-            [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(networkReachabilityChanged:) name:kQuantcastNetworkReachabilityChangedNotification object:inNetworkReachabilityOrNil];
-
-            
-            if ( [inNetworkReachabilityOrNil currentReachabilityStatus] == QuantcastNotReachable ){
-                _ableToUpload = NO;
-            }
-        }
         
         // check uploading directory for any unfinished uploads, and move them to ready to upload directory
         NSError* __autoreleasing dirError = nil;
@@ -75,7 +61,6 @@
                 
                 if ([filename hasSuffix:@"json"]) {
                     NSString* newFilePath = [readyToUploadDirPath stringByAppendingPathComponent:filename];
-                    
                     
                     NSError* __autoreleasing error = nil;
                     
@@ -98,7 +83,6 @@
 
 -(void)dealloc {
     
-    [[NSNotificationCenter defaultCenter] removeObserver:self];
 #if (defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && (!defined(__IPHONE_6_0) || __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_6_0))
     //dispatch_release was changed to ARC in iOS6.  Anytime before then we have to do it manually
     dispatch_release(_uploadQueue);
@@ -106,51 +90,34 @@
     
 }
 
--(void)networkReachabilityChanged:(NSNotification*)inNotification {
-   
-    id<QuantcastNetworkReachability> reachabilityObj = (id<QuantcastNetworkReachability>)[inNotification object];
-    
-    if ( [reachabilityObj currentReachabilityStatus] == QuantcastNotReachable ){
-        _ableToUpload = NO;
-    }
-    else {
-        _ableToUpload = YES;
-    }
-
-}
-
 #pragma mark - Upload Management
 
 -(void)initiateUploadForReadyJSONFilesWithDataManager:(QuantcastDataManager*)inDataManager {
-    
-    if (_ableToUpload ) {
+    dispatch_async(_uploadQueue, ^{
+        __block NSInteger backgroundTaskID = [[UIApplication sharedApplication] beginBackgroundTaskWithExpirationHandler:^{
+            [[UIApplication sharedApplication] endBackgroundTask: backgroundTaskID];
+        }];
+        //
+        // first, get the list of json files in the ready directory, then initiate a transfer for each
+        //
+        NSFileManager* fileManager = [NSFileManager defaultManager];
         
-        dispatch_async(_uploadQueue, ^{
-            __block NSInteger backgroundTaskID = [[UIApplication sharedApplication] beginBackgroundTaskWithExpirationHandler:^{
-                [[UIApplication sharedApplication] endBackgroundTask: backgroundTaskID];
-            }];
-            //
-            // first, get the list of json files in the ready directory, then initiate a transfer for each
-            //
-            NSFileManager* fileManager = [NSFileManager defaultManager];
-            
-            NSString* readyDirPath = [QuantcastUtils quantcastDataReadyToUploadDirectoryPath];
-            
-            NSError* __autoreleasing dirError = nil;
-            NSArray* dirContents = [fileManager contentsOfDirectoryAtPath:readyDirPath error:&dirError];
-            
-            if ( nil == dirError && [dirContents count] > 0 ) {
-                for (NSString* filename in dirContents) {
-                    if ( [filename hasSuffix:@"json"] ) {
-                        NSString* filePath = [readyDirPath stringByAppendingPathComponent:filename];
-                        // get teh upload ID from the file
-                        [self uploadJSONFile:filePath dataManager:inDataManager];
-                    }
+        NSString* readyDirPath = [QuantcastUtils quantcastDataReadyToUploadDirectoryPath];
+        
+        NSError* __autoreleasing dirError = nil;
+        NSArray* dirContents = [fileManager contentsOfDirectoryAtPath:readyDirPath error:&dirError];
+        
+        if ( nil == dirError && [dirContents count] > 0 ) {
+            for (NSString* filename in dirContents) {
+                if ( [filename hasSuffix:@"json"] ) {
+                    NSString* filePath = [readyDirPath stringByAppendingPathComponent:filename];
+                    // get teh upload ID from the file
+                    [self uploadJSONFile:filePath dataManager:inDataManager];
                 }
             }
-            [[UIApplication sharedApplication] endBackgroundTask: backgroundTaskID];
-        });
-    }
+        }
+        [[UIApplication sharedApplication] endBackgroundTask: backgroundTaskID];
+    });
 }
 
 -(void)uploadJSONFile:(NSString*)inJSONFilePath dataManager:(QuantcastDataManager*)inDataManager {    

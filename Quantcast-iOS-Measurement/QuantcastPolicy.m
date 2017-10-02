@@ -1,5 +1,5 @@
 /*
- * © Copyright 2012-2016 Quantcast Corp.
+ * © Copyright 2012-2017 Quantcast Corp.
  *
  * This software is licensed under the Quantcast Mobile App Measurement Terms of Service
  * https://www.quantcast.com/learning-center/quantcast-terms/mobile-app-measurement-tos
@@ -360,15 +360,6 @@
     return policy;
 }
 
-/*!
- @method generatePolicyRequestURLWithAPIKey:networkReachability:carrier:appIsDirectAtChildren:enableLogging:
- @internal
- @abstract Gerates a URL for downlaiding the most appropiate privacy policy for this app.
- @param inQuantcastAPIKey The declared API Key for this app. May be nil, in which case the app's bundle identifier is used.
- @param inReachability used to determine the country the device is in
- @param inAppIsDirectedAtChildren Whether the app has declared itself as directed at children under 13 or not. This is typically only used (that is, not NO) for network/platform integrations. Directly quantified apps (apps with an API Key) should declare their "directed at children under 13" status at the Quantcast.com website.
- @param inEnableLogging whether logging is enabled
- */
 +(NSURL*)generatePolicyRequestURLWithAPIKey:(NSString*)inQuantcastAPIKey networkPCode:(NSString*)inNetworkPCode countryCode:(NSString*)inCountryCode appIsDirectAtChildren:(BOOL)inAppIsDirectedAtChildren {
     
     NSString* mcc = [inCountryCode uppercaseString];
