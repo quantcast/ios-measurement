@@ -13,6 +13,7 @@
 #error "Quantcast Measurement is designed to be used with ARC. Please turn on ARC or add '-fobjc-arc' to this file's compiler flags"
 #endif // !__has_feature(objc_arc)
 
+#import <UIKit/UIKit.h>
 #import <zlib.h>
 #import <AdSupport/AdSupport.h>
 #import "QuantcastUtils.h"
@@ -537,6 +538,20 @@ static BOOL _enableLogging = NO;
     }
 }
 
++(UIWindow*)keyWindow {
+    UIWindow *foundWindow = nil;
+    NSArray *windows = [[UIApplication sharedApplication] windows];
+    
+    for (UIWindow *window in windows) {
+        if (window.isKeyWindow) {
+            foundWindow = window;
+            break;
+        }
+    }
+    
+    return foundWindow;
+};
+
 @end
 
 @interface QCSyncronizedRequest ()<NSURLSessionDelegate>{
@@ -565,7 +580,7 @@ static BOOL _enableLogging = NO;
     [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable inResponse, NSError * _Nullable inError) {
         strongError = inError;
         strongResponse = inResponse;
-        m_data = data;
+        self->m_data = data;
         dispatch_semaphore_signal(sem);
     }] resume];
     dispatch_semaphore_wait(sem, DISPATCH_TIME_FOREVER);

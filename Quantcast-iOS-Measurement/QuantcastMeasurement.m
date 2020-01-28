@@ -19,7 +19,7 @@
 #import <sys/socket.h>
 #import <netdb.h>
 #import <arpa/inet.h>
-
+#import <WebKit/WebKit.h>
 #import "QuantcastMeasurement.h"
 #import "QuantcastMeasurement+Internal.h"
 #import "QuantcastParameters.h"
@@ -32,6 +32,7 @@
 #import "QuantcastOptOutDelegate.h"
 
 @interface QuantcastMeasurement () <QuantcastNetworkReachability> {
+    WKWebView* agentWebView;
     NSOperationQueue* _quantcastQueue;
     UIBackgroundTaskIdentifier _backgroundTaskID;
     
@@ -186,57 +187,76 @@
 }
 
 -(void)appendUserAgent:(BOOL)add {
-    
-    NSString* userAgent = [self originalUserAgent];
-    
-    //check for quantcast user agent first
-    NSString* qcRegex = [NSString stringWithFormat:@"%@/iOS_(\\d+)\\.(\\d+)\\.(\\d+)/([a-zA-Z0-9]{16}-[a-zA-Z0-9]{16}|p-[-_a-zA-Z0-9]{13})", QCMEASUREMENT_UA_PREFIX];
-    NSError* __autoreleasing regexError = nil;
-    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:qcRegex options:0 error:&regexError];
-    if(nil != regexError){
-       QUANTCAST_LOG(@"Error creating user agent regular expression = %@ ", regexError );
-    }
-
-    NSRange start = [regex rangeOfFirstMatchInString:userAgent options:0 range:NSMakeRange(0, userAgent.length)];
-    
-    NSString* newUA = nil;
-    if( start.location == NSNotFound && add ) {
-        if( nil != self.quantcastAPIKey ){
-            newUA = [userAgent stringByAppendingFormat:@"%@/%@/%@", QCMEASUREMENT_UA_PREFIX, QCMEASUREMENT_API_IDENTIFIER, self.quantcastAPIKey];
-        }else{
-            newUA = [userAgent stringByAppendingFormat:@"%@/%@/%@", QCMEASUREMENT_UA_PREFIX, QCMEASUREMENT_API_IDENTIFIER, self.quantcastNetworkPCode];
-        }
-    }
-    else if( start.location != NSNotFound && !add ) {
-        newUA = [NSString stringWithFormat:@"%@%@", [userAgent substringToIndex:start.location], [userAgent substringFromIndex:NSMaxRange(start)]];
-    }
-    
-    if( nil != newUA ) {
-        NSUserDefaults* userDefaults = [NSUserDefaults standardUserDefaults];
-        NSDictionary *dictionary = [NSDictionary dictionaryWithObjectsAndKeys:newUA, @"UserAgent", nil];
-        [userDefaults registerDefaults:dictionary];
-        
-        //special check if Cordova is used
-        
-        NSString *cordovaValue = [userDefaults stringForKey:@"Cordova-User-Agent"];
-        if( nil != cordovaValue ) {
-            [userDefaults setValue:newUA forKey:@"Cordova-User-Agent"];
-        }
-    }
-    
-    
+    [self getOriginalUserAgent:^(NSString *originalUserAgent) {
+        [self performAppendUserAgent:originalUserAgent shouldAdd:add];
+    }];
 }
 
--(NSString*)originalUserAgent {
+-(void)performAppendUserAgent:(NSString*)userAgent shouldAdd:(BOOL)add {
+    //check for quantcast user agent first
+     NSString* qcRegex = [NSString stringWithFormat:@"%@/iOS_(\\d+)\\.(\\d+)\\.(\\d+)/([a-zA-Z0-9]{16}-[a-zA-Z0-9]{16}|p-[-_a-zA-Z0-9]{13})", QCMEASUREMENT_UA_PREFIX];
+     NSError* __autoreleasing regexError = nil;
+     NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:qcRegex options:0 error:&regexError];
+     if(nil != regexError){
+         QUANTCAST_LOG(@"Error creating user agent regular expression = %@ ", regexError );
+     }
+     
+     NSRange start = [regex rangeOfFirstMatchInString:userAgent options:0 range:NSMakeRange(0, userAgent.length)];
+     
+     NSString* newUA = nil;
+     if( start.location == NSNotFound && add ) {
+         if( nil != self.quantcastAPIKey ){
+             newUA = [userAgent stringByAppendingFormat:@"%@/%@/%@", QCMEASUREMENT_UA_PREFIX, QCMEASUREMENT_API_IDENTIFIER, self.quantcastAPIKey];
+         }else{
+             newUA = [userAgent stringByAppendingFormat:@"%@/%@/%@", QCMEASUREMENT_UA_PREFIX, QCMEASUREMENT_API_IDENTIFIER, self.quantcastNetworkPCode];
+         }
+     }
+     else if( start.location != NSNotFound && !add ) {
+         newUA = [NSString stringWithFormat:@"%@%@", [userAgent substringToIndex:start.location], [userAgent substringFromIndex:NSMaxRange(start)]];
+     }
+     
+     if( nil != newUA ) {
+         NSUserDefaults* userDefaults = [NSUserDefaults standardUserDefaults];
+         NSDictionary *dictionary = [NSDictionary dictionaryWithObjectsAndKeys:newUA, @"UserAgent", nil];
+         [userDefaults registerDefaults:dictionary];
+         
+         //special check if Cordova is used
+         
+         NSString *cordovaValue = [userDefaults stringForKey:@"Cordova-User-Agent"];
+         if( nil != cordovaValue ) {
+             [userDefaults setValue:newUA forKey:@"Cordova-User-Agent"];
+         }
+     }
+}
+
+/*
+     Developer notes:
+     Run JS in web views is now asynchronous with the no-deprecated WKWebView,
+     so i had to change the entire implementation in order to support the asynchronous response.
+ */
+-(void)getOriginalUserAgent:(void (^)(NSString* result))completionHandler {
     __block NSString* userAgent = [[[NSUserDefaults standardUserDefaults] stringForKey:@"UserAgent"] copy];
-    if( nil == userAgent ) {
-        //Webview creation and evaluting MUST be done on main thread, so wait here for results
-        dispatch_sync(dispatch_get_main_queue(), ^{
-            UIWebView* webView = [[UIWebView alloc] initWithFrame:CGRectZero];
-            userAgent = [[webView stringByEvaluatingJavaScriptFromString:@"navigator.userAgent"] copy] ;
-        });
+    
+    if(nil != userAgent) {
+        completionHandler(userAgent);
+        return;
     }
-    return userAgent;
+    
+    NSString* scriptToRun = @"navigator.userAgent";
+    
+    // Webview creation and evaluting MUST be done on main thread, so wait here for results.
+    dispatch_sync(dispatch_get_main_queue(), ^{
+        agentWebView = [[WKWebView alloc] initWithFrame:CGRectZero];
+        
+        [agentWebView evaluateJavaScript:scriptToRun completionHandler:^(NSString* result, NSError* error) {
+            if (error != nil || result == nil) {
+                completionHandler(@"");
+                return;
+            }
+            
+            completionHandler(result);
+        }];
+    });
 }
 
 -(BOOL)advertisingTrackingEnabled {
@@ -651,30 +671,42 @@
                     self.hashedUserId = hashedId;
                 }
     #ifdef __IPHONE_7_0
-                if ( nil != _telephoneInfo ){
+                if ( nil != self->_telephoneInfo ){
                     BOOL radioNotificationExists = YES;
                     #if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_7_0
                         radioNotificationExists = &CTRadioAccessTechnologyDidChangeNotification != NULL;
                     #endif
-                    if( [_telephoneInfo respondsToSelector:@selector(currentRadioAccessTechnology)] && radioNotificationExists ){
-                        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(radioAccessChanged:) name:CTRadioAccessTechnologyDidChangeNotification object:nil];
+                    if( [self->_telephoneInfo respondsToSelector:@selector(currentRadioAccessTechnology)] && radioNotificationExists ){
+                        
+                        NSString *notificationName = @"";
+                        
+                        if (@available(iOS 12, *)) {
+                            notificationName = CTServiceRadioAccessTechnologyDidChangeNotification;
+                        } else {
+                            notificationName = CTRadioAccessTechnologyDidChangeNotification;
+                        }
+                        
+                        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                                 selector:@selector(radioAccessChanged:)
+                                                                     name:notificationName
+                                                                   object:nil];
                     }
                 }
     #endif
                 [self startReachabilityNotifier];
                 [self appendUserAgent:YES];
             
-                if (nil == _dataManager) {
-                    _policy = [QuantcastPolicy policyWithAPIKey:self.quantcastAPIKey networkPCode:self.quantcastNetworkPCode networkReachability:self countryCode:self.carrier.isoCountryCode appIsDirectAtChildren:inAppIsDirectedAtChildren];
+                if (nil == self->_dataManager) {
+                    self->_policy = [QuantcastPolicy policyWithAPIKey:self.quantcastAPIKey networkPCode:self.quantcastNetworkPCode networkReachability:self countryCode:self.carrier.isoCountryCode appIsDirectAtChildren:inAppIsDirectedAtChildren];
                     
-                    if ( nil == _policy ) {
+                    if ( nil == self->_policy ) {
                         // policy wasn't able to be built. Stop reachability and bail, thus not activating measurement.
                         [self stopReachabilityNotifier];
                        QUANTCAST_LOG(@"QC Measurement: Unable to activate measurement due to policy object being nil.");
                     }
                 
-                    _dataManager = [[QuantcastDataManager alloc] initWithOptOut:self.isOptedOut];
-                    _dataManager.uploadEventCount = self.uploadEventCount;
+                    self->_dataManager = [[QuantcastDataManager alloc] initWithOptOut:self.isOptedOut];
+                    self->_dataManager.uploadEventCount = self.uploadEventCount;
                 
                 }
             
@@ -688,7 +720,7 @@
                     [self recordEvent:e];
                 }
                QUANTCAST_LOG(@"QC Measurement: Using '%@' for upload server.",[QuantcastUtils updateSchemeForURL:[NSURL URLWithString:QCMEASUREMENT_UPLOAD_URL]]);
-                [_dataManager initiateDataUploadWithPolicy:_policy];
+                [self->_dataManager initiateDataUploadWithPolicy:self->_policy];
             }
         }];
     }
@@ -715,7 +747,7 @@
                 [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationWillTerminateNotification object:nil];
                 [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationDidEnterBackgroundNotification object:nil];
                 [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationWillEnterForegroundNotification object:nil];
-                _usesOneStep = NO;
+                self->_usesOneStep = NO;
             }
             else {
                QUANTCAST_ERROR(@"endMeasurementSessionWithLabels: was called without first calling beginMeasurementSession:");
@@ -743,7 +775,7 @@
                 //force upload if we can
                 BOOL exitsOnSuspend = [[[NSBundle mainBundle] objectForInfoDictionaryKey:@"UIApplicationExitsOnSuspend"] boolValue];
                 if(!exitsOnSuspend){
-                    [_dataManager initiateDataUploadWithPolicy:_policy];
+                    [self->_dataManager initiateDataUploadWithPolicy:self->_policy];
                 }
             }
             else {
@@ -766,13 +798,13 @@
 
                 [self startReachabilityNotifier];
                 
-                [_policy downloadLatestPolicyWithReachability:self];
+                [self->_policy downloadLatestPolicyWithReachability:self];
                 
                 [self recordEvent:e];
                 
                 if (![self startNewSessionIfUsersAdPrefChangedWithAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:appLabelCopy] networkLabels:networkLabelCopy eventTimestamp:timestamp]) {
                     if ( [self checkSessionID] ) {
-                        [_policy downloadLatestPolicyWithReachability:self];
+                        [self->_policy downloadLatestPolicyWithReachability:self];
                         [self startNewSessionAndGenerateEventWithReason:QCPARAMETER_REASONTYPE_RESUME withAppLabels:[QuantcastUtils combineLabels:self.appLabels withLabels:appLabelCopy] networkLabels:networkLabelCopy eventTimestamp:timestamp];
                        QUANTCAST_LOG(@"Starting new session after app being paused for extend period of time.");
                     }
@@ -815,11 +847,27 @@
 -(CTCarrier*)carrier{
     CTCarrier* carrier = nil;
     
-    if ( nil != _telephoneInfo ) {
-        carrier = _telephoneInfo.subscriberCellularProvider;
+    if(_telephoneInfo == nil) {
+        return carrier;
     }
     
-    return carrier;
+    if (@available(iOS 12, *)) {
+        if(_telephoneInfo.serviceSubscriberCellularProviders.allValues.count == 0) {
+            return carrier;
+        }
+        
+        @try {
+           carrier = (CTCarrier *)_telephoneInfo.serviceSubscriberCellularProviders.allValues.firstObject;
+        }
+        @catch (NSException *exception) {
+            NSLog(@"%@", exception.reason);
+            return carrier;
+        }
+        
+        return carrier;
+    } else {
+        return _telephoneInfo.subscriberCellularProvider;
+    }
 }
 
 
@@ -854,9 +902,9 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
         
                 //make sure we dont send duplicate reachability events
                 QuantcastNetworkStatus status = [self currentReachabilityStatus];
-                if (status != _currentReachability) {
-                    _currentReachability = status;
-                    QuantcastEvent* e = [QuantcastEvent networkReachabilityEventWithConnectionType:[self reachabilityAsString:_currentReachability]
+                if (status != self->_currentReachability) {
+                    self->_currentReachability = status;
+                    QuantcastEvent* e = [QuantcastEvent networkReachabilityEventWithConnectionType:[self reachabilityAsString:self->_currentReachability]
                                                                         withSessionID:self.currentSessionID
                                                                        eventTimestamp:timestamp
                                                                  applicationInstallID:self.appInstallIdentifier];
@@ -951,6 +999,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
 }
 
 -(NSString*)reachabilityAsString:(QuantcastNetworkStatus)status{
+    NSString* defaultValue = @"unknown";
     NSString* retVal = nil;
     switch (status) {
         case QuantcastNotReachable:
@@ -962,7 +1011,19 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
         case QuantcastReachableViaWWAN:
 #ifdef __IPHONE_7_0
             if([_telephoneInfo respondsToSelector:@selector(currentRadioAccessTechnology)]){
-                retVal = _telephoneInfo.currentRadioAccessTechnology;
+                
+                if (@available(iOS 12, *)) {
+                    if (_telephoneInfo.serviceCurrentRadioAccessTechnology.allValues.count > 0) {
+                        @try {
+                            retVal = (NSString *) _telephoneInfo.serviceCurrentRadioAccessTechnology.allValues.firstObject;
+                        } @catch (NSException *exception) {
+                            NSLog(@"%@", exception.reason);
+                            retVal = defaultValue;
+                        }
+                    }
+                } else {
+                    retVal = _telephoneInfo.currentRadioAccessTechnology;
+                }
             }
 #endif
             if( nil == retVal){
@@ -970,7 +1031,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
             }
             break;
         default:
-            retVal = @"unknown";
+            retVal = defaultValue;
             break;
     }
     return retVal;
@@ -1010,7 +1071,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     [self launchOnQuantcastThread:^(NSDate *timestamp) {
         if ( self.isMeasurementActive ) {
             // save current hashed user ID in order to detect session changes
-            NSString* originalHashedUserId = _hashedUserId;
+            NSString* originalHashedUserId = self->_hashedUserId;
             if ( ( originalHashedUserId == nil && hashedId != nil ) ||
                 ( originalHashedUserId != nil && hashedId == nil ) ||
                 ( originalHashedUserId != nil && ![originalHashedUserId isEqualToString:hashedId] ) ) {
@@ -1092,7 +1153,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
         [self launchOnQuantcastThread:^(NSDate *timestamp) {
             self.cachedAppInstallIdentifier = nil;
             // setting the data manager to opt out will cause the cache directory to be emptied.
-            _dataManager.isOptOut = inOptOutStatus;
+            self->_dataManager.isOptOut = inOptOutStatus;
             
             if ( inOptOutStatus && self.isMeasurementActive) {
                 // stop the various services
@@ -1101,7 +1162,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
                 [self appendUserAgent:NO];
                 [self setOptOutCookie:YES];
                 
-                if (_usesOneStep) {
+                if (self->_usesOneStep) {
                     [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationWillTerminateNotification object:nil];
                     [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationDidEnterBackgroundNotification object:nil];
                     [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationWillEnterForegroundNotification object:nil];
@@ -1110,11 +1171,11 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
             }
             else if( !inOptOutStatus && (self.quantcastAPIKey != nil || self.quantcastNetworkPCode != nil )){
                 // if the opt out status goes to NO (meaning we can do measurement), begin a new session
-                if (_usesOneStep) {
+                if (self->_usesOneStep) {
                     [self setupMeasurementSessionWithAPIKey:self.quantcastAPIKey userIdentifier:nil labels:@"_OPT-IN"];
                 }
                 else {
-                    [self internalBeginSessionWithAPIKey:self.quantcastAPIKey attributedNetwork:self.quantcastNetworkPCode userIdentifier:nil appLabels:@"_OPT-IN" networkLabels:nil appIsDeclaredDirectedAtChildren:_appIsDeclaredDirectedAtChildren];
+                    [self internalBeginSessionWithAPIKey:self.quantcastAPIKey attributedNetwork:self.quantcastNetworkPCode userIdentifier:nil appLabels:@"_OPT-IN" networkLabels:nil appIsDeclaredDirectedAtChildren:self->_appIsDeclaredDirectedAtChildren];
                 }
             
                 [self setOptOutCookie:NO];
@@ -1145,7 +1206,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
 }
 
 -(void)displayQuantcastPrivacyPolicy:(UIViewController*)inController{
-    NSURL* qcPrivacyURL = [NSURL URLWithString:@"http://www.quantcast.com/privacy/"];
+    NSURL* qcPrivacyURL = [NSURL URLWithString:@"https://www.quantcast.com/privacy/"];
     if(nil == inController){
         if ([self respondsToSelector:@selector(openURL:options:completionHandler:)]){
             [[UIApplication sharedApplication] openURL:qcPrivacyURL options:@{} completionHandler:nil];
@@ -1185,8 +1246,9 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
 }
 
 -(void)dismissPrivacyPolicy:(id)button{
-    if ([[[UIApplication sharedApplication].keyWindow.rootViewController presentedViewController] respondsToSelector:@selector(dismissViewControllerAnimated:completion:)]) {
-        [[[UIApplication sharedApplication].keyWindow.rootViewController presentedViewController] dismissViewControllerAnimated:YES completion:NULL];
+    if ([[QuantcastUtils.keyWindow.rootViewController presentedViewController] respondsToSelector:@selector(dismissViewControllerAnimated:completion:)]) {
+        
+        [[QuantcastUtils.keyWindow.rootViewController presentedViewController] dismissViewControllerAnimated:YES completion:NULL];
     }
     else {
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -1284,8 +1346,8 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
     if (object == _quantcastQueue && [keyPath isEqualToString:@"operationCount"]) {
         if(_quantcastQueue.operationCount == 1 && _backgroundTaskID == UIBackgroundTaskInvalid){
             _backgroundTaskID = [[UIApplication sharedApplication] beginBackgroundTaskWithExpirationHandler:^{
-                [[UIApplication sharedApplication] endBackgroundTask: _backgroundTaskID];
-                _backgroundTaskID = UIBackgroundTaskInvalid;
+                [[UIApplication sharedApplication] endBackgroundTask: self->_backgroundTaskID];
+                self->_backgroundTaskID = UIBackgroundTaskInvalid;
             }];
         }
         else if(_quantcastQueue.operationCount == 0 && _backgroundTaskID != UIBackgroundTaskInvalid){

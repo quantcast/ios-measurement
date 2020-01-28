@@ -1,6 +1,12 @@
 #Quantcast Measure for Apps#
 ###iOS SDK Changelog###
 
+##Version 1.7.0##
+January 28, 2020
+* Fixed WebView deprecation error. Fixes #30
+* Fixed muliple warnings
+* Updated Privacy URL
+
 ##Version 1.6.0##
 October 3, 2016
 * Main Thread checker fix Fixes #29

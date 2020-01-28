@@ -17,6 +17,7 @@
 #define __has_extension __has_feature // Compatibility with pre-3.0 compilers.
 #endif
 
+#import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 
 /*!
@@ -87,4 +88,6 @@
 +(NSString*)deviceIdentifier:(QuantcastPolicy*)inPolicy;
 
 +(NSString*)hashDeviceID:(NSString*)inDeviceID withSalt:(NSString*)inSalt;
+
++(UIWindow*)keyWindow;
 @end
