@@ -1208,18 +1208,12 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
 -(void)displayQuantcastPrivacyPolicy:(UIViewController*)inController{
     NSURL* qcPrivacyURL = [NSURL URLWithString:@"https://www.quantcast.com/privacy/"];
     if(nil == inController){
-        if ([self respondsToSelector:@selector(openURL:options:completionHandler:)]){
             [[UIApplication sharedApplication] openURL:qcPrivacyURL options:@{} completionHandler:nil];
-        }else{
-            #pragma GCC diagnostic ignored "-Wdeprecated"
-            [[UIApplication sharedApplication] openURL:qcPrivacyURL];
-        }
     }else{
         //keep them in app
         UIViewController* webController = [[UIViewController alloc] init];
         webController.title = @"Privacy Policy";
-        UIWebView* web = [[UIWebView alloc] initWithFrame:[UIScreen mainScreen].bounds];
-        web.scalesPageToFit = YES;
+        WKWebView* web = [[WKWebView alloc] initWithFrame:[UIScreen mainScreen].bounds];
         [web loadRequest:[NSURLRequest requestWithURL:qcPrivacyURL]];
         webController.view = web;
         
@@ -1231,15 +1225,7 @@ static void QuantcastReachabilityCallback(SCNetworkReachabilityRef target, SCNet
             navWrapper.title = @"Quantcast Privacy Policy";
             navWrapper.navigationBar.topItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(dismissPrivacyPolicy:)];
             navWrapper.modalPresentationStyle = UIModalPresentationFormSheet;
-            if ([inController respondsToSelector:@selector(presentViewController:animated:completion:)]) {
-                [inController presentViewController:navWrapper animated:YES completion:NULL];
-            }
-            else {
-                // pre-iOS 5
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-                [inController presentModalViewController:navWrapper animated:YES];
-#pragma GCC diagnostic warning "-Wdeprecated-declarations"
-            }
+            [inController presentViewController:navWrapper animated:YES completion:NULL];
         }
         
     }
