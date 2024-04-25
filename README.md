@@ -1,4 +1,4 @@
-Quantcast iOS SDK
+[DEPRECATED] Quantcast iOS SDK - Quantcast no longer supports mobile in app measurement at this time.
 =================
 
 This implementation guide provides steps for integrating the Quantcast for Apps SDK, so you can take advantage of valuable, actionable insights:
